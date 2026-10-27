@@ -6,6 +6,7 @@ Self-contained HTML files. No install or build step.
 - `hexhaven.html` — Hexhaven, a hex-island settling and trading game vs 3 computer players.
 - `checkers.html` — Checkers, vs the computer (easy / medium / hard) or 2 players on one device.
 - `mancala.html` — Mancala (Kalah rules), vs the computer (easy / medium / hard) or 2 players on one device.
+- `four-in-a-row.html` — Four in a Row, vs the computer (easy / medium / hard) or 2 players on one device.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
