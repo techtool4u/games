@@ -15,6 +15,8 @@
 
   // Android back button: close whatever is open first, then go back to the library, then leave the app.
   App.addListener('backButton', function () {
+    // A page can handle Back itself (Sweet Swap goes from a level to its level map) by defining window.onAppBack.
+    if (typeof window.onAppBack === 'function' && window.onAppBack()) return;
     if (page === 'hexhaven.html') {
       // A Hexhaven dialog mid-game (discard, steal, monopoly) is waiting for a choice, so leave it open.
       if (open($('overlay'))) { if (typeof G !== 'undefined' && G.phase === 'over') closeModal(); return; }

@@ -1,18 +1,19 @@
 # Game Parlor
 
-Five self-contained HTML files. No install or build step.
+Self-contained HTML files. No install or build step.
 
 - `index.html` — the game library (search, filters, infinite scroll, grid / table / scroll layouts). Start here.
 - `hexhaven.html` — Hexhaven, a hex-island settling and trading game vs 3 computer players.
 - `checkers.html` — Checkers, vs the computer (easy / medium / hard) or 2 players on one device.
 - `mancala.html` — Mancala (Kalah rules), vs the computer (easy / medium / hard) or 2 players on one device.
+- `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
 Open `index.html` in a browser and press **Play now** on a game. Keep all the files in the same folder so the links work.
 
 Everything runs offline except the web fonts (loaded from Google Fonts); without internet the pages fall back to system fonts.
 
-Favorites, the chosen library layout and your Checkers and Mancala settings are saved in your browser's local storage.
+Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress are saved in your browser's local storage.
 
 ## Android app
 
