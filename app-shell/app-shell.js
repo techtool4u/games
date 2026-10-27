@@ -7,6 +7,7 @@
   if (!App) return;
 
   var page = location.pathname.split('/').pop() || 'index.html';
+  console.log('app-shell ready ' + page); // the CI smoke test looks for this line in logcat
   var $ = function (id) { return document.getElementById(id); };
   var open = function (el) { return !!el && !el.hidden && getComputedStyle(el).display !== 'none'; };
   // Dispatched on body (not document) because the pages' key handlers call event.target.closest().
