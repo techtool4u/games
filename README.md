@@ -4,6 +4,7 @@ Self-contained HTML files. No install or build step.
 
 - `index.html` — the game library (search, filters, infinite scroll, grid / table / scroll layouts). Start here.
 - `hexhaven.html` — Hexhaven, a hex-island settling and trading game vs 3 computer players.
+- `chess.html` — Chess, vs the computer (easy / medium / hard / expert) or 2 players on one device.
 - `checkers.html` — Checkers, vs the computer (easy / medium / hard) or 2 players on one device.
 - `mancala.html` — Mancala (Kalah rules), vs the computer (easy / medium / hard) or 2 players on one device.
 - `four-in-a-row.html` — Four in a Row, vs the computer (easy / medium / hard) or 2 players on one device.
