@@ -1,0 +1,5 @@
+/* App-only styles, linked into every page by scripts/build-web.mjs. The .in-app class is set by app-shell.js inside the Android app only. */
+html.in-app body{-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html.in-app input,html.in-app textarea{-webkit-user-select:text;user-select:text}
+/* The app already runs full screen. */
+html.in-app #bFull{display:none!important}
