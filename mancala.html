@@ -31,6 +31,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px
 .wrap{max-width:1100px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
 .back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px}
 .back:hover{color:var(--accent)}
+.back{display:inline-block;padding:10px 0;margin:-10px 0}
 header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
 h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,5vw,48px);letter-spacing:-.01em;line-height:1;margin:4px 0 0}
 .sub{color:var(--muted);margin:6px 0 0;max-width:48ch}
@@ -103,6 +104,15 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
 .modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0}
 .modal p{margin:0;color:var(--muted)}
 .modal .row{justify-content:center;margin:0}
+/* Short landscape screens: compact header so the whole board is on screen. */
+@media (max-height:500px) and (orientation:landscape){
+  .wrap{padding-block:10px 20px;gap:10px}
+  .sub{display:none}
+  h1{font-size:28px}
+  header{align-items:center}
+  .boardwrap{gap:4px}
+  .board{max-width:calc((100dvh - 120px)*3.6);margin:0 auto;width:100%;box-sizing:border-box}
+}
 @media (prefers-reduced-motion:reduce){.seed{transition:none}.turn.think{animation:none}}
 </style>
 

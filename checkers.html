@@ -32,6 +32,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px
 .wrap{max-width:1160px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
 .back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px}
 .back:hover{color:var(--accent)}
+.back{display:inline-block;padding:10px 0;margin:-10px 0}
 header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
 h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,5vw,46px);letter-spacing:-.02em;line-height:1;margin:4px 0 0}
 .sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
@@ -97,6 +98,16 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
 .modal h2{font-family:var(--display);font-weight:800;font-size:32px;margin:0}
 .modal p{margin:0;color:var(--muted)}
 .modal .row{justify-content:center;margin:0}
+/* Short landscape screens: the board fills the screen height on the left; header and scorecard share the column beside it. */
+@media (max-height:500px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:10px 20px}
+  .game{display:contents}
+  .table{grid-column:1;grid-row:1/3;align-self:start;position:sticky;top:10px}
+  header,.side{grid-column:2}
+  .sub{display:none}
+  h1{font-size:28px}
+  .frame{width:calc(100dvh - 20px);min-width:0;box-sizing:border-box}
+}
 @media (prefers-reduced-motion:reduce){.pc{transition:none}.turn.think .disc,.pc.crowned i{animation:none}}
 </style>
 

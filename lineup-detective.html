@@ -54,7 +54,7 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
 @keyframes pulse{50%{opacity:.3}}
 .standing{font-size:13px;color:#bcc3ea;letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums}
 .board{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
-@media (max-width:620px){.board{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}}
+@media (max-width:620px){.board{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}.boardwrap{padding:10px}.front{padding:3px;gap:2px}.nm{font-size:10.5px}.back::after{font-size:18px}}
 .board.accuse .tile:not(.down) .front{box-shadow:0 0 0 3px var(--no)}
 .tile{perspective:700px;background:none;border:0;padding:0;aspect-ratio:3/4;cursor:pointer;border-radius:9px;max-width:100%}
 .card{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.3,.7,.3,1)}
@@ -102,6 +102,34 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
 .reveal .pic{background:var(--tile);border-radius:10px;padding:4px}
 .reveal svg{display:block;width:100%;border-radius:7px}
 .reveal small{color:var(--muted);display:block;margin-top:4px}
+.lastq{display:none}
+/* Phones and tablets in portrait: the question panel is pinned to the bottom of the screen so you can ask and watch the cards flip without scrolling. */
+@media (max-width:920px) and (min-height:501px){
+  .qpanel{position:fixed;left:0;right:0;bottom:0;z-index:10;border-radius:16px 16px 0 0;border-width:1px 0 0;padding:10px max(12px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));box-shadow:0 -8px 24px rgba(10,15,50,.2)}
+  .qpanel>.label{display:none}
+  .qpanel .qgroup{flex-direction:row;align-items:center;gap:8px;margin-bottom:6px}
+  .qpanel .qgroup h4{flex:none;width:62px;font-size:12px;line-height:1.15}
+  .qpanel .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:2px}
+  .qpanel .chip{flex:none;min-height:36px}
+  .qpanel .qrow{margin-top:6px!important}
+  .lastq{display:flex;flex-direction:column;gap:2px;margin:0 0 8px;font-size:13px}
+  .lastq:empty{display:none}
+  .lastq span{display:flex;gap:6px;align-items:baseline;min-width:0}
+  .lastq .q{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lastq .w{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);min-width:40px}
+  .wrap{padding-bottom:var(--qbar,240px)}
+}
+/* Short landscape screens: board and notepad side by side, three rows of eight suspects, compact header. */
+@media (max-height:500px) and (orientation:landscape){
+  .wrap{padding-block:10px 20px;gap:10px}
+  .sub{display:none}
+  h1{font-size:28px}
+  .game{grid-template-columns:minmax(0,1fr) minmax(240px,300px);gap:12px}
+  .board{grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}
+  .boardwrap{padding:10px}.front{padding:3px;gap:2px}.nm{font-size:10.5px}
+  .side{max-height:calc(100dvh - 20px);overflow:auto;position:sticky;top:10px}
+}
+@media (pointer:coarse){.chip{min-height:36px}}
 @media (prefers-reduced-motion:reduce){.card,.rival i{transition:none}.turn.cpu .dot{animation:none}}
 </style>
 
@@ -125,7 +153,7 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
         <div class="standing" id="standing">24 standing</div>
       </div>
       <div class="board" id="board"></div>
-      <p class="hint" id="hint">Pick a question on the right. Suspects that don't match flip down automatically. Tap a card to flip it by hand.</p>
+      <p class="hint" id="hint">Pick a question. Suspects that don't match flip down automatically. Tap a card to flip it by hand.</p>
     </section>
 
     <aside class="side">
@@ -133,10 +161,11 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
         <p class="label">Your secret suspect</p>
         <div class="secret" id="secret"></div>
       </div>
-      <div class="panel">
+      <div class="panel qpanel" id="qpanel">
         <p class="label">Ask a question</p>
+        <p class="lastq" id="lastq" aria-hidden="true"></p>
         <div id="questions"></div>
-        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <div class="qrow" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" id="accuse">Make an accusation</button>
           <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--muted)"><input type="checkbox" id="auto" checked> Auto-flip</label>
         </div>
@@ -253,9 +282,10 @@ function renderAll(){
   $('accuse').textContent=S.accuse?'Cancel accusation':'Make an accusation';
   $('board').classList.toggle('accuse',S.accuse);
   $('hint').textContent=S.accuse?'Tap the face you think your rival is hiding. A wrong accusation loses the game.':
-    up===1&&yt?'Only one suspect left. Make your accusation!':'Pick a question on the right. Suspects that don\'t match flip down automatically. Tap a card to flip it by hand.';
+    up===1&&yt?'Only one suspect left. Make your accusation!':`Pick a question ${getComputedStyle($('qpanel')).position==='fixed'?'below':'on the right'}. Suspects that don't match flip down automatically. Tap a card to flip it by hand.`;
   $('log').innerHTML=S.log.map(l=>`<li><span class="who">${l.who}</span><span>${l.text}</span><span class="ans ${l.a?'y':'n'}">${l.a?'Yes':'No'}</span></li>`).join('');
   $('logEmpty').hidden=S.log.length>0; $('log').scrollTop=1e5;
+  $('lastq').innerHTML=S.log.slice(-2).map(l=>`<span><span class="w">${l.who}</span><span class="q">${l.text}</span><span class="ans ${l.a?'y':'n'}">${l.a?'Yes':'No'}</span></span>`).join('');
 }
 function ask(id){
   if(S.phase!=='you'||S.accuse) return;
@@ -303,6 +333,7 @@ $('board').addEventListener('click',e=>{const t=e.target.closest('.tile');if(!t|
 $('questions').addEventListener('click',e=>{const b=e.target.closest('.chip'); if(b&&!b.disabled) ask(b.dataset.q)});
 $('accuse').onclick=()=>{S.accuse=!S.accuse;renderAll()};
 $('newgame').onclick=newGame;
+new ResizeObserver(()=>{const q=$('qpanel');document.documentElement.style.setProperty('--qbar',(getComputedStyle(q).position==='fixed'?q.offsetHeight+16:0)+'px');if(S)renderAll()}).observe($('qpanel'));
 newGame();
 </script>
 
