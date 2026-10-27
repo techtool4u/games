@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Checkers</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Public+Sans:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a parlor table. Header with settings, a wooden 8×8 board on the left, a scorecard (turn, pieces left, move list, rules) on the right. Stacks on phones. */
+:root{
+  --bg:#f3ece1; --fg:#2a1d17; --muted:#6f5f55; --panel:#fffaf2; --line:#e2d5c3; --chip:#f6eee2;
+  --accent:#7a1f24; --accent-ink:#ffffff; --good:#2f7d4f;
+  --light:#f2d7b0; --dark:#3a2a22; --frame:#2a1d17; --frame-2:#4a352b;
+  --red:#d23a2a; --black:#1b1b1f;
+  --display:"Fraunces", Georgia, "Times New Roman", serif;
+  --body:"Public Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17110e; --fg:#f1e7db; --muted:#b3a294; --panel:#221915; --line:#3a2c24; --chip:#2b201b;
+  --accent:#e0655a; --accent-ink:#1d0b09; --good:#5cc489;
+  --frame:#0d0907; --frame-2:#2f221c; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#17110e; --fg:#f1e7db; --muted:#b3a294; --panel:#221915; --line:#3a2c24; --chip:#2b201b;
+  --accent:#e0655a; --accent-ink:#1d0b09; --good:#5cc489;
+  --frame:#0d0907; --frame-2:#2f221c; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1160px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,5vw,46px);letter-spacing:-.02em;line-height:1;margin:4px 0 0}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:700}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.check{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--muted)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+@media (max-width:900px){.game{grid-template-columns:minmax(0,1fr)}}
+.table{display:flex;justify-content:center}
+.frame{width:min(100%,calc(100dvh - 250px),680px);min-width:min(100%,300px);background:linear-gradient(145deg,var(--frame-2),var(--frame));padding:clamp(8px,2vw,16px);border-radius:16px;box-shadow:0 18px 40px -20px rgba(30,10,0,.7)}
+.board{position:relative;aspect-ratio:1;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);border-radius:4px;overflow:hidden;touch-action:manipulation}
+.sq{position:relative;border:0;padding:0;margin:0;background:var(--light)}
+.sq.d{background:var(--dark);cursor:pointer}
+.sq.d.last{background:#5b4334}
+.sq.d.sel{background:#6d5033;box-shadow:inset 0 0 0 3px #f0c060}
+.sq .n{position:absolute;left:3px;top:1px;font-size:clamp(7px,1.3vw,10px);color:rgba(255,240,220,.35);font-variant-numeric:tabular-nums;pointer-events:none}
+.sq.dest::after{content:"";position:absolute;inset:34%;border-radius:50%;background:#f0c060;opacity:.85;box-shadow:0 0 0 3px rgba(240,192,96,.3)}
+.sq.dest.jump::after{inset:12%;background:none;border:3px dashed #f0c060;opacity:.9;box-shadow:none}
+.pieces{position:absolute;inset:0;pointer-events:none}
+.pc{position:absolute;left:0;top:0;width:12.5%;height:12.5%;transition:transform .24s cubic-bezier(.3,.7,.3,1),opacity .25s;will-change:transform}
+.pc i{position:absolute;inset:11%;border-radius:50%;display:grid;place-items:center}
+.pc.r i{background:radial-gradient(circle at 35% 30%,#f2735f,var(--red) 55%,#9c2418);box-shadow:0 3px 0 #6e170f,0 5px 8px rgba(0,0,0,.45),inset 0 0 0 3px rgba(255,255,255,.12)}
+.pc.b i{background:radial-gradient(circle at 35% 30%,#5b5b66,var(--black) 55%,#050506);box-shadow:0 3px 0 #000,0 5px 8px rgba(0,0,0,.55),inset 0 0 0 2px rgba(255,255,255,.28)}
+.pc i::before{content:"";position:absolute;inset:22%;border-radius:50%;border:2px solid rgba(255,255,255,.22)}
+.pc svg{width:52%;height:52%;position:relative}
+.pc.mov i{outline:3px solid #f0c060;outline-offset:1px}
+.pc.gone{opacity:0}
+.pc.crowned i{animation:crown .5s}
+@keyframes crown{40%{transform:scale(1.18)}}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.turn{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:22px;line-height:1.15}
+.disc{width:20px;height:20px;border-radius:50%;flex:none;box-shadow:0 2px 0 rgba(0,0,0,.35)}
+.disc.r{background:var(--red)} .disc.b{background:var(--black);box-shadow:0 2px 0 rgba(0,0,0,.35),inset 0 0 0 2px rgba(255,255,255,.3)}
+.turn.think .disc{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.hint{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+.hint.must{color:var(--accent);font-weight:700}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.score{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.score>div{background:var(--chip);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.score .who{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px}
+.score .who .disc{width:14px;height:14px}
+.score b{font-family:var(--display);font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
+.score small{color:var(--muted);font-size:12.5px}
+.moves{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:auto 1fr 1fr;gap:3px 10px;max-height:210px;overflow:auto;font-variant-numeric:tabular-nums;font-size:14px}
+.moves .no{color:var(--muted)}
+.empty{color:var(--muted);font-size:13.5px;margin:0}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(20,10,5,.6);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:800;font-size:32px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+@media (prefers-reduced-motion:reduce){.pc{transition:none}.turn.think .disc,.pc.crowned i{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Checkers</h1>
+      <p class="sub">Move diagonally, jump to capture, and crown your pieces on the far row. Take every piece or leave your rival with no move.</p>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="side" aria-label="Your color"><option value="1">Play black (moves first)</option><option value="-1">Play red</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <label class="check"><input type="checkbox" id="forced"> Jumps are forced</label>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="table" aria-label="Board">
+      <div class="frame"><div class="board" id="board"><div class="pieces" id="pieces"></div></div></div>
+    </section>
+
+    <aside class="side">
+      <div class="panel" aria-live="polite">
+        <div class="turn" id="turn"><span class="disc" id="tdisc"></span><span id="turnText">Your turn</span></div>
+        <p class="hint" id="hint"></p>
+        <div class="row">
+          <button class="btn" id="undo">Undo</button>
+          <button class="btn" id="flip">Flip board</button>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="label">Pieces left</p>
+        <div class="score">
+          <div><span class="who"><span class="disc b"></span><span id="nameB">Black</span></span><b id="cntB">12</b><small id="kingB">0 kings</small></div>
+          <div><span class="who"><span class="disc r"></span><span id="nameR">Red</span></span><b id="cntR">12</b><small id="kingR">0 kings</small></div>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="label">Moves</p>
+        <ol class="moves" id="moves"></ol>
+        <p class="empty" id="movesEmpty">No moves yet. Black goes first.</p>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Pieces move one square diagonally forward onto an empty dark square.</li>
+            <li>Jump over an enemy piece to an empty square right behind it to capture it. Keep jumping with the same piece while you can.</li>
+            <li>With “Jumps are forced” on, you must capture when you can. That's the official rule and the default.</li>
+            <li>Reach the far row to crown a king. Kings move and jump backward too. Crowning ends the turn.</li>
+            <li>You win when your rival has no pieces or no legal move. 40 moves each with only kings moving and no capture is a draw.</li>
+            <li>Squares are numbered 1–32 from Black's side, so moves read like “11-15” or “15x22”.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+// board: 64 squares, row 0 at Black's side. 1/2 = black man/king, -1/-2 = red man/king. Black (1) moves down and goes first.
+const BLACK=1,RED=-1;
+const DIRS={all:[[1,-1],[1,1],[-1,-1],[-1,1]],[BLACK]:[[1,-1],[1,1]],[RED]:[[-1,-1],[-1,1]]};
+const WIN=100000,DRAW_PLIES=80;
+const LEVELS={easy:{depth:2,noise:60,random:.25},medium:{depth:4,noise:8,random:0},hard:{depth:30,noise:0,random:0,ms:900}};
+const CROWN=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" fill="#f0c060" stroke="#7a4a10" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const dark=i=>((i>>3)+(i&7))%2===1;
+const num=i=>(i>>3)*4+((i&7)>>1)+1;
+const colorName=s=>s===BLACK?'Black':'Red';
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',side:BLACK,level:'medium',forced:true},store.get('parlor-checkers',{}));
+let S,flip=false,uid=0;
+
+/* ---------- rules ---------- */
+function jumpDFS(b,from,v,dirs,path,caps,out){
+  const cur=path[path.length-1],side=Math.sign(v);let ext=false;
+  for(const [dr,dc] of dirs){const r=(cur>>3)+dr*2,c=(cur&7)+dc*2;if(r<0||r>7||c<0||c>7)continue;
+    const mid=cur+dr*8+dc,land=r*8+c;
+    if(b[mid]*side>=0||caps.includes(mid)||(b[land]&&land!==from))continue;
+    ext=true;const np=path.concat(land),nc=caps.concat(mid);
+    if(Math.abs(v)===1&&r===(side===BLACK?7:0))out.push({path:np,caps:nc});
+    else jumpDFS(b,from,v,dirs,np,nc,out)}
+  if(!ext&&caps.length)out.push({path,caps});
+}
+function legalMoves(b,side,forced){
+  const jumps=[],steps=[];
+  for(let i=0;i<64;i++){const v=b[i];if(v*side<=0)continue;const dirs=Math.abs(v)===2?DIRS.all:DIRS[side];
+    jumpDFS(b,i,v,dirs,[i],[],jumps);
+    for(const [dr,dc] of dirs){const r=(i>>3)+dr,c=(i&7)+dc;if(r>=0&&r<=7&&c>=0&&c<=7&&!b[r*8+c])steps.push({path:[i,r*8+c],caps:[]})}}
+  return jumps.length&&forced?jumps:jumps.concat(steps);
+}
+function applyMove(b,m){const n=b.slice(),from=m.path[0],to=m.path[m.path.length-1],v=n[from];
+  n[from]=0;m.caps.forEach(x=>n[x]=0);n[to]=Math.abs(v)===1&&(to>>3)===(v>0?7:0)?v*2:v;return n}
+function notation(m){return m.path.map(num).join(m.caps.length?'x':'-')}
+
+/* ---------- computer ---------- */
+function evaluate(b){let mat=0,pos=0,n=0;
+  for(let i=0;i<64;i++){const v=b[i];if(!v)continue;n++;const r=i>>3,c=i&7,mid=c>=2&&c<=5&&r>=2&&r<=5?6:0;
+    if(v===1){mat+=100;pos+=r*4+mid+(r===0?10:0)}else if(v===-1){mat-=100;pos-=(7-r)*4+mid+(r===7?10:0)}
+    else if(v===2){mat+=170;pos+=mid}else{mat-=170;pos-=mid}}
+  return mat*(1+(24-n)/48)+pos}
+function negamax(b,side,depth,alpha,beta,ply,ctx){
+  if(++ctx.nodes%2048===0&&ctx.deadline&&Date.now()>ctx.deadline)throw ctx;
+  const ms=legalMoves(b,side,cfg.forced);
+  if(!ms.length)return -WIN+ply;
+  if(depth<=0&&!(cfg.forced&&ms[0].caps.length&&ply<ctx.max+8))return evaluate(b)*side;
+  ms.sort((a,c)=>c.caps.length-a.caps.length);
+  let best=-Infinity;
+  for(const m of ms){const s=-negamax(applyMove(b,m),-side,depth-1,-beta,-alpha,ply+1,ctx);
+    if(s>best)best=s;if(s>alpha)alpha=s;if(alpha>=beta)break}
+  return best}
+function chooseMove(b,side){
+  const L=LEVELS[cfg.level],ms=legalMoves(b,side,cfg.forced);
+  if(ms.length===1)return ms[0];
+  if(Math.random()<L.random)return ms[rand(ms.length)];
+  const ctx={nodes:0,deadline:L.ms?Date.now()+L.ms:0,max:0};let scored=null;
+  try{for(let d=1;d<=L.depth;d++){ctx.max=d;
+    const cur=ms.map(m=>({m,s:-negamax(applyMove(b,m),-side,d-1,-Infinity,Infinity,1,ctx)+(Math.random()*2-1)*L.noise}));
+    scored=cur;if(cur.some(x=>x.s>WIN/2))break}}
+  catch(e){if(e!==ctx)throw e}
+  if(!scored)return ms[rand(ms.length)];
+  const top=Math.max(...scored.map(x=>x.s));const best=scored.filter(x=>x.s>=top-.5);
+  return best[rand(best.length)].m}
+
+/* ---------- game flow ---------- */
+function isCpu(side){return cfg.mode==='cpu'&&side!==cfg.side}
+function newGame(){
+  $('overlay').hidden=true;
+  const b=Array(64).fill(0),ids=Array(64).fill(null);
+  for(let i=0;i<64;i++){if(!dark(i))continue;const r=i>>3;if(r<3){b[i]=BLACK;ids[i]=++uid}else if(r>4){b[i]=RED;ids[i]=++uid}}
+  S={b,ids,turn:BLACK,quiet:0,log:[],hist:[],sel:-1,chain:null,last:null,over:null,busy:false,gen:(S?S.gen:0)+1,legal:[]};
+  flip=cfg.mode==='cpu'?cfg.side===BLACK:false;
+  $('pieces').innerHTML='';layout();startTurn();
+}
+function startTurn(){
+  S.legal=legalMoves(S.b,S.turn,cfg.forced);S.sel=-1;S.chain=null;
+  const men=S.b.some(v=>v*S.turn>0);
+  if(!S.legal.length)return finish(-S.turn,men?`${colorName(S.turn)} has no legal move.`:`Every ${colorName(S.turn).toLowerCase()} piece was captured.`);
+  if(S.quiet>=DRAW_PLIES)return finish(0,'40 moves each without a capture or a plain piece moving.');
+  render();
+  if(isCpu(S.turn)){S.busy=true;render();const g=S.gen;
+    setTimeout(()=>{if(g!==S.gen)return;const m=chooseMove(S.b,S.turn);playMove(m,g)},450)}
+}
+function snapshot(){return{b:S.b.slice(),ids:S.ids.slice(),turn:S.turn,quiet:S.quiet,log:S.log.length,last:S.last}}
+function hop(from,to){
+  const v=S.b[from];S.b[to]=v;S.b[from]=0;S.ids[to]=S.ids[from];S.ids[from]=null;
+  if(Math.abs((to>>3)-(from>>3))===2){const mid=(from+to)/2;S.b[mid]=0;S.ids[mid]=null}
+}
+function playMove(m,g){
+  S.hist.push(snapshot());let k=1;
+  const step=()=>{if(g!==S.gen)return;hop(m.path[k-1],m.path[k]);render();k++;
+    if(k<m.path.length)setTimeout(step,280);else setTimeout(()=>{if(g===S.gen){S.busy=false;commit(m)}},200)};
+  step();
+}
+function commit(m){
+  const from=m.path[0],to=m.path[m.path.length-1],v=S.b[to];
+  const crowned=Math.abs(v)===1&&(to>>3)===(v>0?7:0);if(crowned)S.b[to]=v*2;
+  S.quiet=m.caps.length||Math.abs(v)===1?0:S.quiet+1;
+  S.log.push(notation(m)+(crowned?'K':''));S.last=[from,to];S.crowned=crowned?S.ids[to]:null;
+  S.turn=-S.turn;startTurn();
+}
+function finish(winner,why){
+  S.over={winner,why};S.busy=false;S.sel=-1;render();
+  let title;
+  if(winner===0)title='Draw';
+  else if(cfg.mode==='cpu')title=winner===cfg.side?'You win!':'Computer wins';
+  else title=`${colorName(winner)} wins`;
+  $('modal').innerHTML=`<h2>${title}</h2><p>${why}</p><p>${S.log.length} moves played.</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+  $('overlay').hidden=false;$('magain').focus();
+  $('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame;
+}
+function undo(){
+  if(!S.hist.length)return;
+  let h;do{h=S.hist.pop()}while(S.hist.length&&isCpu(h.turn));
+  if(isCpu(h.turn))return;
+  S.gen++;S.busy=false;S.over=null;$('overlay').hidden=true;
+  Object.assign(S,{b:h.b,ids:h.ids,turn:h.turn,quiet:h.quiet,last:h.last,crowned:null});S.log.length=h.log;
+  startTurn();
+}
+
+/* ---------- human input ---------- */
+const prefix=(m,p)=>p.every((x,i)=>m.path[i]===x);
+function targets(){const p=S.chain||(S.sel>=0?[S.sel]:null);if(!p)return[];
+  return [...new Set(S.legal.filter(m=>m.path.length>p.length&&prefix(m,p)).map(m=>m.path[p.length]))]}
+function humanTurn(){return !S.over&&!S.busy&&!isCpu(S.turn)}
+function tap(i){
+  if(!humanTurn()||!dark(i))return;
+  if(targets().includes(i)){
+    const p=(S.chain||[S.sel]).concat(i);
+    if(!S.chain)S.hist.push(snapshot());
+    hop(p[p.length-2],i);
+    const done=S.legal.find(m=>m.path.length===p.length&&prefix(m,p));
+    if(done){const g=S.gen;S.chain=null;S.sel=-1;S.busy=true;render();setTimeout(()=>{if(g===S.gen){S.busy=false;commit(done)}},180)}
+    else{S.chain=p;S.sel=i;render()}
+    return}
+  if(S.chain)return;
+  S.sel=S.sel!==i&&S.legal.some(m=>m.path[0]===i)?i:-1;render();
+}
+
+/* ---------- render ---------- */
+function layout(){
+  const bd=$('board');bd.querySelectorAll('.sq').forEach(e=>e.remove());
+  let html='';
+  for(let i=0;i<64;i++){const r=i>>3,c=i&7,vr=flip?7-r:r,vc=flip?7-c:c,pos=`grid-row:${vr+1};grid-column:${vc+1}`;
+    html+=dark(i)?`<button class="sq d" data-i="${i}" style="${pos}"><span class="n">${num(i)}</span></button>`:`<div class="sq" style="${pos}"></div>`}
+  bd.insertAdjacentHTML('afterbegin',html);
+  $('pieces').innerHTML='';render();
+}
+function pieceName(v){return v?`${v>0?'black':'red'} ${Math.abs(v)===2?'king':'piece'}`:'empty'}
+function render(){
+  const tg=targets(),me=humanTurn(),movable=me&&!S.chain&&S.sel<0?new Set(S.legal.map(m=>m.path[0])):new Set();
+  const cur=S.chain?S.chain[S.chain.length-1]:S.sel,isJump=i=>Math.abs((i>>3)-(cur>>3))===2;
+  document.querySelectorAll('.sq.d').forEach(el=>{const i=+el.dataset.i;
+    el.classList.toggle('sel',i===S.sel);el.classList.toggle('dest',tg.includes(i));el.classList.toggle('jump',tg.includes(i)&&isJump(i));
+    el.classList.toggle('last',!!S.last&&S.last.includes(i));
+    el.setAttribute('aria-label',`Square ${num(i)}, ${pieceName(S.b[i])}${tg.includes(i)?', move here':''}`)});
+  const layer=$('pieces'),seen=new Set();
+  for(let i=0;i<64;i++){const id=S.ids[i];if(!id)continue;seen.add(String(id));
+    let el=layer.querySelector(`[data-id="${id}"]`);
+    if(!el){el=document.createElement('div');el.dataset.id=id;el.innerHTML='<i></i>';layer.appendChild(el)}
+    const r=i>>3,c=i&7,vr=flip?7-r:r,vc=flip?7-c:c,v=S.b[i];
+    el.className=`pc ${v>0?'b':'r'}${movable.has(i)?' mov':''}${S.crowned===id?' crowned':''}`;
+    el.style.transform=`translate(${vc*100}%,${vr*100}%)`;
+    el.firstChild.innerHTML=Math.abs(v)===2?CROWN:''}
+  layer.querySelectorAll('.pc').forEach(el=>{if(!seen.has(el.dataset.id)&&!el.classList.contains('gone')){el.classList.add('gone');setTimeout(()=>{if(el.classList.contains('gone'))el.remove()},260)}});
+  // status
+  const t=S.turn,cpu=isCpu(t);
+  const dc=S.over?S.over.winner:t;$('tdisc').className='disc '+(dc===BLACK?'b':dc===RED?'r':'');
+  $('turn').classList.toggle('think',cpu&&!S.over);
+  $('turnText').textContent=S.over?(S.over.winner===0?'Draw':cfg.mode==='cpu'?(S.over.winner===cfg.side?'You win':'Computer wins'):`${colorName(S.over.winner)} wins`)
+    :cpu?'Computer is thinking…':cfg.mode==='cpu'?'Your turn':`${colorName(t)} to move`;
+  const h=$('hint');let txt,must=false;
+  if(S.over)txt=S.over.why;
+  else if(cpu)txt=`The computer plays ${colorName(t).toLowerCase()} on ${cfg.level}.`;
+  else if(S.chain){txt='Keep jumping with the same piece.';must=true}
+  else if(cfg.forced&&S.legal.length&&S.legal[0].caps.length){txt='You have a jump, and jumps are forced. Take it.';must=true}
+  else if(S.sel>=0)txt='Tap a highlighted square to move there, or another piece to switch.';
+  else txt='Tap a piece with a gold ring to pick it up.';
+  h.textContent=txt;h.classList.toggle('must',must);
+  // score
+  [[BLACK,'B'],[RED,'R']].forEach(([s,k])=>{const own=S.b.filter(v=>v*s>0);$('cnt'+k).textContent=own.length;
+    const kings=own.filter(v=>Math.abs(v)===2).length;$('king'+k).textContent=`${kings} king${kings===1?'':'s'}`;
+    $('name'+k).textContent=cfg.mode==='cpu'?(s===cfg.side?`You · ${colorName(s)}`:`Computer · ${colorName(s)}`):colorName(s)});
+  // move list
+  let ml='';for(let i=0;i<S.log.length;i+=2)ml+=`<li class="no">${i/2+1}.</li><li>${S.log[i]}</li><li>${S.log[i+1]||''}</li>`;
+  $('moves').innerHTML=ml;$('movesEmpty').hidden=S.log.length>0;$('moves').scrollTop=1e5;
+  $('undo').disabled=!S.hist.length||S.busy||!!S.chain||(cfg.mode==='cpu'&&!S.hist.some(x=>!isCpu(x.turn)));
+}
+
+/* ---------- settings & events ---------- */
+function syncControls(){$('mode').value=cfg.mode;$('side').value=String(cfg.side);$('level').value=cfg.level;$('forced').checked=cfg.forced;
+  $('side').hidden=$('level').hidden=cfg.mode!=='cpu'}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-checkers',cfg);syncControls();if(restart)newGame();else render()}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);
+$('side').onchange=e=>setCfg('side',+e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('forced').onchange=e=>setCfg('forced',e.target.checked,true);
+$('newgame').onclick=newGame;
+$('undo').onclick=undo;
+$('flip').onclick=()=>{flip=!flip;layout()};
+$('board').addEventListener('click',e=>{const sq=e.target.closest('.sq.d');if(sq)tap(+sq.dataset.i)});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(!$('overlay').hidden)$('overlay').hidden=true;else if(humanTurn()&&!S.chain){S.sel=-1;render()}}
+  if((e.key==='z'||e.key==='u')&&!e.target.closest('input,select')&&!$('undo').disabled)undo()});
+if(![BLACK,RED].includes(cfg.side))cfg.side=BLACK;if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';
+syncControls();newGame();
+</script>
+</body>
+</html>
