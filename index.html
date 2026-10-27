@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Game Parlor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a game shelf. Header with "ready to play" strip, sticky search/sort/layout bar, filter chips, then an infinitely loading catalog in grid, table or big-image scroll layout. */
+:root{
+  --bg:#eef0f6; --surface:#ffffff; --ink:#171a2c; --muted:#5d627a; --line:#dcdfea; --chip:#f2f3f9;
+  --accent:#f0532f; --accent-ink:#ffffff; --blue:#2c58c4; --ok:#1d9a62; --soon:#8a8fa8;
+  --display:"Dela Gothic One", "Arial Black", Impact, sans-serif;
+  --body:"Manrope", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10121f; --surface:#191c2f; --ink:#eceef8; --muted:#9ba1bf; --line:#2a2e48; --chip:#21253c;
+  --accent:#ff6a48; --accent-ink:#1a0700; --blue:#7d9cff; --ok:#3fcf8c; --soon:#7d829c; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#10121f; --surface:#191c2f; --ink:#eceef8; --muted:#9ba1bf; --line:#2a2e48; --chip:#21253c;
+  --accent:#ff6a48; --accent-ink:#1a0700; --blue:#7d9cff; --ok:#3fcf8c; --soon:#7d829c; color-scheme:dark }
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:11;background:var(--bg)}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+a{color:inherit}
+mark{background:color-mix(in srgb,var(--accent) 28%,transparent);color:inherit;border-radius:3px;padding:0 1px}
+
+/* header */
+header{padding-block:28px 18px;display:flex;flex-direction:column;gap:18px}
+.mast{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,6vw,60px);line-height:.95;margin:0;letter-spacing:-.01em}
+h1 span{color:var(--accent)}
+.tag{margin:8px 0 0;color:var(--muted);max-width:52ch;font-size:16px}
+.tally{font-family:var(--mono);font-size:13px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+.tally b{color:var(--ink)}
+.ready{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:760px){.ready{grid-template-columns:minmax(0,1fr)}}
+.rcard{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;text-align:left;padding:0}
+.rcard:hover{border-color:var(--accent)}
+.rcard .cv{aspect-ratio:16/10;max-width:100%}
+.rcard .tx{padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.rcard h3{font-family:var(--display);font-weight:400;font-size:22px;line-height:1.05;margin:0}
+.rcard p{margin:0;color:var(--muted);font-size:13.5px}
+.rcard .go{margin-top:auto}
+@media (max-width:460px){.rcard{grid-template-columns:minmax(0,1fr)}}
+.eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0}
+
+/* toolbar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.barin{display:flex;gap:10px;align-items:center;padding-block:10px;flex-wrap:wrap}
+.search{flex:1 1 260px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:0 12px;min-width:0}
+.search:focus-within{border-color:var(--blue)}
+.search input{flex:1;border:0;background:none;padding:10px 0;outline:none;min-width:0;font-size:15px}
+.search kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--muted)}
+.sel{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:9px 10px;cursor:pointer}
+.seg{display:flex;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:3px;gap:2px}
+.seg button{border:0;background:none;border-radius:9px;padding:5px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:var(--muted)}
+.seg button svg{width:26px;height:18px;display:block}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.btn.fbtn{display:none}
+@media (max-width:700px){.seg button span{display:none}.btn.fbtn{display:inline-flex}}
+.btn{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:9px 14px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.play{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.play:hover{filter:brightness(1.05)}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:9px}
+.btn[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
+
+/* filters */
+.filters{display:flex;flex-direction:column;gap:10px;padding-block:14px 4px}
+@media (max-width:700px){.filters{display:none}.filters.open{display:flex}}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;cursor:pointer;font-weight:700;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.chip small{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chip[aria-pressed="true"] small{color:inherit;opacity:.7}
+.chip:disabled{opacity:.4;cursor:default}
+.frow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.frow label.tg{display:inline-flex;gap:7px;align-items:center;font-weight:700;font-size:13px;cursor:pointer;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px}
+.frow label.tg input{accent-color:var(--accent);margin:0}
+.status{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding-block:12px 10px;color:var(--muted);font-size:13.5px}
+.status b{color:var(--ink);font-family:var(--mono);font-weight:500}
+.linkbtn{border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0}
+
+/* shared item bits */
+.cv{position:relative;display:block;overflow:hidden;background:var(--chip)}
+.cv svg{display:block;width:100%;height:100%}
+.badge{position:absolute;top:10px;left:10px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 9px;background:rgba(15,17,30,.72);color:#fff;backdrop-filter:blur(4px)}
+.badge.ok{background:#1d9a62}
+.fav{position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(15,17,30,.55);display:grid;place-items:center;cursor:pointer;color:#fff}
+.fav svg{width:18px;height:18px}
+.fav[aria-pressed="true"]{background:#fff;color:#e2365b}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tags span{font-size:11.5px;font-weight:700;color:var(--muted);background:var(--chip);border-radius:6px;padding:1px 7px}
+.meta{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.diff{display:inline-flex;gap:3px;align-items:center}
+.diff i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.diff i.on{background:var(--accent)}
+
+/* grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:transform .15s,border-color .15s}
+.card:hover{transform:translateY(-3px);border-color:var(--muted)}
+.card .cv{aspect-ratio:16/10;max-width:100%}
+.card .bd{padding:12px 14px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
+.card h3{margin:0;font-size:17px;font-weight:800;line-height:1.2}
+.card.soon .cv svg{filter:saturate(.75)}
+
+/* table */
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:720px}
+th{text-align:left;font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--surface)}
+th button{border:0;background:none;padding:0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer;display:inline-flex;gap:4px}
+th button.on{color:var(--ink)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--chip)}
+tbody tr:last-child td{border-bottom:0}
+.tthumb{width:76px;height:48px;border-radius:8px;overflow:hidden;flex:none}
+.tname{display:flex;gap:12px;align-items:center;font-weight:800}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{font-size:11.5px;font-weight:800;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pill.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.pill.soon{background:var(--chip);color:var(--soon)}
+
+/* scroll feed */
+.feed{display:flex;flex-direction:column;gap:26px}
+.big{position:relative;border-radius:22px;overflow:hidden;cursor:pointer;background:var(--surface);border:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
+.big .cv{aspect-ratio:16/10;max-width:100%}
+.big .bd{padding:24px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.big h3{font-family:var(--display);font-weight:400;font-size:clamp(26px,3.4vw,40px);line-height:1;margin:0}
+.big p{margin:0;color:var(--muted);font-size:15.5px;max-width:46ch}
+.big .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:auto}
+.big .stats div{background:var(--chip);border-radius:10px;padding:8px 10px}
+.big .stats small{display:block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.big .stats b{font-family:var(--mono);font-weight:500;font-size:13px}
+.big:hover{border-color:var(--muted)}
+.big .idx{font-family:var(--mono);font-size:12px;color:var(--muted)}
+@media (max-width:820px){.big{grid-template-columns:minmax(0,1fr)}.big .bd{padding:16px}}
+
+/* skeleton + end */
+.skel{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:16px;margin-top:16px}
+.skel.list{grid-template-columns:minmax(0,1fr)}
+.sk{border-radius:16px;background:linear-gradient(100deg,var(--chip) 30%,var(--line) 50%,var(--chip) 70%);background-size:300% 100%;animation:sh 1.1s linear infinite}
+@keyframes sh{from{background-position:100% 0}to{background-position:0 0}}
+.end{text-align:center;color:var(--muted);padding-block:34px 60px;display:flex;flex-direction:column;gap:8px;align-items:center}
+.end strong{font-family:var(--display);font-weight:400;font-size:22px;color:var(--ink)}
+#sentinel{height:1px}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(8,10,20,.62);z-index:30;display:grid;place-items:center;padding:16px}
+.modal{background:var(--surface);border-radius:20px;max-width:620px;width:100%;max-height:92vh;overflow:auto;display:flex;flex-direction:column}
+.modal .cv{aspect-ratio:16/9;max-width:100%}
+.modal .bd{padding:20px 22px 22px;display:flex;flex-direction:column;gap:14px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:clamp(26px,5vw,36px);line-height:1;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.mstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.mstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.mstats div{background:var(--chip);border-radius:10px;padding:8px 10px}
+.mstats small{display:block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.mstats b{font-size:13.5px}
+.feats{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.mrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.close{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(10,12,22,.6);color:#fff;font-size:20px;cursor:pointer;line-height:1}
+.note{font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}.card{transition:none}.card:hover{transform:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="mast">
+      <div>
+        <h1>Game <span>Parlor</span></h1>
+        <p class="tag">Board, card and puzzle games you can play in your browser. Search the shelf, filter by how long you've got, and pick one.</p>
+      </div>
+      <div class="tally" id="tally"></div>
+    </div>
+    <div>
+      <p class="eyebrow" style="margin-bottom:10px">Ready to play now</p>
+      <div class="ready" id="ready"></div>
+    </div>
+  </header>
+</div>
+
+<div class="bar">
+  <div class="wrap barin">
+    <label class="search" for="q">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Search games, e.g. dice, cards, strategy" autocomplete="off">
+      <kbd>/</kbd>
+    </label>
+    <select class="sel" id="sort" aria-label="Sort">
+      <option value="featured">Featured</option>
+      <option value="az">A to Z</option>
+      <option value="short">Quickest first</option>
+      <option value="long">Longest first</option>
+      <option value="easy">Easiest first</option>
+      <option value="hard">Hardest first</option>
+    </select>
+    <div class="seg" role="group" aria-label="Layout" id="layouts">
+      <button data-l="grid" aria-pressed="true" title="Grid"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="9.5" y="1" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="18" y="1" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="1" y="10" width="7" height="7" rx="1.5" fill="currentColor" opacity=".55"/><rect x="9.5" y="10" width="7" height="7" rx="1.5" fill="currentColor" opacity=".55"/><rect x="18" y="10" width="7" height="7" rx="1.5" fill="currentColor" opacity=".55"/></svg><span>Grid</span></button>
+      <button data-l="table" aria-pressed="false" title="Table"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="24" height="3.5" rx="1" fill="currentColor"/><rect x="1" y="7" width="5" height="3" rx=".8" fill="currentColor" opacity=".7"/><rect x="8" y="7.5" width="17" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="1" y="12.5" width="5" height="3" rx=".8" fill="currentColor" opacity=".7"/><rect x="8" y="13" width="17" height="2" rx="1" fill="currentColor" opacity=".55"/></svg><span>Table</span></button>
+      <button data-l="scroll" aria-pressed="false" title="Scroll"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="15" height="10" rx="2" fill="currentColor"/><rect x="18" y="2" width="7" height="2" rx="1" fill="currentColor" opacity=".7"/><rect x="18" y="5.5" width="5" height="1.6" rx=".8" fill="currentColor" opacity=".5"/><rect x="1" y="13" width="15" height="5" rx="1.5" fill="currentColor" opacity=".45"/><rect x="18" y="13.5" width="7" height="2" rx="1" fill="currentColor" opacity=".45"/></svg><span>Scroll</span></button>
+    </div>
+    <button class="btn fbtn" id="fbtn" aria-expanded="false">Filters</button>
+  </div>
+</div>
+
+<main class="wrap">
+  <section class="filters" id="filters" aria-label="Filters">
+    <div class="chips" id="genres"></div>
+    <div class="frow">
+      <select class="sel" id="players" aria-label="Players">
+        <option value="any">Any players</option><option value="solo">Solo</option><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="group">3+ players</option>
+      </select>
+      <select class="sel" id="len" aria-label="Length">
+        <option value="any">Any length</option><option value="quick">Under 10 min</option><option value="mid">10 to 30 min</option><option value="long">Over 30 min</option>
+      </select>
+      <select class="sel" id="diff" aria-label="Difficulty">
+        <option value="any">Any difficulty</option><option value="1">Easy</option><option value="2">Medium</option><option value="3">Hard</option>
+      </select>
+      <label class="tg"><input type="checkbox" id="playable"> Playable now</label>
+      <label class="tg"><input type="checkbox" id="favs"> Favorites</label>
+    </div>
+  </section>
+  <div class="status"><span id="count"></span><button class="linkbtn" id="clear" hidden>Clear all filters</button></div>
+  <div id="results"></div>
+  <div id="skel" hidden></div>
+  <div id="sentinel"></div>
+  <div class="end" id="end" hidden></div>
+</main>
+
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle"></div></div>
+
+<script>
+/* ---------- catalog ---------- */
+const GAMES=[
+ {id:'hexhaven',name:'Hexhaven',genres:['Strategy','Classic board'],p:['cpu'],plabel:'You vs 3 computer players',mins:45,diff:2,motif:'hex',pal:['#2c7f9c'],
+  blurb:'Settle a hex island, trade lumber, brick, wool, grain and ore, and race three rivals to 10 points.',url:'hexhaven.html',
+  feats:['A new random island every game','Robber, harbors and development cards','Longest Road and Largest Army bonuses','Trade with the bank or offer deals to rivals']},
+ {id:'lineup',name:'Lineup Detective',genres:['Deduction','Party & kids'],p:['cpu'],plabel:'You vs computer',mins:5,diff:1,motif:'faces',pal:['#25316a'],
+  blurb:'Ask yes-or-no questions, flip down suspects who don\'t fit, and name your rival\'s hidden person first.',url:'lineup-detective.html',
+  feats:['24 hand-drawn suspects','Questions about hair, eyes, hats, glasses and more','Cards flip down automatically','Easygoing or sharp computer rival']},
+ {id:'chess',name:'Chess',genres:['Strategy','Classic board'],p:['two','cpu'],plabel:'2 players or vs computer',mins:30,diff:3,motif:'board8',v:'chess',pal:['#3b2f2a','#ecdcc0','#9b6b45'],blurb:'Checkmate the opposing king with six kinds of pieces on an 8×8 board.'},
+ {id:'checkers',name:'Checkers',genres:['Classic board'],p:['two','cpu'],plabel:'2 players or vs computer',mins:20,diff:1,motif:'board8',v:'checkers',pal:['#7a1f24','#f2d7b0','#3a2a22'],blurb:'Jump diagonally, crown your pieces, and clear the board.'},
+ {id:'backgammon',name:'Backgammon',genres:['Classic board','Dice'],p:['two','cpu'],plabel:'2 players or vs computer',mins:25,diff:2,motif:'points',pal:['#2f4a35','#d8b88a','#8c2f2b'],blurb:'Race all 15 checkers home, hit lone blots, and decide when to double.'},
+ {id:'four',name:'Four in a Row',genres:['Classic board','Party & kids'],p:['two','cpu'],plabel:'2 players or vs computer',mins:5,diff:1,motif:'four',pal:['#f3e8cf','#2d56c2','#e2362f'],blurb:'Drop discs into the grid and line up four before your opponent does.'},
+ {id:'reversi',name:'Reversi',genres:['Strategy','Classic board'],p:['two','cpu'],plabel:'2 players or vs computer',mins:15,diff:2,motif:'stones',v:'rev',pal:['#1e5a3a','#2a7a4d','#14432b'],blurb:'Outflank discs to flip them to your color. Corners are everything.'},
+ {id:'go',name:'Go',genres:['Strategy','Classic board'],p:['two','cpu'],plabel:'2 players or vs computer',mins:60,diff:3,motif:'stones',v:'go',pal:['#d9b26e','#e6c385','#6b4a1f'],blurb:'Place stones to surround territory on a 9×9 or 19×19 grid.'},
+ {id:'mancala',name:'Mancala',genres:['Classic board','Party & kids'],p:['two','cpu'],plabel:'2 players or vs computer',mins:10,diff:1,motif:'pits',pal:['#2b6f73','#a8703d','#6e4220'],blurb:'Sow seeds around the pits and capture more than your opponent.'},
+ {id:'morris',name:'Nine Men\'s Morris',genres:['Classic board','Strategy'],p:['two','cpu'],plabel:'2 players or vs computer',mins:15,diff:2,motif:'morris',pal:['#e6d2a8','#5b3b22','#c23b2b'],blurb:'Form mills of three to take your opponent\'s pieces. Older than chess.'},
+ {id:'dots',name:'Dots and Boxes',genres:['Puzzle','Party & kids'],p:['two','group'],plabel:'2 to 4 players',mins:10,diff:1,motif:'dots',pal:['#fbf7ea','#2c58c4','#f0532f'],blurb:'Draw lines between dots and claim every box you close.'},
+ {id:'fleet',name:'Fleet Hunt',genres:['Deduction'],p:['two','cpu'],plabel:'2 players or vs computer',mins:15,diff:1,motif:'sea',pal:['#1c4f7a','#7fb6dd','#e2362f'],blurb:'Hide your ships, call shots on a grid, and sink the enemy fleet first.'},
+ {id:'fivedice',name:'Five Dice',genres:['Dice'],p:['solo','two','group'],plabel:'1 to 4 players',mins:20,diff:1,motif:'dice',v:'five',pal:['#c2362f','#fbf6ea','#1d1d22'],blurb:'Roll five dice three times a turn and fill a scorecard of combos.'},
+ {id:'liars',name:'Liar\'s Dice',genres:['Dice','Party & kids'],p:['cpu','group'],plabel:'2 to 6 players',mins:15,diff:2,motif:'dice',v:'cup',pal:['#3a2a4f','#f4efe4','#3a2a4f'],blurb:'Bid on how many dice show a face under everyone\'s cups. Call the bluff.'},
+ {id:'klondike',name:'Klondike Solitaire',genres:['Cards','Puzzle'],p:['solo'],plabel:'Solo',mins:10,diff:1,motif:'cards',pal:['#1f6b45'],blurb:'Build four foundations from ace to king. The classic patience game.'},
+ {id:'spider',name:'Spider Solitaire',genres:['Cards','Puzzle'],p:['solo'],plabel:'Solo',mins:20,diff:2,motif:'cards',v:'spade',pal:['#16384f'],blurb:'Arrange ten columns into full suits, king down to ace.'},
+ {id:'hearts',name:'Hearts',genres:['Cards'],p:['cpu','group'],plabel:'You vs 3 computer players',mins:25,diff:2,motif:'cards',v:'heart',pal:['#8d1e2f'],blurb:'Dodge hearts and the queen of spades, or shoot the moon.'},
+ {id:'eights',name:'Crazy Eights',genres:['Cards','Party & kids'],p:['two','group','cpu'],plabel:'2 to 5 players',mins:10,diff:1,motif:'cards',v:'eight',pal:['#e08a1e'],blurb:'Match suit or rank and play eights as wild to empty your hand first.'},
+ {id:'wordtiles',name:'Word Tiles',genres:['Word','Strategy'],p:['two','group','cpu'],plabel:'2 to 4 players',mins:40,diff:2,motif:'tiles',v:'WORDS',pal:['#2b6a5e','#f4e3b8','#2a2116'],blurb:'Lay letter tiles on a bonus-square board and build high-scoring words.'},
+ {id:'hangman',name:'Hangman',genres:['Word','Party & kids'],p:['solo','two'],plabel:'1 or 2 players',mins:5,diff:1,motif:'tiles',v:'G_ES_',pal:['#f5f0e2','#ffffff','#22202a'],blurb:'Guess the hidden word one letter at a time before you run out of tries.'},
+ {id:'ladder',name:'Word Ladder',genres:['Word','Puzzle'],p:['solo'],plabel:'Solo',mins:5,diff:2,motif:'tiles',v:'COLD',pal:['#5b3fa8','#efe8ff','#2a1c56'],blurb:'Change one letter at a time to turn COLD into WARM in the fewest steps.'},
+ {id:'sudoku',name:'Sudoku',genres:['Puzzle'],p:['solo'],plabel:'Solo',mins:15,diff:2,motif:'gridnum',v:'sudoku',pal:['#f6f4ee','#ffffff','#2c58c4'],blurb:'Fill the 9×9 grid so every row, column and box has 1 to 9.'},
+ {id:'mines',name:'Mine Sweep',genres:['Puzzle'],p:['solo'],plabel:'Solo',mins:10,diff:2,motif:'mines',pal:['#5d6b7a','#c9d1da','#9ea9b6'],blurb:'Use the numbers to find every hidden mine without setting one off.'},
+ {id:'fifteen',name:'Sliding Fifteen',genres:['Puzzle'],p:['solo'],plabel:'Solo',mins:5,diff:1,motif:'gridnum',v:'fifteen',pal:['#2f3b8f','#f1c84b','#2f3b8f'],blurb:'Slide numbered tiles around one gap until they\'re back in order.'},
+ {id:'memory',name:'Memory Match',genres:['Party & kids','Puzzle'],p:['solo','two','group'],plabel:'1 to 4 players',mins:5,diff:1,motif:'memory',pal:['#ffd9cf','#e2563a','#ffffff'],blurb:'Flip two cards at a time and remember where every pair hides.'},
+ {id:'snake',name:'Snake',genres:['Arcade'],p:['solo'],plabel:'Solo',mins:5,diff:1,motif:'snake',pal:['#14261b','#59d36b','#e2362f'],blurb:'Steer a growing snake toward food without hitting the walls or yourself.'},
+ {id:'blocks',name:'Block Drop',genres:['Arcade','Puzzle'],p:['solo'],plabel:'Solo',mins:10,diff:2,motif:'blocks',pal:['#1b1d3a'],blurb:'Rotate falling shapes to clear full lines. It speeds up as you go.'},
+ {id:'merge',name:'Merge Tiles',genres:['Puzzle'],p:['solo'],plabel:'Solo',mins:10,diff:1,motif:'gridnum',v:'merge',pal:['#efe4d4','#d8c8b2','#5b4a3a'],blurb:'Slide the grid to merge matching numbers and chase ever bigger tiles.'},
+ {id:'labyrinth',name:'Labyrinth',genres:['Puzzle','Party & kids'],p:['solo'],plabel:'Solo',mins:5,diff:1,motif:'maze',pal:['#f3efe3','#2a2a3a','#f0532f'],blurb:'Find your way out of a new maze every round, against the clock.'},
+ {id:'ttt',name:'Tic-Tac-Toe',genres:['Classic board','Party & kids'],p:['two','cpu'],plabel:'2 players or vs computer',mins:2,diff:1,motif:'ttt',pal:['#fff6d8','#2c58c4','#f0532f'],blurb:'Three in a row wins. Can you beat a computer that never blunders?'},
+ {id:'ultimate',name:'Ultimate Tic-Tac-Toe',genres:['Strategy'],p:['two','cpu'],plabel:'2 players or vs computer',mins:15,diff:3,motif:'ttt',v:'ult',pal:['#1f2440','#7d9cff','#ff6a48'],blurb:'Nine boards in one. Where you play decides where your opponent must go.'},
+ {id:'pegs',name:'Peg Solitaire',genres:['Puzzle'],p:['solo'],plabel:'Solo',mins:10,diff:2,motif:'pegs',pal:['#7a4a24','#a86b3a','#f2c84b'],blurb:'Jump pegs over each other until only one is left in the middle.'},
+ {id:'pig',name:'Pig',genres:['Dice','Party & kids'],p:['two','group','cpu'],plabel:'2 to 6 players',mins:10,diff:1,motif:'dice',pal:['#f39bb0','#ffffff','#5a1a2a'],blurb:'Keep rolling to pile up points, but a 1 wipes your turn. Push your luck.'},
+ {id:'farkle',name:'Farkle',genres:['Dice'],p:['two','group','cpu'],plabel:'2 to 6 players',mins:20,diff:1,motif:'dice',v:'five',pal:['#215e8a','#fdfaf2','#14324a'],blurb:'Set aside scoring dice and decide when to bank before you bust.'},
+ {id:'nim',name:'Nim',genres:['Strategy','Puzzle'],p:['two','cpu'],plabel:'2 players or vs computer',mins:5,diff:2,motif:'sticks',pal:['#26313f','#e9c27a','#d23a2a'],blurb:'Take sticks from any row. Whoever takes the last one loses.'},
+ {id:'rummy',name:'Rummy',genres:['Cards'],p:['two','group','cpu'],plabel:'2 to 4 players',mins:30,diff:2,motif:'cards',v:'run',pal:['#5a2d6b'],blurb:'Draw and discard to build sets and runs, then lay down your hand.'},
+ {id:'blackjack',name:'Blackjack',genres:['Cards'],p:['solo','cpu'],plabel:'You vs the dealer',mins:10,diff:1,motif:'cards',v:'chips',pal:['#11553a'],blurb:'Get closer to 21 than the dealer without going over.'},
+ {id:'snap',name:'Snap',genres:['Cards','Party & kids'],p:['two','group'],plabel:'2 to 4 players',mins:5,diff:1,motif:'cards',v:'snap',pal:['#f4b400'],blurb:'Flip cards fast and slap the pile when two ranks match.'},
+ {id:'hexgame',name:'Hex',genres:['Strategy','Classic board'],p:['two','cpu'],plabel:'2 players or vs computer',mins:15,diff:2,motif:'hexgrid',pal:['#f2ead8','#d23a2a','#2c58c4'],blurb:'Connect your two sides of a rhombus of hexagons. Draws are impossible.'},
+ {id:'shogi',name:'Shogi',genres:['Strategy','Classic board'],p:['two','cpu'],plabel:'2 players or vs computer',mins:60,diff:3,motif:'board8',v:'shogi',pal:['#4a2f1a','#e6c27f','#7a5228'],blurb:'Japanese chess, where captured pieces come back to fight for you.'},
+ {id:'xiangqi',name:'Xiangqi',genres:['Strategy','Classic board'],p:['two','cpu'],plabel:'2 players or vs computer',mins:45,diff:3,motif:'stones',v:'xq',pal:['#8c2a1f','#ecd29a','#7a4b22'],blurb:'Chinese chess, with a river, a palace and cannons that jump.'},
+ {id:'starcheck',name:'Star Checkers',genres:['Classic board','Party & kids'],p:['two','group','cpu'],plabel:'2 to 6 players',mins:30,diff:2,motif:'star',pal:['#20294f'],blurb:'Hop marbles across a six-pointed star to fill the opposite corner.'},
+ {id:'ludo',name:'Ludo',genres:['Race','Party & kids'],p:['two','group','cpu'],plabel:'2 to 4 players',mins:30,diff:1,motif:'cross',pal:['#f6f2e8'],blurb:'Roll to move your four pawns around the board and home. Knock others back.'},
+ {id:'ladders',name:'Snakes and Ladders',genres:['Race','Party & kids'],p:['two','group','cpu'],plabel:'2 to 4 players',mins:20,diff:1,motif:'ladders',pal:['#f6efe0','#fde3a7','#bfe3c8'],blurb:'Climb ladders, slide down snakes, and reach square 100 first.'},
+ {id:'twenty',name:'Twenty Questions',genres:['Deduction','Party & kids'],p:['two','group','cpu'],plabel:'2 or more players',mins:10,diff:1,motif:'question',pal:['#ffcf3f','#1b1d3a','#ffffff'],blurb:'Guess what someone is thinking of in twenty yes-or-no questions.'},
+ {id:'codebreaker',name:'Code Breaker',genres:['Deduction','Puzzle'],p:['solo','two'],plabel:'Solo or 2 players',mins:10,diff:2,motif:'pegs',v:'code',pal:['#2a2f3c','#3b4252','#e9edf3'],blurb:'Crack a hidden color code using black and white clue pegs.'},
+ {id:'mahjong',name:'Mahjong Solitaire',genres:['Puzzle'],p:['solo'],plabel:'Solo',mins:15,diff:2,motif:'mahjong',pal:['#1d5b4f'],blurb:'Match free tiles in pairs to clear the whole stacked layout.'},
+ {id:'dominoes',name:'Dominoes',genres:['Classic board'],p:['two','group','cpu'],plabel:'2 to 4 players',mins:20,diff:1,motif:'domino',pal:['#0f5e5a'],blurb:'Match ends and be the first to play every tile in your hand.'}
+];
+const GENRES=['Strategy','Classic board','Cards','Dice','Word','Puzzle','Deduction','Arcade','Race','Party & kids'];
+const PLAYERS_LBL={solo:'Solo',cpu:'Vs computer',two:'2 players',group:'3+ players'};
+const DIFF_LBL={1:'Easy',2:'Medium',3:'Hard'};
+GAMES.forEach((g,i)=>g.order=i);
+
+/* ---------- cover art ---------- */
+function hash(s){let h=2166136261;for(const c of s)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0}
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const f=n=>Math.round(n*10)/10;
+function hexPts(cx,cy,s,flat){return [...Array(6)].map((_,k)=>{const a=Math.PI/180*(60*k-(flat?0:30));return f(cx+s*Math.cos(a))+','+f(cy+s*Math.sin(a))}).join(' ')}
+function pipsAt(n,sz,col){const o=sz*.26;const m={1:[[0,0]],2:[[-o,-o],[o,o]],3:[[-o,-o],[0,0],[o,o]],4:[[-o,-o],[o,-o],[-o,o],[o,o]],5:[[-o,-o],[o,-o],[0,0],[-o,o],[o,o]],6:[[-o,-o],[o,-o],[-o,0],[o,0],[-o,o],[o,o]]};return m[n].map(([x,y])=>`<circle cx="${f(x)}" cy="${f(y)}" r="${f(sz*.085)}" fill="${col}"/>`).join('')}
+const M={};
+M.hex=(R)=>{let s='';const cols=['#e7bf45','#3f7d41','#bb5a33','#93c763','#8d94a0','#3f7d41','#93c763','#e7bf45','#bb5a33','#dcc68f','#8d94a0','#3f7d41'];
+  for(let i=0;i<14;i++)s+=`<path d="M${f(R()*320)} ${f(R()*200)} q7 -5 14 0 t14 0" stroke="#fff" stroke-opacity=".22" stroke-width="2" fill="none"/>`;
+  const S=31,cs=[[0,0],[1,0],[-1,0],[.5,-1],[-.5,-1],[.5,1],[-.5,1],[1.5,-1],[-1.5,1],[2,0],[-2,0],[1.5,1]];
+  cs.forEach(([q,r])=>s+=`<polygon points="${hexPts(160+q*S*1.732,100+r*S*1.5,S+6)}" fill="#ead7a3"/>`);
+  cs.forEach(([q,r],i)=>{const x=160+q*S*1.732,y=100+r*S*1.5;s+=`<polygon points="${hexPts(x,y,S-1.5)}" fill="${cols[i]}" stroke="rgba(0,0,0,.2)"/>`;
+    if(cols[i]==='#3f7d41')for(let k=0;k<4;k++){const tx=x-14+k*9+R()*3,ty=y-8+(k%2)*14;s+=`<path d="M${f(tx)} ${f(ty-9)}l5 9h-10z" fill="#24532a"/>`}
+    if(cols[i]==='#8d94a0')s+=`<path d="M${f(x-18)} ${f(y+10)}l10 -18 8 10 5 -6 9 14z" fill="#5d6571"/><path d="M${f(x-8)} ${f(y-8)}l3 5h-6z" fill="#fff"/>`;
+    if(cols[i]!=='#dcc68f'&&i%2===0){const n=[5,6,8,9,10,4][i%6];s+=`<circle cx="${f(x)}" cy="${f(y)}" r="9" fill="#f7eed6" stroke="#a88f55"/><text x="${f(x)}" y="${f(y+3.6)}" text-anchor="middle" font-size="10" font-weight="800" font-family="sans-serif" fill="${n===6||n===8?'#b3261e':'#222'}">${n}</text>`}});
+  [[123,62,'#d8402c'],[214,118,'#2f6fd4'],[170,148,'#ee9622']].forEach(([x,y,c])=>s+=`<path d="M${x-6} ${y+6}v-7l6 -6 6 6v7z" fill="${c}" stroke="#111" stroke-width="1.2"/>`);
+  return s};
+M.faces=(R)=>{let s='';const skins=['#f3d2b6','#e2b48f','#c48a5e','#9a6440'],hairs=['#25211f','#6b4428','#e0b95c','#b8502b','#b8b8bd'],bgs=['#f6c9a8','#b9d8f0','#cfe5b8','#f2d48a','#d9c6ef','#f4b7bf'];
+  for(let r=0;r<3;r++)for(let c=0;c<6;c++){const x=22+c*47,y=12+r*61,down=R()<.28;
+    if(down)s+=`<rect x="${x}" y="${y}" width="40" height="54" rx="5" fill="#3a4a94"/><path d="M${x+6} ${y+6}l28 42M${x+34} ${y+6}l-28 42" stroke="#4b5bab" stroke-width="3"/>`;
+    else{const sk=skins[Math.floor(R()*4)],h=hairs[Math.floor(R()*5)],b=bgs[Math.floor(R()*6)];
+      s+=`<rect x="${x}" y="${y}" width="40" height="54" rx="5" fill="#fbfaf7"/><rect x="${x+3}" y="${y+3}" width="34" height="38" rx="3" fill="${b}"/><path d="M${x+8} ${y+41}q12 -12 24 0z" fill="#3b5bab"/><circle cx="${x+20}" cy="${y+22}" r="9" fill="${sk}"/><path d="M${x+11} ${y+21}q9 -16 18 0q-4 -6 -9 -6q-5 0 -9 6z" fill="${h}"/><circle cx="${x+17}" cy="${y+23}" r="1.2" fill="#222"/><circle cx="${x+23}" cy="${y+23}" r="1.2" fill="#222"/><path d="M${x+17} ${y+27}q3 2 6 0" stroke="#7a2e2e" stroke-width="1.2" fill="none"/>`;
+      if(R()<.3)s+=`<g stroke="#1d1d24" stroke-width="1.2" fill="none"><circle cx="${x+17}" cy="${y+23}" r="3"/><circle cx="${x+23}" cy="${y+23}" r="3"/></g>`;}
+  }return s};
+M.board8=(R,p,v)=>{const N=v==='shogi'?9:8,sz=180,c=sz/N,x0=70,y0=10;let s=`<g transform="rotate(-7 160 100)"><rect x="${x0-8}" y="${y0-8}" width="${sz+16}" height="${sz+16}" rx="8" fill="${p[2]}"/>`;
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++)s+=`<rect x="${f(x0+i*c)}" y="${f(y0+j*c)}" width="${f(c)}" height="${f(c)}" fill="${v==='shogi'?p[1]:((i+j)%2?p[2]:p[1])}" ${v==='shogi'?'stroke="#5a3a1a" stroke-width=".8"':''}/>`;
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++){const cx=x0+i*c+c/2,cy=y0+j*c+c/2;
+    if(v==='checkers'&&(i+j)%2&&(j<3||j>4)&&R()<.85){const col=j<3?'#d23a2a':'#1b1b1f';s+=`<circle cx="${f(cx)}" cy="${f(cy+2)}" r="${f(c*.38)}" fill="#000" opacity=".35"/><circle cx="${f(cx)}" cy="${f(cy)}" r="${f(c*.38)}" fill="${col}"/><circle cx="${f(cx)}" cy="${f(cy)}" r="${f(c*.25)}" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="1.5"/>`}
+    if(v==='chess'&&(j<2||j>5)&&R()<.55){const col=j<2?'#1d1a18':'#fbf7ee',st=j<2?'#000':'#6b5a45';const king=R()<.18;
+      s+=`<g transform="translate(${f(cx)} ${f(cy)})"><ellipse cy="${f(c*.36)}" rx="${f(c*.34)}" ry="${f(c*.1)}" fill="#000" opacity=".3"/><path d="M${f(-c*.3)} ${f(c*.33)}h${f(c*.6)}l-${f(c*.12)} -${f(c*.3)}h-${f(c*.36)}z" fill="${col}" stroke="${st}"/><circle cy="${f(-c*.1)}" r="${f(c*.17)}" fill="${col}" stroke="${st}"/>${king?`<path d="M0 ${f(-c*.42)}v${f(-c*.18)}M${f(-c*.08)} ${f(-c*.52)}h${f(c*.16)}" stroke="${st}" stroke-width="2"/>`:''}</g>`}
+    if(v==='shogi'&&(j<3||j>5)&&R()<.6){const w=c*.34;s+=`<path transform="translate(${f(cx)} ${f(cy)}) rotate(${j<3?180:0})" d="M0 ${f(-c*.42)}L${f(w)} ${f(-c*.22)}L${f(w*1.15)} ${f(c*.4)}H${f(-w*1.15)}L${f(-w)} ${f(-c*.22)}Z" fill="#f3dcab" stroke="#5a3a1a" stroke-width="1"/>`}}
+  return s+'</g>'};
+M.stones=(R,p,v)=>{const N=v==='rev'?8:9,sz=180,x0=70,y0=10;let s=`<rect x="${x0-10}" y="${y0-10}" width="${sz+20}" height="${sz+20}" rx="8" fill="${p[1]}"/>`;
+  if(v==='rev'){const c=sz/N;for(let i=0;i<=N;i++)s+=`<path d="M${f(x0+i*c)} ${y0}v${sz}M${x0} ${f(y0+i*c)}h${sz}" stroke="${p[2]}" stroke-width="1.5"/>`;
+    for(let i=0;i<N;i++)for(let j=0;j<N;j++){const d=Math.abs(i-3.5)+Math.abs(j-3.5);if(R()<1.4-d*.25){const w=R()<.5;s+=`<circle cx="${f(x0+i*c+c/2)}" cy="${f(y0+j*c+c/2+1.5)}" r="${f(c*.4)}" fill="#000" opacity=".3"/><circle cx="${f(x0+i*c+c/2)}" cy="${f(y0+j*c+c/2)}" r="${f(c*.4)}" fill="${w?'#f6f4ee':'#18181b'}"/>`}}}
+  else{const c=sz/(N-1);for(let i=0;i<N;i++)s+=`<path d="M${f(x0+i*c)} ${y0}v${sz}M${x0} ${f(y0+i*c)}h${sz}" stroke="${p[2]}" stroke-width="1.2"/>`;
+    if(v==='xq')s+=`<rect x="${x0}" y="${f(y0+c*4)}" width="${sz}" height="${f(c)}" fill="${p[1]}"/><path d="M${f(x0+c*3)} ${y0}l${f(c*2)} ${f(c*2)}M${f(x0+c*5)} ${y0}l${f(-c*2)} ${f(c*2)}" stroke="${p[2]}"/>`;
+    for(let i=0;i<N;i++)for(let j=0;j<N;j++){if(R()<(v==='xq'?.22:.34)){const cx=x0+i*c,cy=y0+j*c,b=v==='xq'?(j<4):(R()<.5);
+      if(v==='xq')s+=`<circle cx="${f(cx)}" cy="${f(cy+1.5)}" r="9.5" fill="#000" opacity=".3"/><circle cx="${f(cx)}" cy="${f(cy)}" r="9.5" fill="#f4e2bd" stroke="${b?'#1b1b1f':'#b3261e'}" stroke-width="2"/><circle cx="${f(cx)}" cy="${f(cy)}" r="3.5" fill="${b?'#1b1b1f':'#b3261e'}"/>`;
+      else s+=`<circle cx="${f(cx+.8)}" cy="${f(cy+1.8)}" r="9.5" fill="#000" opacity=".3"/><circle cx="${f(cx)}" cy="${f(cy)}" r="9.5" fill="${b?'#1a1a1d':'#f7f5ef'}"/><circle cx="${f(cx-3)}" cy="${f(cy-3)}" r="2.5" fill="#fff" opacity="${b?.25:.7}"/>`}}}
+  return s};
+M.cards=(R,p,v)=>{let s='';const suits=[['♠','#1b1b1b'],['♥','#c62b2b'],['♣','#1b1b1b'],['♦','#c62b2b']];
+  for(let i=0;i<8;i++)s+=`<circle cx="${f(R()*320)}" cy="${f(R()*200)}" r="${f(20+R()*40)}" fill="#fff" opacity=".04"/>`;
+  const set=v==='spade'?[['K','♠'],['Q','♠'],['J','♠'],['10','♠'],['9','♠']]:v==='heart'?[['Q','♠'],['A','♥'],['K','♥'],['7','♥'],['2','♣']]:v==='eight'?[['8','♣'],['8','♥'],['8','♠'],['8','♦'],['5','♥']]:v==='run'?[['4','♦'],['5','♦'],['6','♦'],['J','♣'],['J','♥']]:v==='chips'?[['A','♠'],['K','♥']]:v==='snap'?[['7','♣'],['7','♥']]:[['K','♠'],['Q','♥'],['A','♣'],['J','♦'],['10','♠']];
+  const n=set.length,col=s=>s==='♥'||s==='♦'?'#c62b2b':'#1b1b1b';
+  set.forEach(([rk,su],i)=>{const a=(i-(n-1)/2)*(n>2?13:18);s+=`<g transform="rotate(${a} 160 290)"><rect x="129" y="42" width="66" height="96" rx="7" fill="#000" opacity=".28" transform="translate(2 3)"/><rect x="127" y="40" width="66" height="96" rx="7" fill="#fffdf7" stroke="rgba(0,0,0,.18)"/><text x="134" y="58" font-size="15" font-weight="800" fill="${col(su)}" font-family="Georgia,serif">${rk}</text><text x="135" y="72" font-size="12" fill="${col(su)}">${su}</text><text x="160" y="105" text-anchor="middle" font-size="34" fill="${col(su)}">${su}</text></g>`});
+  if(v==='chips')[[70,150,'#d23a2a'],[88,140,'#2c58c4'],[250,150,'#1b1b1f'],[234,160,'#d23a2a']].forEach(([x,y,c])=>s+=`<ellipse cx="${x}" cy="${y+4}" rx="18" ry="7" fill="#000" opacity=".3"/><ellipse cx="${x}" cy="${y}" rx="18" ry="7" fill="${c}" stroke="#fff" stroke-dasharray="4 4" stroke-width="2"/>`);
+  return s};
+M.dice=(R,p,v)=>{let s='';
+  if(v==='cup')s+=`<path d="M40 150l14 -100h66l14 100z" fill="#5b3b22" stroke="#2e1d10" stroke-width="2"/><ellipse cx="87" cy="50" rx="33" ry="7" fill="#7a5233"/>`;
+  const pos=v==='five'?[[64,74],[124,122],[180,64],[244,116],[150,40]]:v==='cup'?[[190,100],[250,74],[226,148]]:[[112,86],[180,116],[226,64]];
+  pos.forEach(([x,y])=>{const val=1+Math.floor(R()*6),rot=f(R()*44-22);s+=`<g transform="translate(${x} ${y}) rotate(${rot})"><rect x="-21" y="-19" width="46" height="46" rx="9" fill="#000" opacity=".3"/><rect x="-24" y="-24" width="48" height="48" rx="9" fill="${p[1]}" stroke="rgba(0,0,0,.15)"/>${pipsAt(val,48,p[2])}</g>`});
+  return s};
+M.tiles=(R,p,v)=>{const w=v.length*44+(v.length-1)*6;let x=160-w/2,s='';
+  for(const ch of v){const rot=f(R()*8-4);s+=`<g transform="translate(${f(x+22)} 100) rotate(${rot})"><rect x="-22" y="-18" width="44" height="44" rx="6" fill="#000" opacity=".25"/><rect x="-22" y="-22" width="44" height="44" rx="6" fill="${p[1]}" stroke="rgba(0,0,0,.15)"/>${ch==='_'?`<path d="M-12 12h24" stroke="${p[2]}" stroke-width="3"/>`:`<text y="10" text-anchor="middle" font-size="27" font-weight="800" fill="${p[2]}" font-family="Georgia,serif">${ch}</text><text x="16" y="17" font-size="8" text-anchor="end" fill="${p[2]}" font-family="sans-serif">${1+Math.floor(R()*9)}</text>`}</g>`;x+=50}
+  if(v==='G_ES_')s+=`<path d="M40 180v-150h40v18" stroke="#22202a" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="80" cy="56" r="8" fill="none" stroke="#22202a" stroke-width="3"/>`.replace(/(<path d="M40 180)/,'$1');
+  return s};
+M.gridnum=(R,p,v)=>{let s='';
+  if(v==='sudoku'){const c=20,x0=70,y0=10;s+=`<rect x="${x0-4}" y="${y0-4}" width="188" height="188" rx="6" fill="${p[1]}" stroke="#222" stroke-width="2"/>`;
+    for(let i=0;i<=9;i++)s+=`<path d="M${x0+i*c} ${y0}v180M${x0} ${y0+i*c}h180" stroke="#222" stroke-width="${i%3?0.6:2}"/>`;
+    for(let i=0;i<9;i++)for(let j=0;j<9;j++)if(R()<.38)s+=`<text x="${x0+i*c+10}" y="${y0+j*c+15}" text-anchor="middle" font-size="13" font-weight="700" font-family="sans-serif" fill="${R()<.25?p[2]:'#222'}">${1+Math.floor(R()*9)}</text>`}
+  else{const vals=v==='merge'?[2,4,8,16,32,64,128,256,512,2048,0,0,4,2,8,0]:[1,2,3,4,5,6,7,8,9,10,11,0,13,14,15,12];const cols={0:p[1],2:'#eee4da',4:'#ede0c8',8:'#f2b179',16:'#f59563',32:'#f67c5f',64:'#f65e3b',128:'#edcf72',256:'#edcc61',512:'#edc850',2048:'#edc22e'};
+    const c=42,g=5,x0=160-(4*c+3*g)/2,y0=100-(4*c+3*g)/2;s+=`<rect x="${x0-8}" y="${y0-8}" width="${4*c+3*g+16}" height="${4*c+3*g+16}" rx="10" fill="${v==='merge'?'#bbada0':'#1b2257'}"/>`;
+    const order=v==='merge'?vals.slice().sort(()=>R()-.5):vals;
+    order.forEach((n,k)=>{const x=x0+(k%4)*(c+g),y=y0+Math.floor(k/4)*(c+g);if(!n){s+=`<rect x="${x}" y="${y}" width="${c}" height="${c}" rx="6" fill="${v==='merge'?'#cdc1b4':'rgba(255,255,255,.06)'}"/>`;return}
+      s+=`<rect x="${x}" y="${y}" width="${c}" height="${c}" rx="6" fill="${v==='merge'?cols[n]:p[1]}"/><text x="${x+c/2}" y="${y+c/2+(n>100?5:7)}" text-anchor="middle" font-size="${n>1000?13:n>100?15:19}" font-weight="800" font-family="sans-serif" fill="${v==='merge'?(n>4?'#fff':'#776e65'):p[2]}">${n}</text>`})}
+  return s};
+M.mines=(R,p)=>{const c=24,x0=40,y0=28;let s=`<rect x="${x0-6}" y="${y0-6}" width="${10*c+12}" height="${6*c+12}" rx="6" fill="#4b5765"/>`;const nc=['','#2c58c4','#1d9a62','#d23a2a','#5b2a8a'];
+  for(let i=0;i<10;i++)for(let j=0;j<6;j++){const x=x0+i*c,y=y0+j*c,open=(i>2&&i<7&&j>0&&j<5)||R()<.15;
+    if(open){s+=`<rect x="${x}" y="${y}" width="${c}" height="${c}" fill="${p[1]}" stroke="#9ea9b6" stroke-width=".6"/>`;const n=R()<.55?0:1+Math.floor(R()*3);if(n)s+=`<text x="${x+12}" y="${y+17}" text-anchor="middle" font-size="14" font-weight="800" font-family="sans-serif" fill="${nc[n]}">${n}</text>`}
+    else s+=`<rect x="${x}" y="${y}" width="${c}" height="${c}" fill="${p[2]}"/><path d="M${x} ${y+c}V${y}H${x+c}" stroke="#e6ebf0" stroke-width="2.5" fill="none"/><path d="M${x+c} ${y}V${y+c}H${x}" stroke="#6b7684" stroke-width="2.5" fill="none"/>`}
+  s+=`<path d="M${x0+8*c+9} ${y0+c+18}v-12l9 4z" fill="#d23a2a"/><path d="M${x0+8*c+9} ${y0+c+18}v-13" stroke="#222" stroke-width="1.5"/><circle cx="${x0+1*c+12}" cy="${y0+4*c+12}" r="6" fill="#1b1b1f"/><path d="M${x0+c+12} ${y0+4*c+3}v18M${x0+c+3} ${y0+4*c+12}h18" stroke="#1b1b1f" stroke-width="2"/>`;
+  return s};
+M.snake=(R,p)=>{let s='';for(let i=0;i<16;i++)for(let j=0;j<10;j++)if((i+j)%2)s+=`<rect x="${i*20}" y="${j*20}" width="20" height="20" fill="#fff" opacity=".03"/>`;
+  s+=`<path d="M50 150H130V90H210V50H270" stroke="#2f8c43" stroke-width="18" fill="none" stroke-linejoin="round" stroke-linecap="round"/><path d="M50 150H130V90H210V50H270" stroke="${p[1]}" stroke-width="13" fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="14 4"/><circle cx="272" cy="50" r="11" fill="${p[1]}"/><circle cx="276" cy="45" r="2.3" fill="#111"/><circle cx="276" cy="55" r="2.3" fill="#111"/><circle cx="110" cy="40" r="9" fill="${p[2]}"/><path d="M110 31q2 -6 6 -6" stroke="#59d36b" stroke-width="2" fill="none"/>`;
+  return s};
+M.blocks=(R)=>{const c=17,x0=75,y0=8,cols=['#ff5a5f','#ffb400','#3ecf8e','#4b8bff','#b46cff','#00c2d1','#ff8a3d'];let s=`<rect x="${x0-4}" y="${y0-4}" width="${10*c+8}" height="${11*c+8}" rx="6" fill="#2a2d55"/>`;
+  const cell=(i,j,col)=>`<rect x="${x0+i*c+1}" y="${y0+j*c+1}" width="${c-2}" height="${c-2}" rx="3" fill="${col}"/><rect x="${x0+i*c+3}" y="${y0+j*c+3}" width="${c-9}" height="3" rx="1.5" fill="#fff" opacity=".35"/>`;
+  for(let j=7;j<11;j++){const gap=Math.floor(R()*10);for(let i=0;i<10;i++)if(i!==gap||j===10&&R()<.5)s+=cell(i,j,cols[Math.floor(R()*7)])}
+  [[4,1],[5,1],[6,1],[5,2]].forEach(([i,j])=>s+=cell(i,j,'#b46cff'));
+  return s};
+M.maze=(R,p)=>{const W=14,H=8,c=20,x0=20,y0=20;const vis=[...Array(W*H)].fill(false),right=[...Array(W*H)].fill(true),down=[...Array(W*H)].fill(true);const st=[0];vis[0]=true;
+  while(st.length){const k=st[st.length-1],x=k%W,y=Math.floor(k/W);const nb=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>[x+dx,y+dy,dx,dy]).filter(([a,b])=>a>=0&&b>=0&&a<W&&b<H&&!vis[b*W+a]);
+    if(!nb.length){st.pop();continue}const [a,b,dx,dy]=nb[Math.floor(R()*nb.length)];if(dx===1)right[k]=false;if(dx===-1)right[b*W+a]=false;if(dy===1)down[k]=false;if(dy===-1)down[b*W+a]=false;vis[b*W+a]=true;st.push(b*W+a)}
+  let s=`<rect x="${x0}" y="${y0}" width="${W*c}" height="${H*c}" fill="none" stroke="${p[1]}" stroke-width="3"/>`,d='';
+  for(let k=0;k<W*H;k++){const x=x0+(k%W)*c,y=y0+Math.floor(k/W)*c;if(right[k]&&k%W<W-1)d+=`M${x+c} ${y}v${c}`;if(down[k]&&Math.floor(k/W)<H-1)d+=`M${x} ${y+c}h${c}`}
+  return s+`<path d="${d}" stroke="${p[1]}" stroke-width="3" stroke-linecap="square"/><circle cx="${x0+10}" cy="${y0+10}" r="6" fill="${p[2]}"/><path d="M${x0+W*c-14} ${y0+H*c-4}v-12l9 4z" fill="#1d9a62"/>`};
+M.dots=(R,p)=>{let s='';const g=40,x0=40,y0=20,lines=[];
+  [[1,1,'A',p[1]],[2,1,'A',p[1]],[4,2,'B',p[2]],[1,3,'B',p[2]],[5,0,'A',p[1]]].forEach(([i,j,l,c])=>s+=`<rect x="${x0+i*g+3}" y="${y0+j*g+3}" width="${g-6}" height="${g-6}" rx="4" fill="${c}" opacity=".18"/><text x="${x0+i*g+g/2}" y="${y0+j*g+g/2+8}" text-anchor="middle" font-size="22" font-weight="800" font-family="sans-serif" fill="${c}">${l}</text>`);
+  for(let i=0;i<7;i++)for(let j=0;j<5;j++){if(i<6&&R()<.55)s+=`<path d="M${x0+i*g} ${y0+j*g}h${g}" stroke="${R()<.5?p[1]:p[2]}" stroke-width="4" stroke-linecap="round"/>`;if(j<4&&R()<.55)s+=`<path d="M${x0+i*g} ${y0+j*g}v${g}" stroke="${R()<.5?p[1]:p[2]}" stroke-width="4" stroke-linecap="round"/>`}
+  for(let i=0;i<7;i++)for(let j=0;j<5;j++)s+=`<circle cx="${x0+i*g}" cy="${y0+j*g}" r="5" fill="#22202a"/>`;
+  return s};
+M.sea=(R,p)=>{let s='';const c=26,x0=30,y0=22;for(let i=0;i<=10;i++)s+=`<path d="M${x0+i*c} ${y0}v${6*c}" stroke="${p[1]}" stroke-opacity=".35"/>`;for(let j=0;j<=6;j++)s+=`<path d="M${x0} ${y0+j*c}h${10*c}" stroke="${p[1]}" stroke-opacity=".35"/>`;
+  [[1,1,4,0],[6,3,0,3],[3,4,3,0],[8,0,0,2]].forEach(([i,j,w,h])=>s+=`<rect x="${x0+i*c+3}" y="${y0+j*c+4}" width="${(w||1)*c-6}" height="${(h||1)*c-8}" rx="10" fill="#9aa6b2" stroke="#56606b" stroke-width="1.5"/>`);
+  for(let k=0;k<16;k++){const i=Math.floor(R()*10),j=Math.floor(R()*6),hit=R()<.35;s+=hit?`<path d="M${x0+i*c+7} ${y0+j*c+7}l12 12M${x0+i*c+19} ${y0+j*c+7}l-12 12" stroke="${p[2]}" stroke-width="3.5" stroke-linecap="round"/>`:`<circle cx="${x0+i*c+13}" cy="${y0+j*c+13}" r="3.5" fill="#fff" opacity=".85"/>`}
+  return s};
+M.pits=(R,p)=>{let s=`<rect x="18" y="44" width="284" height="116" rx="58" fill="${p[2]}"/><rect x="22" y="48" width="276" height="108" rx="54" fill="${p[1]}"/>`;const seeds=['#e2362f','#f3c246','#2c9fd6','#6fd36b','#ffffff'];
+  const pit=(x,y,rx,ry,n)=>{let t=`<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${p[2]}"/><ellipse cx="${x}" cy="${y+2}" rx="${rx-2}" ry="${ry-2}" fill="#4a2c14"/>`;for(let k=0;k<n;k++)t+=`<circle cx="${f(x+(R()-.5)*rx*1.1)}" cy="${f(y+(R()-.5)*ry*1.1)}" r="3.6" fill="${seeds[Math.floor(R()*5)]}"/>`;return t};
+  s+=pit(50,102,20,40,7)+pit(270,102,20,40,10);for(let i=0;i<6;i++){s+=pit(88+i*29,78,12,16,Math.floor(R()*6));s+=pit(88+i*29,126,12,16,Math.floor(R()*6))}
+  return s};
+M.points=(R,p)=>{let s=`<rect x="20" y="14" width="280" height="172" rx="8" fill="#5a3a22"/><rect x="28" y="22" width="264" height="156" fill="${p[0]}"/><rect x="152" y="22" width="16" height="156" fill="#5a3a22"/>`;const w=20.6;
+  for(let i=0;i<12;i++){const x=28+i*w+(i>5?16:0),c=i%2?p[1]:p[2];s+=`<path d="M${f(x)} 22h${f(w)}l${f(-w/2)} 66z" fill="${c}"/><path d="M${f(x)} 178h${f(w)}l${f(-w/2)} -66z" fill="${i%2?p[2]:p[1]}"/>`}
+  [[0,5,'#f4ede0'],[11,2,'#1d1d22'],[4,3,'#1d1d22'],[7,4,'#f4ede0']].forEach(([i,n,col],k)=>{const x=28+i*w+(i>5?16:0)+w/2,top=k%2===0;for(let m=0;m<n;m++){const y=top?32+m*17:168-m*17;s+=`<circle cx="${f(x)}" cy="${f(y+1.5)}" r="8.4" fill="#000" opacity=".3"/><circle cx="${f(x)}" cy="${f(y)}" r="8.4" fill="${col}" stroke="rgba(0,0,0,.25)"/>`}});
+  return s};
+M.four=(R,p)=>{const c=34,x0=40,y0=-4;let s=`<rect x="${x0-6}" y="${y0+8}" width="${7*c+12}" height="${6*c+6}" rx="10" fill="${p[1]}"/>`;
+  for(let i=0;i<7;i++){const h=Math.floor(R()*6);for(let j=0;j<6;j++){const filled=j>=6-h,col=filled?(R()<.5?p[2]:'#f3c246'):'#f3e8cf';s+=`<circle cx="${x0+i*c+c/2}" cy="${y0+14+j*c+c/2}" r="13" fill="${filled?'rgba(0,0,0,.25)':'#1c3c8f'}"/><circle cx="${x0+i*c+c/2}" cy="${y0+13+j*c+c/2}" r="12" fill="${col}"/>`}}
+  return s};
+M.ttt=(R,p,v)=>{let s='';
+  const board=(x0,y0,c,sw)=>{let t=`<path d="M${x0+c} ${y0+4}v${3*c-8}M${x0+2*c} ${y0+4}v${3*c-8}M${x0+4} ${y0+c}h${3*c-8}M${x0+4} ${y0+2*c}h${3*c-8}" stroke="${v==='ult'?'#8a93c4':'#22202a'}" stroke-width="${sw}" stroke-linecap="round"/>`;
+    for(let i=0;i<3;i++)for(let j=0;j<3;j++){const r=R(),cx=x0+i*c+c/2,cy=y0+j*c+c/2,k=c*.28;if(r<.33)t+=`<path d="M${f(cx-k)} ${f(cy-k)}L${f(cx+k)} ${f(cy+k)}M${f(cx+k)} ${f(cy-k)}L${f(cx-k)} ${f(cy+k)}" stroke="${p[1]}" stroke-width="${sw*1.3}" stroke-linecap="round"/>`;else if(r<.6)t+=`<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(k)}" fill="none" stroke="${p[2]}" stroke-width="${sw*1.3}"/>`}return t};
+  if(v==='ult'){for(let i=0;i<3;i++)for(let j=0;j<3;j++)s+=board(73+i*60,6+j*63,18,1.6);s+=`<path d="M133 8v186M193 8v186M73 69h180M73 132h180" stroke="#eceef8" stroke-width="3" stroke-linecap="round"/>`}
+  else s+=board(100,10,60,6);
+  return s};
+M.morris=(R,p)=>{let s='';const sq=[[60,10,180],[90,40,120],[120,70,60]];sq.forEach(([x,y,w])=>s+=`<rect x="${x+20}" y="${y}" width="${w}" height="${w}" fill="none" stroke="${p[1]}" stroke-width="3.5"/>`);
+  s+=`<path d="M170 10v60M170 130v60M80 100h60M200 100h60" stroke="${p[1]}" stroke-width="3.5"/>`;
+  const pts=[];sq.forEach(([x,y,w])=>{for(const a of [0,.5,1])for(const b of [0,.5,1])if(!(a===.5&&b===.5))pts.push([x+20+a*w,y+b*w])});
+  pts.forEach(([x,y])=>{s+=`<circle cx="${x}" cy="${y}" r="4.5" fill="${p[1]}"/>`;if(R()<.4){const w=R()<.5;s+=`<circle cx="${x}" cy="${y+2}" r="11" fill="#000" opacity=".3"/><circle cx="${x}" cy="${y}" r="11" fill="${w?'#f7f2e6':p[2]}" stroke="rgba(0,0,0,.3)"/>`}});
+  return s};
+M.pegs=(R,p,v)=>{let s='';
+  if(v==='code'){s+=`<rect x="70" y="8" width="180" height="184" rx="10" fill="${p[1]}"/><rect x="82" y="16" width="120" height="26" rx="6" fill="#1b1e27"/>`;const cl=['#e2362f','#f3c246','#2c9fd6','#3ecf8e','#b46cff','#ff8a3d'];
+    for(let r=0;r<5;r++){for(let i=0;i<4;i++)s+=`<circle cx="${96+i*28}" cy="${62+r*28}" r="10" fill="${cl[Math.floor(R()*6)]}"/>`;for(let k=0;k<4;k++)s+=`<circle cx="${222+(k%2)*10}" cy="${57+r*28+Math.floor(k/2)*10}" r="3.5" fill="${R()<.4?'#111':R()<.6?'#fff':'#5a6273'}"/>`}
+    s+=`<text x="142" y="35" text-anchor="middle" font-size="16" font-weight="800" fill="#e9edf3" font-family="sans-serif">? ? ? ?</text>`}
+  else{s+=`<circle cx="160" cy="100" r="96" fill="${p[1]}"/><circle cx="160" cy="100" r="90" fill="none" stroke="#5a3418" stroke-width="2"/>`;
+    for(let i=-3;i<=3;i++)for(let j=-3;j<=3;j++){if(Math.abs(i)>1&&Math.abs(j)>1)continue;const x=160+i*24,y=100+j*24;s+=`<circle cx="${x}" cy="${y}" r="6" fill="#4a2a12"/>`;if(!(i===0&&j===0)&&R()<.8)s+=`<circle cx="${x}" cy="${y-2}" r="7.5" fill="${p[2]}" stroke="#a2781c"/><circle cx="${x-2}" cy="${y-4.5}" r="2" fill="#fff" opacity=".6"/>`}}
+  return s};
+M.sticks=(R,p)=>{let s='';[1,3,5,7].forEach((n,r)=>{const y=40+r*40;for(let i=0;i<n;i++){const x=160+(i-(n-1)/2)*26,rot=f(R()*8-4);s+=`<g transform="rotate(${rot} ${x} ${y})"><rect x="${x-3}" y="${y-16}" width="6" height="34" rx="2" fill="${p[1]}"/><ellipse cx="${x}" cy="${y-16}" rx="4.5" ry="5.5" fill="${p[2]}"/></g>`}});return s};
+M.cross=(R)=>{const c=14,x0=160-7.5*c,y0=100-7.5*c,cols=['#e2362f','#2c9fd6','#f3c246','#3ecf8e'];let s=`<rect x="${x0-4}" y="${y0-4}" width="${15*c+8}" height="${15*c+8}" rx="6" fill="#2a2a3a"/>`;
+  for(let i=0;i<15;i++)for(let j=0;j<15;j++)s+=`<rect x="${x0+i*c}" y="${y0+j*c}" width="${c}" height="${c}" fill="#fff" stroke="#ddd" stroke-width=".5"/>`;
+  [[0,0],[9,0],[9,9],[0,9]].forEach(([i,j],k)=>s+=`<rect x="${x0+i*c}" y="${y0+j*c}" width="${6*c}" height="${6*c}" fill="${cols[k]}"/><rect x="${x0+i*c+c}" y="${y0+j*c+c}" width="${4*c}" height="${4*c}" rx="4" fill="#fff"/>`+[[1.5,1.5],[3.5,1.5],[1.5,3.5],[3.5,3.5]].map(([a,b])=>`<circle cx="${x0+(i+a+.5)*c}" cy="${y0+(j+b+.5)*c}" r="6" fill="${cols[k]}" stroke="#000" stroke-opacity=".3"/>`).join(''));
+  const C=[x0+7.5*c,y0+7.5*c],q=[[x0+6*c,y0+6*c],[x0+9*c,y0+6*c],[x0+9*c,y0+9*c],[x0+6*c,y0+9*c]];q.forEach((pt,k)=>s+=`<path d="M${pt.join(' ')}L${q[(k+1)%4].join(' ')}L${C.join(' ')}z" fill="${cols[(k+1)%4]}"/>`);
+  return s};
+M.ladders=(R,p)=>{const c=28,x0=20,y0=16;let s='';for(let i=0;i<10;i++)for(let j=0;j<6;j++){s+=`<rect x="${x0+i*c}" y="${y0+j*c}" width="${c}" height="${c}" fill="${(i+j)%2?p[1]:p[2]}"/>`;s+=`<text x="${x0+i*c+3}" y="${y0+j*c+9}" font-size="7" fill="#7a6a50" font-family="sans-serif">${(5-j)*10+(j%2?10-i:i+1)}</text>`}
+  const lad=(x1,y1,x2,y2)=>{const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy),nx=-dy/L*7,ny=dx/L*7;let t=`<path d="M${f(x1+nx)} ${f(y1+ny)}L${f(x2+nx)} ${f(y2+ny)}M${f(x1-nx)} ${f(y1-ny)}L${f(x2-nx)} ${f(y2-ny)}" stroke="#8a5a2b" stroke-width="3.5" stroke-linecap="round"/>`;for(let k=1;k<L/12;k++){const a=k*12/L;t+=`<path d="M${f(x1+dx*a+nx)} ${f(y1+dy*a+ny)}L${f(x1+dx*a-nx)} ${f(y1+dy*a-ny)}" stroke="#8a5a2b" stroke-width="2.5"/>`}return t};
+  s+=lad(60,170,110,60)+lad(220,150,250,40);
+  s+=`<path d="M180 40C140 60 220 90 170 110S150 160 120 172" stroke="#2f8c43" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M180 40C140 60 220 90 170 110S150 160 120 172" stroke="#59d36b" stroke-width="4" fill="none" stroke-dasharray="3 6" stroke-linecap="round"/><circle cx="182" cy="39" r="8" fill="#2f8c43"/><circle cx="185" cy="36" r="1.6" fill="#fff"/>`;
+  return s};
+M.star=(R)=>{const cx=160,cy=100,Rr=92,cols=['#e2362f','#f3c246','#3ecf8e','#2c9fd6','#b46cff','#ff8a3d'];const tri=(a)=>[0,1,2].map(k=>{const t=a+k*2*Math.PI/3;return [cx+Rr*Math.sin(t),cy-Rr*Math.cos(t)]});
+  const A=tri(0),B=tri(Math.PI);let s=`<polygon points="${A.map(p=>p.map(f).join(',')).join(' ')}" fill="#f4ede0"/><polygon points="${B.map(p=>p.map(f).join(',')).join(' ')}" fill="#f4ede0"/>`;
+  const pts=[...A,...B];pts.forEach(([x,y],k)=>s+=`<circle cx="${f(cx+(x-cx)*.78)}" cy="${f(cy+(y-cy)*.78)}" r="20" fill="${cols[k]}" opacity=".35"/>`);
+  const inTri=(T,x,y)=>{const [a,b,c]=T;const sg=(p1,p2,p3)=>(p1[0]-p3[0])*(p2[1]-p3[1])-(p2[0]-p3[0])*(p1[1]-p3[1]);const d1=sg([x,y],a,b),d2=sg([x,y],b,c),d3=sg([x,y],c,a);return !((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0))};
+  const g=11.5;for(let j=-8;j<=8;j++)for(let i=-10;i<=10;i++){const x=cx+i*g+(j%2?g/2:0),y=cy+j*g*.866;if(inTri(A,x,y)||inTri(B,x,y)){const r=R();s+=r<.3?`<circle cx="${f(x)}" cy="${f(y)}" r="4.6" fill="${cols[Math.floor(R()*6)]}" stroke="rgba(0,0,0,.25)"/>`:`<circle cx="${f(x)}" cy="${f(y)}" r="2" fill="#b9ad97"/>`}}
+  return s};
+M.domino=(R)=>{let s='';const tile=(x,y,rot,a,b)=>`<g transform="translate(${x} ${y}) rotate(${rot})"><rect x="-30" y="-13" width="60" height="30" rx="5" fill="#000" opacity=".3"/><rect x="-32" y="-16" width="64" height="32" rx="5" fill="#fbf8ef" stroke="#c9c2b0"/><path d="M0 -12v24" stroke="#c9c2b0" stroke-width="1.5"/><g transform="translate(-16 0)">${pipsAt(a,26,'#1b1b1f')}</g><g transform="translate(16 0)">${pipsAt(b,26,'#1b1b1f')}</g></g>`;
+  s+=tile(70,70,-8,6,3)+tile(140,62,4,3,5)+tile(208,78,-3,5,5)+tile(250,128,82,5,2)+tile(110,140,12,1,4);return s};
+M.mahjong=(R)=>{let s='';const tile=(x,y)=>{const k=Math.floor(R()*3);let sym=k===0?`<circle cx="${x+14}" cy="${y+12}" r="5" fill="none" stroke="#2c58c4" stroke-width="2"/><circle cx="${x+14}" cy="${y+26}" r="5" fill="none" stroke="#d23a2a" stroke-width="2"/>`:k===1?`<path d="M${x+10} ${y+8}v24M${x+18} ${y+8}v24" stroke="#1d9a62" stroke-width="3" stroke-dasharray="6 2"/>`:`<text x="${x+14}" y="${y+27}" text-anchor="middle" font-size="18" font-weight="800" fill="#d23a2a" font-family="serif">${'東南西北'[Math.floor(R()*4)]}</text>`;
+    return `<rect x="${x+3}" y="${y+4}" width="28" height="38" rx="4" fill="#0e3a32"/><rect x="${x}" y="${y}" width="28" height="38" rx="4" fill="#fbf6e8" stroke="#b9ad8c"/>${sym}`};
+  for(let i=0;i<8;i++)s+=tile(46+i*29,118);for(let i=0;i<6;i++)s+=tile(74+i*29,84);for(let i=0;i<4;i++)s+=tile(102+i*29,50);for(let i=0;i<2;i++)s+=tile(130+i*29,16);return s};
+M.memory=(R,p)=>{let s='';const pos=[];for(let r=0;r<3;r++)for(let c=0;c<6;c++)pos.push([24+c*47,12+r*61]);const up=[4,13];
+  pos.forEach(([x,y],k)=>{if(up.includes(k))s+=`<rect x="${x}" y="${y}" width="40" height="54" rx="6" fill="${p[2]}" stroke="${p[1]}" stroke-width="2"/><path d="M${x+20} ${y+14}l4.2 8.6 9.4 1.4-6.8 6.6 1.6 9.4-8.4-4.4-8.4 4.4 1.6-9.4-6.8-6.6 9.4-1.4z" fill="#f3c246" stroke="#c48a10"/>`;
+    else s+=`<rect x="${x}" y="${y}" width="40" height="54" rx="6" fill="${p[1]}"/><rect x="${x+5}" y="${y+5}" width="30" height="44" rx="4" fill="none" stroke="#fff" stroke-opacity=".5"/><path d="M${x+20} ${y+15}l9 12-9 12-9-12z" fill="#fff" opacity=".5"/>`});
+  return s};
+M.question=(R,p)=>`<path d="M40 40h120a14 14 0 0 1 14 14v40a14 14 0 0 1-14 14h-80l-20 18v-18h-20a14 14 0 0 1-14-14v-40a14 14 0 0 1 14-14z" fill="${p[2]}" opacity=".95"/><text x="100" y="82" text-anchor="middle" font-size="16" font-weight="800" fill="${p[1]}" font-family="sans-serif">Is it alive?</text><path d="M180 98h100a14 14 0 0 1 14 14v30a14 14 0 0 1-14 14h-20v16l-18-16h-62a14 14 0 0 1-14-14v-30a14 14 0 0 1 14-14z" fill="${p[1]}"/><text x="230" y="134" text-anchor="middle" font-size="16" font-weight="800" fill="${p[0]}" font-family="sans-serif">Yes!</text><text x="250" y="80" text-anchor="middle" font-size="78" font-weight="800" fill="${p[1]}" font-family="Georgia,serif" opacity=".9">?</text>`;
+M.hexgrid=(R,p)=>{let s='';const S=10.5;for(let r=0;r<9;r++)for(let q=0;q<9;q++){const x=74+q*S*1.732+r*S*.866,y=24+r*S*1.5,u=R();s+=`<polygon points="${hexPts(x,y,S-.6)}" fill="${u<.22?p[1]:u<.44?p[2]:'#fffaf0'}" stroke="#b9ad97" stroke-width=".8"/>`}
+  s+=`<path d="M68 12l140 0" stroke="${p[1]}" stroke-width="5" stroke-linecap="round"/><path d="M132 160l140 0" stroke="${p[1]}" stroke-width="5" stroke-linecap="round"/><path d="M62 18l63 140" stroke="${p[2]}" stroke-width="5" stroke-linecap="round"/><path d="M214 18l63 140" stroke="${p[2]}" stroke-width="5" stroke-linecap="round"/>`;return s};
+const coverCache={};let cuid=0;
+function cover(g){if(coverCache[g.id])return coverCache[g.id];const R=rng(hash(g.id)),id='cg'+(cuid++);const pal=g.pal;
+  const s=`<svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${g.name} cover art"><defs><radialGradient id="${id}" cx=".3" cy=".2" r="1.05"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".32"/></radialGradient></defs><rect width="320" height="200" fill="${pal[0]}"/>${(M[g.motif]||(()=>''))(R,pal,g.v)}<rect width="320" height="200" fill="url(#${id})" pointer-events="none"/></svg>`;
+  return coverCache[g.id]=s}
+
+/* ---------- state ---------- */
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const S={q:'',genres:new Set(),players:'any',len:'any',diff:'any',playable:false,fav:false,sort:'featured',layout:store.get('parlor-layout','grid')};
+const favs=new Set(store.get('parlor-favs',[]));
+const BATCH=12;let list=[],shown=0,loading=false,gen=0;
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function words(){return S.q.toLowerCase().split(/\s+/).filter(Boolean)}
+function hl(t){const w=words();if(!w.length)return esc(t);const re=new RegExp('('+w.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi');return esc(t).replace(re,'<mark>$1</mark>')}
+function matches(g,skip){
+  const w=words();if(w.length){const hay=(g.name+' '+g.genres.join(' ')+' '+g.blurb+' '+g.plabel).toLowerCase();if(!w.every(x=>hay.includes(x)))return false}
+  if(skip!=='genres'&&S.genres.size&&!g.genres.some(x=>S.genres.has(x)))return false;
+  if(S.players!=='any'&&!g.p.includes(S.players))return false;
+  if(S.len==='quick'&&!(g.mins<10))return false;if(S.len==='mid'&&!(g.mins>=10&&g.mins<=30))return false;if(S.len==='long'&&!(g.mins>30))return false;
+  if(S.diff!=='any'&&g.diff!==+S.diff)return false;
+  if(S.playable&&!g.url)return false;if(S.fav&&!favs.has(g.id))return false;
+  return true}
+function compute(){const l=GAMES.filter(g=>matches(g));const by={featured:(a,b)=>(!!b.url-!!a.url)||a.order-b.order,az:(a,b)=>a.name.localeCompare(b.name),short:(a,b)=>a.mins-b.mins||a.name.localeCompare(b.name),long:(a,b)=>b.mins-a.mins||a.name.localeCompare(b.name),easy:(a,b)=>a.diff-b.diff||a.name.localeCompare(b.name),hard:(a,b)=>b.diff-a.diff||a.name.localeCompare(b.name)};return l.sort(by[S.sort])}
+
+/* ---------- item templates ---------- */
+const heart=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-9.2-8.6C1.2 8.2 3 4.6 6.4 4.6c2.1 0 3.4 1.2 4.1 2.4h3c.7-1.2 2-2.4 4.1-2.4 3.4 0 5.2 3.6 3.6 6.8C19 15.6 12 20 12 20z" fill="currentColor" transform="translate(0 0)"/></svg>`;
+const diffDots=d=>`<span class="diff" title="${DIFF_LBL[d]}">${[1,2,3].map(i=>`<i class="${i<=d?'on':''}"></i>`).join('')}</span>`;
+const favBtn=g=>`<button class="fav" data-fav="${g.id}" aria-pressed="${favs.has(g.id)}" aria-label="${favs.has(g.id)?'Remove from':'Add to'} favorites">${heart}</button>`;
+const badge=g=>g.url?'<span class="badge ok">Play now</span>':'<span class="badge">Coming soon</span>';
+const playBtn=(g,cls='')=>g.url?`<a class="btn play ${cls}" href="${g.url}" data-stop>Play now</a>`:`<span class="btn ${cls}" aria-disabled="true">Coming soon</span>`;
+function gridItem(g){return `<article class="card ${g.url?'':'soon'}" data-open="${g.id}" tabindex="0" aria-label="${esc(g.name)}"><div class="cv">${cover(g)}${badge(g)}${favBtn(g)}</div><div class="bd"><h3>${hl(g.name)}</h3><div class="tags">${g.genres.map(x=>`<span>${x}</span>`).join('')}</div><div class="meta"><span>${g.plabel.replace('or vs computer','· vs CPU')}</span><span>${g.mins} min</span>${diffDots(g.diff)}</div></div></article>`}
+function rowItem(g){return `<tr data-open="${g.id}" tabindex="0"><td><div class="tname"><div class="tthumb cv">${cover(g)}</div><span>${hl(g.name)}</span></div></td><td>${g.genres.join(', ')}</td><td>${esc(g.plabel)}</td><td class="num">${g.mins} min</td><td>${diffDots(g.diff)} <span class="note">${DIFF_LBL[g.diff]}</span></td><td><span class="pill ${g.url?'ok':'soon'}">${g.url?'Playable':'Coming soon'}</span></td><td style="text-align:right">${g.url?playBtn(g,'sm'):`<button class="btn sm" data-open="${g.id}">Details</button>`}</td></tr>`}
+function bigItem(g,i){return `<article class="big" data-open="${g.id}" tabindex="0" aria-label="${esc(g.name)}"><div class="cv">${cover(g)}${badge(g)}${favBtn(g)}</div><div class="bd"><span class="idx">${String(i+1).padStart(2,'0')} / ${String(list.length).padStart(2,'0')}</span><h3>${hl(g.name)}</h3><div class="tags">${g.genres.map(x=>`<span>${x}</span>`).join('')}</div><p>${esc(g.blurb)}</p><div class="stats"><div><small>Players</small><b>${esc(g.plabel.replace(' or vs computer',' / CPU'))}</b></div><div><small>Length</small><b>${g.mins} min</b></div><div><small>Level</small><b>${DIFF_LBL[g.diff]}</b></div></div><div class="mrow">${playBtn(g)}<button class="btn" data-open="${g.id}">Details</button></div></div></article>`}
+
+/* ---------- rendering + infinite scroll ---------- */
+function container(){const r=$('results');
+  if(S.layout==='grid')r.innerHTML='<div class="grid" id="items"></div>';
+  else if(S.layout==='scroll')r.innerHTML='<div class="feed" id="items"></div>';
+  else{const th=(k,l)=>k?`<th><button data-sort="${k}" class="${S.sort.startsWith(k)||(k==='az'&&S.sort==='az')?'on':''}">${l}${sortArrow(k)}</button></th>`:`<th>${l}</th>`;
+    r.innerHTML=`<div class="tablewrap"><table><thead><tr>${th('az','Game')}${th(null,'Genre')}${th(null,'Players')}${th('len','Length')}${th('diff','Difficulty')}${th(null,'Status')}<th></th></tr></thead><tbody id="items"></tbody></table></div>`}}
+function sortArrow(k){if(k==='az')return S.sort==='az'?' ↓':'';if(k==='len')return S.sort==='short'?' ↑':S.sort==='long'?' ↓':'';if(k==='diff')return S.sort==='easy'?' ↑':S.sort==='hard'?' ↓':'';return ''}
+function skeleton(on){const sk=$('skel');sk.hidden=!on;if(!on)return;
+  if(S.layout==='grid')sk.innerHTML=`<div class="skel">${'<div class="sk" style="height:250px"></div>'.repeat(4)}</div>`;
+  else if(S.layout==='table')sk.innerHTML=`<div class="skel list">${'<div class="sk" style="height:58px"></div>'.repeat(3)}</div>`;
+  else sk.innerHTML=`<div class="skel list"><div class="sk" style="height:300px;border-radius:22px"></div></div>`}
+function append(batch,start){const html=batch.map((g,i)=>S.layout==='grid'?gridItem(g):S.layout==='table'?rowItem(g):bigItem(g,start+i)).join('');$('items').insertAdjacentHTML('beforeend',html)}
+function loadMore(){
+  if(loading)return;if(shown>=list.length){finish();return}
+  loading=true;const my=gen;const first=shown===0;if(!first)skeleton(true);
+  setTimeout(()=>{if(my!==gen)return;const batch=list.slice(shown,shown+BATCH);append(batch,shown);shown+=batch.length;loading=false;skeleton(false);updateCount();finish();
+    requestAnimationFrame(()=>{if(my!==gen)return;if($('sentinel').getBoundingClientRect().top<innerHeight+500)loadMore()})},first?0:450)}
+function finish(){const e=$('end');
+  if(!list.length){e.hidden=false;e.innerHTML=`<strong>No games match</strong><span>Try a different word or loosen a filter.</span><button class="btn" data-clear>Clear all filters</button>`;return}
+  if(shown>=list.length){e.hidden=false;e.innerHTML=`<strong>That's the whole shelf</strong><span>${list.length} game${list.length>1?'s':''} shown. ${GAMES.filter(g=>g.url).length} are ready to play today.</span><button class="btn" id="totop">Back to top</button>`}
+  else e.hidden=true}
+function updateCount(){$('count').innerHTML=list.length?`Showing <b>${shown}</b> of <b>${list.length}</b> games${list.length<GAMES.length?` · filtered from ${GAMES.length}`:''}`:'No results'}
+function activeFilters(){return (S.q?1:0)+S.genres.size+(S.players!=='any')+(S.len!=='any')+(S.diff!=='any')+S.playable+S.fav}
+function renderChips(){const base=GAMES.filter(g=>matches(g,'genres'));
+  $('genres').innerHTML=`<button class="chip" data-g="" aria-pressed="${S.genres.size===0}">All genres <small>${base.length}</small></button>`+GENRES.map(x=>{const n=base.filter(g=>g.genres.includes(x)).length;return `<button class="chip" data-g="${x}" aria-pressed="${S.genres.has(x)}" ${n||S.genres.has(x)?'':'disabled'}>${x} <small>${n}</small></button>`}).join('');
+  const a=activeFilters();$('clear').hidden=!a;$('fbtn').textContent=a?`Filters · ${a}`:'Filters'}
+function refresh(){gen++;loading=false;shown=0;list=compute();renderChips();container();skeleton(false);$('end').hidden=true;
+  document.querySelectorAll('#layouts button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===S.layout));updateCount();loadMore()}
+function renderTop(){const ready=GAMES.filter(g=>g.url);
+  $('tally').innerHTML=`<span><b>${ready.length}</b> ready to play</span><span><b>${GAMES.length-ready.length}</b> coming soon</span><span><b>${GENRES.length}</b> genres</span>`;
+  $('ready').innerHTML=ready.map(g=>`<div class="rcard" data-open="${g.id}" tabindex="0" role="button" aria-label="${esc(g.name)} details"><div class="cv">${cover(g)}</div><div class="tx"><h3>${esc(g.name)}</h3><div class="meta"><span>${g.mins} min</span>${diffDots(g.diff)}<span>${esc(g.plabel)}</span></div><p>${esc(g.blurb)}</p><div class="go">${playBtn(g,'sm')}</div></div></div>`).join('')}
+
+/* ---------- detail ---------- */
+function openGame(id){const g=GAMES.find(x=>x.id===id);if(!g)return;
+  $('modal').innerHTML=`<div class="cv" style="position:relative">${cover(g)}${badge(g)}<button class="close" id="mclose" aria-label="Close">×</button></div><div class="bd"><h2 id="mtitle">${esc(g.name)}</h2><div class="tags">${g.genres.map(x=>`<span>${x}</span>`).join('')}</div><p>${esc(g.blurb)}</p>
+   <div class="mstats"><div><small>Players</small><b>${esc(g.plabel)}</b></div><div><small>Length</small><b>About ${g.mins} min</b></div><div><small>Difficulty</small><b>${DIFF_LBL[g.diff]}</b></div><div><small>Status</small><b>${g.url?'Playable':'Coming soon'}</b></div></div>
+   ${g.feats?`<div><p class="eyebrow" style="margin-bottom:6px">In this version</p><ul class="feats">${g.feats.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:`<p class="note">This game isn't built yet. It's on the shelf so you can see what's planned.</p>`}
+   <div class="mrow">${playBtn(g)}<button class="btn" data-fav2="${g.id}">${favs.has(g.id)?'♥ Favorited':'♡ Add to favorites'}</button></div>${g.url?'':''}</div>`;
+  $('overlay').hidden=false;$('mclose').focus()}
+function closeModal(){$('overlay').hidden=true}
+function toggleFav(id){favs.has(id)?favs.delete(id):favs.add(id);store.set('parlor-favs',[...favs]);
+  document.querySelectorAll(`[data-fav="${id}"]`).forEach(b=>{b.setAttribute('aria-pressed',favs.has(id));b.setAttribute('aria-label',(favs.has(id)?'Remove from':'Add to')+' favorites')});
+  if(S.fav)refresh();else renderChips()}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  if(e.target.closest('[data-stop]'))return;
+  const fv=e.target.closest('[data-fav]');if(fv){e.stopPropagation();toggleFav(fv.dataset.fav);return}
+  const f2=e.target.closest('[data-fav2]');if(f2){toggleFav(f2.dataset.fav2);openGame(f2.dataset.fav2);return}
+  if(e.target.closest('[data-clear]')){clearAll();return}
+  if(e.target.id==='totop'){scrollTo({top:0,behavior:'smooth'});return}
+  const so=e.target.closest('[data-sort]');if(so){const k=so.dataset.sort;S.sort=k==='az'?'az':k==='len'?(S.sort==='short'?'long':'short'):(S.sort==='easy'?'hard':'easy');$('sort').value=S.sort;refresh();return}
+  const op=e.target.closest('[data-open]');if(op&&$('overlay').hidden){openGame(op.dataset.open);return}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&!$('overlay').hidden){closeModal();return}
+  if(e.key==='/'&&document.activeElement!==$('q')&&$('overlay').hidden){e.preventDefault();$('q').focus();return}
+  if(e.key==='Enter'){const op=e.target.closest&&e.target.closest('[data-open]');if(op&&e.target===op)openGame(op.dataset.open)}
+});
+$('overlay').addEventListener('click',e=>{if(e.target.id==='overlay'||e.target.closest('#mclose'))closeModal()});
+let qt;$('q').addEventListener('input',e=>{clearTimeout(qt);qt=setTimeout(()=>{S.q=e.target.value.trim();refresh()},160)});
+$('sort').onchange=e=>{S.sort=e.target.value;refresh()};
+['players','len','diff'].forEach(k=>$(k).onchange=e=>{S[k]=e.target.value;refresh()});
+$('playable').onchange=e=>{S.playable=e.target.checked;refresh()};
+$('favs').onchange=e=>{S.fav=e.target.checked;refresh()};
+$('genres').addEventListener('click',e=>{const c=e.target.closest('[data-g]');if(!c||c.disabled)return;const g=c.dataset.g;if(!g)S.genres.clear();else S.genres.has(g)?S.genres.delete(g):S.genres.add(g);refresh()});
+$('layouts').addEventListener('click',e=>{const b=e.target.closest('[data-l]');if(!b)return;S.layout=b.dataset.l;store.set('parlor-layout',S.layout);refresh()});
+$('fbtn').onclick=()=>{const f=$('filters');f.classList.toggle('open');$('fbtn').setAttribute('aria-expanded',f.classList.contains('open'))};
+$('clear').onclick=clearAll;
+function clearAll(){S.q='';S.genres.clear();S.players=S.len=S.diff='any';S.playable=S.fav=false;$('q').value='';['players','len','diff'].forEach(k=>$(k).value='any');$('playable').checked=$('favs').checked=false;refresh()}
+new IntersectionObserver(es=>{if(es[0].isIntersecting)loadMore()},{rootMargin:'500px 0px'}).observe($('sentinel'));
+if(!['grid','table','scroll'].includes(S.layout))S.layout='grid';
+renderTop();refresh();
+</script>
+
+</body>
+</html>

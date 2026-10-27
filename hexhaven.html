@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hexhaven</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;600;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: one-screen table. Thin top bar (players), full-bleed sea + island board in the middle, a card dock pinned to the bottom (dice, your hand, build actions). Trade / dev cards / log / rules slide in as a sheet. */
+:root{
+  --bg:#e7eef0; --fg:#14262d; --muted:#566b73; --panel:#ffffff; --line:#d2dde1; --chip:#eef3f5;
+  --accent:#1c6d8a; --accent-fg:#ffffff; --good:#2b8a57; --bad:#c0392b;
+  --sea1:#3b97b4; --sea2:#1c5f78; --sea3:#0f3f52;
+  --display:"Young Serif", Georgia, "Times New Roman", serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d171b; --fg:#e2ecef; --muted:#90a6ae; --panel:#152328; --line:#263b44; --chip:#1c2e35;
+  --accent:#58b8d8; --accent-fg:#05222c; --good:#4cc283; --bad:#ef6b5c;
+  --sea1:#2b7f9b; --sea2:#164f64; --sea3:#0a2f3e; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0d171b; --fg:#e2ecef; --muted:#90a6ae; --panel:#152328; --line:#263b44; --chip:#1c2e35;
+  --accent:#58b8d8; --accent-fg:#05222c; --good:#4cc283; --bad:#ef6b5c;
+  --sea1:#2b7f9b; --sea2:#164f64; --sea3:#0a2f3e; color-scheme:dark }
+[hidden]{display:none!important}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.4}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.app{height:100%;display:flex;flex-direction:column}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:14px;padding-block:7px;background:var(--panel);border-bottom:1px solid var(--line);z-index:5}
+.brand{font-family:var(--display);font-size:22px;line-height:1;flex:none}
+@media (max-width:1280px) and (min-width:861px){.brand{display:none}}
+.players{display:flex;gap:8px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.pchip{flex:none;display:flex;align-items:center;gap:7px;padding:4px 8px 4px 5px;border-radius:12px;background:var(--chip);border:2px solid transparent}
+.pchip.cur{border-color:var(--pc)}
+.pchip .av{width:30px;height:30px;border-radius:50%;background:var(--pc);display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25)}
+.pchip.cur.bot .av{animation:think 1s ease-in-out infinite}
+@keyframes think{50%{transform:scale(.88)}}
+.pchip .nm{font-weight:800;font-size:13px;display:flex;gap:5px;align-items:center}
+.pchip .meta{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pchip .vp{font-family:var(--display);font-size:22px;line-height:1;margin-left:2px;font-variant-numeric:tabular-nums}
+.pchip .vp small{font-family:var(--body);font-size:10px;color:var(--muted);display:block;text-align:center;letter-spacing:.05em}
+.badge{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:var(--accent);color:var(--accent-fg);border-radius:4px;padding:1px 4px}
+.topbtns{display:flex;gap:6px;align-items:center;flex:none}
+.tbtn{border:1px solid var(--line);background:var(--panel);padding:6px 11px;border-radius:9px;cursor:pointer;font-weight:600;font-size:13px}
+.tbtn:hover{border-color:var(--muted)}
+.tbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+select.tbtn{padding:6px 8px}
+@media (max-width:860px){.top{flex-wrap:wrap;row-gap:6px}.players{order:3;flex-basis:100%}.topbtns{margin-left:auto}.hide-sm{display:none}}
+
+/* stage */
+.stage{flex:1;min-height:0;position:relative;background:radial-gradient(ellipse at 50% 45%,var(--sea1) 0%,var(--sea2) 55%,var(--sea3) 100%);overflow:hidden}
+#board{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation}
+.hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(255,253,245,.94);color:#16303a;padding:7px 14px;border-radius:999px;font-weight:700;font-size:14px;box-shadow:0 4px 16px rgba(0,20,30,.3);max-width:calc(100% - 32px);text-align:center;pointer-events:none}
+.ticker{position:absolute;left:max(12px,env(safe-area-inset-left,0px));bottom:12px;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-width:min(380px,calc(100% - 24px));pointer-events:none}
+.ticker li{background:rgba(8,30,40,.72);color:#eef6f8;padding:5px 10px;border-radius:8px;font-size:12.5px;backdrop-filter:blur(3px)}
+.ticker li:not(:last-child){opacity:.7}
+.ticker b{color:#fff}
+.vspot{fill:#fffbe8;stroke:#0f2f3a;stroke-width:2.5;pointer-events:none;animation:glow 1.1s ease-in-out infinite}
+.vhit,.ehit,.tsel{cursor:pointer}
+.vhit{fill:transparent}
+.ehit{stroke:transparent;stroke-width:24;stroke-linecap:round}
+.espot{stroke:#fffbe8;stroke-width:8;stroke-linecap:round;pointer-events:none;animation:glow 1.1s ease-in-out infinite}
+.tsel{fill:rgba(255,255,255,.14);stroke:#fffbe8;stroke-width:3.5;stroke-dasharray:8 6}
+.tsel:hover{fill:rgba(255,255,255,.3)}
+.flash{fill:rgba(255,236,150,.22);stroke:#fff1a8;stroke-width:5;pointer-events:none;animation:glow .6s ease-in-out 3}
+@keyframes glow{50%{opacity:.4}}
+
+/* dock */
+.dock{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"dice hand act";gap:16px;align-items:center;padding-block:10px;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,20,30,.12);z-index:5}
+.dicebox{grid-area:dice;display:flex;gap:10px;align-items:center}
+.dice{display:flex;gap:5px}
+.dice svg{width:40px;height:40px;filter:drop-shadow(0 2px 1px rgba(0,0,0,.3))}
+.dice.anim svg{animation:tumble .55s ease-out}
+@keyframes tumble{0%{transform:rotate(-220deg) scale(.5)}100%{transform:none}}
+.btncol{display:flex;flex-direction:column;gap:5px}
+.bigbtn{border:0;border-radius:10px;padding:8px 16px;font-weight:800;cursor:pointer;background:#f3c246;color:#2b1f00;white-space:nowrap}
+.bigbtn.alt{background:var(--chip);color:var(--fg);border:1px solid var(--line)}
+.bigbtn:disabled{opacity:.35;cursor:not-allowed}
+.handbox{grid-area:hand;display:flex;justify-content:center;min-width:0;overflow-x:auto;padding-top:8px}
+.hand{display:flex;gap:9px;align-items:flex-end}
+.rcard{position:relative;width:60px;height:84px;border-radius:9px;overflow:visible;flex:none;border:0;padding:0;background:none;cursor:default}
+.rcard .art{position:absolute;inset:0;border-radius:9px;overflow:hidden;box-shadow:0 3px 8px rgba(0,0,0,.28),inset 0 0 0 2px rgba(255,255,255,.55)}
+.rcard .art svg{display:block;width:100%;height:100%}
+.rcard .lab{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.65));color:#fff;font-size:10.5px;font-weight:800;text-align:center;padding:10px 0 4px;letter-spacing:.03em}
+.rcard .cnt{position:absolute;top:-8px;right:-8px;min-width:26px;height:26px;border-radius:13px;background:var(--fg);color:var(--bg);font-weight:800;font-size:15px;display:grid;place-items:center;padding:0 6px;box-shadow:0 2px 5px rgba(0,0,0,.3);font-variant-numeric:tabular-nums}
+.rcard.zero .art{filter:grayscale(.75) brightness(.95);opacity:.5}
+.rcard.zero .cnt{background:var(--line);color:var(--muted)}
+.rcard.gain .art{animation:pop .5s ease-out}
+@keyframes pop{40%{transform:translateY(-10px)}}
+.bub{position:absolute;left:50%;top:-6px;transform:translate(-50%,-100%);font-weight:800;font-size:13px;padding:1px 7px;border-radius:999px;color:#fff;white-space:nowrap;animation:rise 1.8s ease-out forwards;pointer-events:none}
+.bub.plus{background:var(--good)} .bub.minus{background:var(--bad)}
+@keyframes rise{0%{opacity:0;transform:translate(-50%,-60%)}15%{opacity:1;transform:translate(-50%,-100%)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-160%)}}
+.devback{cursor:pointer}
+.devback .art{background:radial-gradient(circle at 50% 40%,#2c3f78,#151f45);display:grid;place-items:center}
+.devback:hover .art{box-shadow:0 3px 8px rgba(0,0,0,.28),inset 0 0 0 2px #f0c34d}
+.sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
+.actions{grid-area:act;display:flex;gap:6px;align-items:stretch;min-width:0;overflow-x:auto}
+.act{border:1px solid var(--line);background:var(--chip);border-radius:11px;padding:6px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:72px}
+.act:hover:not(:disabled){border-color:var(--accent)}
+.act:disabled{opacity:.38;cursor:not-allowed}
+.act.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent);background:var(--panel)}
+.act strong{font-size:12px;line-height:1.1}
+.act svg.bi{width:30px;height:24px}
+.cost{display:flex;gap:2px}
+.ri{display:block;flex:none;border-radius:4px}
+@media (max-width:860px){
+  .dock{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"hand hand" "dice act";gap:8px 12px;padding-block:6px 8px}
+  .rcard{width:50px;height:70px}.rcard .lab{font-size:9px}.rcard .cnt{min-width:22px;height:22px;font-size:13px;top:-6px;right:-6px}
+  .hand{gap:7px}.dice svg{width:32px;height:32px}.bigbtn{padding:6px 11px;font-size:13px}.act{min-width:62px;padding:5px 6px}
+  .ticker{bottom:8px}.ticker li:not(:last-child){display:none}
+}
+
+/* sheet */
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(400px,100%);background:var(--panel);border-left:1px solid var(--line);box-shadow:-10px 0 30px rgba(0,20,30,.25);z-index:20;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+@media (max-width:640px){.sheet{top:auto;left:0;width:100%;height:72%;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding-left:env(safe-area-inset-left,0px)}}
+.sheethead{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:4px;flex:1;overflow-x:auto}
+.tab{border:0;background:none;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:700;color:var(--muted);white-space:nowrap}
+.tab.on{background:var(--chip);color:var(--fg)}
+.sheetbody{flex:1;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.lbl{font-size:11px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0}
+.note{color:var(--muted);font-size:13px;margin:0}
+.trade{display:grid;grid-template-columns:58px repeat(5,minmax(0,1fr));gap:6px;align-items:center}
+.trade .tl{font-size:12px;font-weight:700;color:var(--muted)}
+.trade .hd{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.trade .hd b{color:var(--fg);font-size:12px}
+.step{display:flex;align-items:center;justify-content:center;background:var(--chip);border:1px solid var(--line);border-radius:8px;padding:2px}
+.step button{border:0;background:none;width:20px;height:24px;cursor:pointer;font-weight:800;padding:0;border-radius:5px}
+.step button:hover:not(:disabled){background:var(--line)}
+.step button:disabled{opacity:.3;cursor:not-allowed}
+.step b{min-width:12px;text-align:center;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:9px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:6px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.dev{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:9px 10px;background:var(--chip)}
+.dev .n{font-family:var(--display);font-size:22px;min-width:24px;text-align:center}
+.dev div{flex:1;min-width:0}
+.dev small{display:block;color:var(--muted);font-size:12.5px}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:13px}
+.log li{border-bottom:1px dashed var(--line);padding-bottom:5px}
+.rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px}
+.costs{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center}
+
+/* modal + toast */
+.overlay{position:fixed;inset:0;background:rgba(5,15,20,.6);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:16px;padding:20px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:12px;max-height:90vh;overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:26px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.pick{display:flex;flex-direction:column;gap:6px}
+.pr{display:flex;align-items:center;gap:8px}.pr span{flex:1}.pr .have{flex:none;color:var(--muted);font-size:12px}
+.choices{display:flex;flex-wrap:wrap;gap:8px}
+.results{display:flex;flex-direction:column;gap:6px}
+.results div{display:flex;gap:8px;align-items:center}
+.results b{margin-left:auto;font-family:var(--display);font-size:20px;font-weight:400}
+.toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:40;max-width:calc(100% - 32px);text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.defs{position:absolute;width:0;height:0;overflow:hidden}
+@media (prefers-reduced-motion:reduce){.vspot,.espot,.flash,.dice.anim svg,.rcard.gain .art,.pchip.cur.bot .av,.bub{animation:none}}
+</style>
+
+<svg class="defs" aria-hidden="true">
+  <defs>
+    <linearGradient id="g-wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5f9d4c"/><stop offset="1" stop-color="#2e5f2e"/></linearGradient>
+    <linearGradient id="g-brick" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d99258"/><stop offset="1" stop-color="#a1502b"/></linearGradient>
+    <linearGradient id="g-wool" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b3df7c"/><stop offset="1" stop-color="#76ae4b"/></linearGradient>
+    <linearGradient id="g-grain" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4d468"/><stop offset="1" stop-color="#d6a32d"/></linearGradient>
+    <linearGradient id="g-ore" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9eb0bf"/><stop offset="1" stop-color="#6d7783"/></linearGradient>
+    <linearGradient id="g-desert" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2dfa8"/><stop offset="1" stop-color="#d8b672"/></linearGradient>
+    <radialGradient id="g-token" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="#fffbef"/><stop offset=".7" stop-color="#f0e2bd"/><stop offset="1" stop-color="#d9c08a"/></radialGradient>
+    <radialGradient id="g-robber" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#6b707e"/><stop offset="1" stop-color="#15161a"/></radialGradient>
+    <linearGradient id="g-beach" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1e0ad"/><stop offset="1" stop-color="#dcc286"/></linearGradient>
+    <pattern id="waves" width="46" height="22" patternUnits="userSpaceOnUse"><path d="M0 11 q5.75 -6 11.5 0 t11.5 0" fill="none" stroke="rgba(255,255,255,.13)" stroke-width="1.6" stroke-linecap="round"/><path d="M23 0 q5.75 -6 11.5 0 t11.5 0 M-23 22 q5.75 -6 11.5 0 t11.5 0 M23 22 q5.75 -6 11.5 0 t11.5 0" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="1.4"/></pattern>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="1.8" stdDeviation="1.3" flood-color="#000" flood-opacity=".45"/></filter>
+  </defs>
+</svg>
+
+<div class="app">
+  <header class="top gut">
+    <div class="brand">Hexhaven</div>
+    <div class="players" id="players"></div>
+    <div class="topbtns">
+      <button class="tbtn" id="bLog">Log</button>
+      <button class="tbtn" id="bRules">Rules</button>
+      <button class="tbtn hide-sm" id="bFull">Fullscreen</button>
+      <select class="tbtn" id="speed" aria-label="Rival speed"><option value="1">Normal</option><option value="0.4">Fast</option></select>
+      <button class="tbtn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <main class="stage" aria-label="Game board">
+    <svg id="board" viewBox="-318 -288 636 576" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" font-family="Figtree, system-ui, sans-serif">
+      <rect x="-3000" y="-3000" width="6000" height="6000" fill="url(#waves)"/>
+      <g id="gStatic"></g><g id="gHi"></g><g id="gRoads" filter="url(#sh)"></g><g id="gEdge"></g><g id="gBld" filter="url(#sh)"></g><g id="gVert"></g><g id="gRobber" pointer-events="none" filter="url(#sh)"></g>
+    </svg>
+    <div class="hint" id="hint"></div>
+    <ul class="ticker" id="ticker"></ul>
+  </main>
+
+  <footer class="dock gut">
+    <div class="dicebox">
+      <div class="dice" id="dice"></div>
+      <div class="btncol"><button class="bigbtn" id="rollBtn">Roll dice</button><button class="bigbtn alt" id="endBtn">End turn</button></div>
+    </div>
+    <div class="handbox"><div class="hand" id="hand"></div></div>
+    <div class="actions" id="actions"></div>
+  </footer>
+</div>
+
+<aside class="sheet" id="sheet" hidden>
+  <div class="sheethead"><div class="tabs" id="tabs"></div><button class="tbtn" id="sheetClose">Close</button></div>
+  <div class="sheetbody" id="sheetBody"></div>
+</aside>
+<div class="overlay" id="overlay" hidden><div class="modal" id="mbody"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const RES=['wood','brick','wool','grain','ore'];
+const RNAME={wood:'Lumber',brick:'Brick',wool:'Wool',grain:'Grain',ore:'Ore',desert:'Desert'};
+const TILE_COL={wood:'#3f7d41',brick:'#bb5a33',wool:'#93c763',grain:'#e7bf45',ore:'#8d94a0',desert:'#dcc68f'};
+const COST={road:{wood:1,brick:1},settlement:{wood:1,brick:1,wool:1,grain:1},city:{grain:2,ore:3},dev:{wool:1,grain:1,ore:1}};
+const DEVNAME={knight:'Knight',vp:'Victory Point',road:'Road Building',plenty:'Year of Plenty',mono:'Monopoly'};
+const DEVDESC={knight:'Move the robber and steal 1 card. Counts toward Largest Army.',vp:'Worth 1 point. Already counted in your score.',road:'Build 2 roads for free.',plenty:'Take any 2 resources from the bank.',mono:'Name a resource. Every rival hands you all of theirs.'};
+const SIZE=60,S3=Math.sqrt(3);
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const zero=()=>({wood:0,brick:0,wool:0,grain:0,ore:0});
+const sumObj=o=>RES.reduce((s,r)=>s+(o[r]||0),0);
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms*(+$('speed').value)));
+const pips=n=>n?6-Math.abs(7-n):0;
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function shade(hex,a){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const f=a<0?0:255,p=Math.abs(a);r=Math.round((f-r)*p+r);g=Math.round((f-g)*p+g);b=Math.round((f-b)*p+b);return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1)}
+const f1=n=>n.toFixed(1);
+
+let T,V,E,P,G,PORTS,tradeGive,tradeGet,lastHand=null,bubbles={};
+
+/* ---------- painted art (100x100 scenes) ---------- */
+function sheep(x,y,dir,sc){
+  const blobs=[[-5,0,3.6],[-2,-2.2,4],[2,-2.2,4],[5,0,3.6],[0,1.2,4.5],[-3.2,2,3.4],[3.2,2,3.4]];
+  let s=`<g transform="translate(${f1(x)},${f1(y)}) scale(${dir*sc},${sc})"><ellipse cx="0" cy="7" rx="9" ry="2" fill="rgba(0,0,0,.25)"/>`;
+  [-4,-1.3,1.6,4.3].forEach(lx=>s+=`<path d="M${lx} 3v4.2" stroke="#2b2724" stroke-width="1.3" stroke-linecap="round"/>`);
+  blobs.forEach(([a,b,r])=>s+=`<circle cx="${a}" cy="${b}" r="${r}" fill="#cfc7b2" stroke="#bdb59f" stroke-width="1.4"/>`);
+  blobs.forEach(([a,b,r])=>s+=`<circle cx="${a}" cy="${b}" r="${r}" fill="#f8f5ec"/>`);
+  s+=`<ellipse cx="0" cy="3.4" rx="6.5" ry="1.8" fill="#ddd5c2" opacity=".8"/><circle cx="-1.5" cy="-3.5" r="1.6" fill="#fff"/>`;
+  s+=`<ellipse cx="8.4" cy="-.6" rx="2.6" ry="3.3" fill="#2d2a28" transform="rotate(-20 8.4 -.6)"/><ellipse cx="6.6" cy="-3.2" rx="1.8" ry=".9" fill="#2d2a28" transform="rotate(-25 6.6 -3.2)"/><circle cx="9.2" cy="-1.5" r=".55" fill="#fff"/></g>`;
+  return s;
+}
+function brickStack(x,y){let s=`<ellipse cx="${x+10}" cy="${y+1}" rx="14" ry="2.6" fill="rgba(60,20,5,.35)"/>`;
+  for(let r=0;r<3;r++)for(let c=0;c<3-r;c++){const bx=x+c*6.2+r*3.1,by=y-r*3.5;
+    s+=`<path d="M${f1(bx)} ${f1(by-3.3)}l1.6 -1.3h6.2l-1.6 1.3z" fill="#e08458"/><path d="M${f1(bx+6.2)} ${f1(by-3.3)}l1.6 -1.3v3.3l-1.6 1.3z" fill="#7b2b13"/><rect x="${f1(bx)}" y="${f1(by-3.3)}" width="6.2" height="3.3" fill="#b0451f" stroke="#f0c8a2" stroke-width=".35"/>`}
+  return s}
+function sheaf(x,y){let s=`<ellipse cx="${x+1}" cy="${y+.8}" rx="6" ry="1.6" fill="rgba(90,55,0,.35)"/>`;
+  for(let k=-4;k<=4;k++){const tx=x+k*1.35,ty=y-11+Math.abs(k)*.5;s+=`<path d="M${f1(x+k*.35)} ${y}L${f1(tx)} ${f1(ty)}" stroke="#c48d1f" stroke-width=".8"/><ellipse cx="${f1(tx)}" cy="${f1(ty-1.2)}" rx=".9" ry="2" fill="#f6d260" stroke="#b5841b" stroke-width=".3" transform="rotate(${k*7} ${f1(tx)} ${f1(ty-1.2)})"/>`}
+  return s+`<rect x="${x-2.3}" y="${y-5.2}" width="4.6" height="1.5" rx=".5" fill="#8a5a1c"/>`}
+function peak(x,by,w,h){const rx=x+w*.18;
+  return `<path d="M${f1(x-w)} ${f1(by)}L${f1(x)} ${f1(by-h)}L${f1(rx)} ${f1(by)}Z" fill="#a9b2bd"/><path d="M${f1(x)} ${f1(by-h)}L${f1(x+w)} ${f1(by)}L${f1(rx)} ${f1(by)}Z" fill="#5c6571"/>`+
+   `<path d="M${f1(x)} ${f1(by-h)}L${f1(x-w*.3)} ${f1(by-h*.7)}L${f1(x-w*.14)} ${f1(by-h*.75)}L${f1(x-w*.02)} ${f1(by-h*.66)}L${f1(x+w*.03)} ${f1(by-h*.7)}Z" fill="#f6f8fa"/><path d="M${f1(x)} ${f1(by-h)}L${f1(x+w*.03)} ${f1(by-h*.7)}L${f1(x+w*.14)} ${f1(by-h*.74)}L${f1(x+w*.3)} ${f1(by-h*.7)}Z" fill="#c9d2dc"/>`+
+   `<path d="M${f1(x-w*.45)} ${f1(by-h*.35)}l2 -1.2 1.4 1.6z M${f1(x+w*.4)} ${f1(by-h*.25)}l1.6 -1.4 1.2 1.6z" fill="#e3ecf3" opacity=".8"/>`}
+function scene(res,seed){
+  const R=rng(seed);let s=`<rect width="100" height="100" fill="url(#g-${res})"/>`;
+  if(res==='wood'){
+    for(let i=0;i<14;i++)s+=`<ellipse cx="${f1(R()*100)}" cy="${f1(R()*100)}" rx="${f1(6+R()*9)}" ry="${f1(3+R()*4)}" fill="#24481f" opacity=".3"/>`;
+    const trees=[];for(let i=0;i<30;i++)trees.push([R()*110-5,R()*115,6+R()*4.5,R()<.22]);trees.sort((a,b)=>a[1]-b[1]);
+    trees.forEach(([x,y,z,round])=>{s+=`<ellipse cx="${f1(x+z*.35)}" cy="${f1(y+.4)}" rx="${f1(z*.8)}" ry="${f1(z*.22)}" fill="rgba(0,0,0,.3)"/>`;
+      if(round)s+=`<rect x="${f1(x-.8)}" y="${f1(y-z*.7)}" width="1.6" height="${f1(z*.7)}" fill="#5b3a1e"/><circle cx="${f1(x)}" cy="${f1(y-z*1.15)}" r="${f1(z*.78)}" fill="#3d7f33"/><circle cx="${f1(x-z*.2)}" cy="${f1(y-z*1.3)}" r="${f1(z*.5)}" fill="#5aa046"/><circle cx="${f1(x-z*.35)}" cy="${f1(y-z*1.5)}" r="${f1(z*.22)}" fill="#86c46a"/>`;
+      else{s+=`<rect x="${f1(x-.7)}" y="${f1(y-z*.35)}" width="1.4" height="${f1(z*.35)}" fill="#5b3a1e"/>`;
+        [[.3,1.95,.75],[1.05,2.7,.55]].forEach(([b,a,w])=>{const by=y-z*b,ay=y-z*a;s+=`<path d="M${f1(x)} ${f1(ay)}L${f1(x-z*w)} ${f1(by)}L${f1(x)} ${f1(by)}Z" fill="#43913f"/><path d="M${f1(x)} ${f1(ay)}L${f1(x+z*w)} ${f1(by)}L${f1(x)} ${f1(by)}Z" fill="#205026"/>`})}});
+  } else if(res==='brick'){
+    [[26,'#d58c55'],[44,'#bd6534'],[62,'#d08049'],[80,'#ad5529'],[98,'#c06a3a']].forEach(([y,c])=>{const a=15+R()*25;s+=`<path d="M-5 ${y} Q${f1(a)} ${f1(y-11-R()*6)} 50 ${y} T105 ${y} V110 H-5Z" fill="${c}"/><path d="M-5 ${y} Q${f1(a)} ${f1(y-11)} 50 ${y}" stroke="rgba(255,220,180,.35)" stroke-width="1" fill="none"/>`});
+    for(let i=0;i<16;i++){const x=R()*100,y=R()*100;s+=`<path d="M${f1(x)} ${f1(y)}l-1.2 -3M${f1(x)} ${f1(y)}l0 -3.6M${f1(x)} ${f1(y)}l1.2 -3" stroke="#6f7f34" stroke-width=".8" opacity=".75"/>`}
+    s+=`<ellipse cx="70" cy="34" rx="12" ry="4.5" fill="#8a3d1c"/><ellipse cx="70" cy="33" rx="10" ry="3.4" fill="#6e2e14"/>`;
+    [[18,44],[56,68],[22,86],[66,94]].forEach(([bx,by])=>s+=brickStack(bx,by));
+  } else if(res==='wool'){
+    for(let i=0;i<10;i++)s+=`<ellipse cx="${f1(R()*100)}" cy="${f1(R()*100)}" rx="${f1(10+R()*12)}" ry="${f1(4+R()*3)}" fill="#c4e88f" opacity=".45"/>`;
+    for(let i=0;i<55;i++){const x=R()*100,y=R()*100;s+=`<path d="M${f1(x)} ${f1(y)}l-1.3 -3.2M${f1(x)} ${f1(y)}l0 -3.8M${f1(x)} ${f1(y)}l1.3 -3.2" stroke="#5a9639" stroke-width=".7"/>`}
+    for(let i=0;i<14;i++)s+=`<circle cx="${f1(R()*100)}" cy="${f1(R()*100)}" r=".9" fill="${R()<.5?'#fff':'#ffe35a'}"/>`;
+    s+=`<path d="M-2 26 L42 16 L102 28" stroke="#7a5b38" stroke-width="1.3" fill="none"/><path d="M-2 30 L42 20 L102 32" stroke="#7a5b38" stroke-width="1.1" fill="none"/>`;
+    [[4,24.7],[18,21.5],[30,18.8],[42,16],[57,19],[72,22],[87,25]].forEach(([x,y])=>s+=`<rect x="${x-.9}" y="${f1(y-2)}" width="1.8" height="8" fill="#5e4428"/>`);
+    [[28,54,1,1.15],[66,46,-1,1.05],[46,76,-1,1.2],[78,72,1,1]].forEach(([x,y,d,k])=>s+=sheep(x,y,d,k));
+  } else if(res==='grain'){
+    for(let i=-7;i<16;i++){const x=i*8;s+=`<path d="M${x} 108 L${x+42} -8" stroke="${i%2?'#e9be3d':'#cf9a29'}" stroke-width="5.2"/>`}
+    for(let i=0;i<90;i++){const x=R()*100,y=R()*100;s+=`<path d="M${f1(x)} ${f1(y)}l.9 -2.8" stroke="${R()<.5?'#a9781a':'#fbe08a'}" stroke-width=".55" opacity=".75"/>`}
+    s+=`<g><ellipse cx="74" cy="36" rx="9" ry="2.4" fill="rgba(90,55,0,.35)"/><rect x="65" y="25" width="18" height="10" rx="5" fill="#e2b444"/><ellipse cx="65.5" cy="30" rx="3" ry="5" fill="#c8932a"/><path d="M68 27h13M68 30h13M68 33h13" stroke="#b9861f" stroke-width=".5"/></g>`;
+    [[24,48],[52,72],[30,92],[78,88]].forEach(([x,y])=>s+=sheaf(x,y));
+  } else if(res==='ore'){
+    s+=`<rect y="70" width="100" height="30" fill="#606a74" opacity=".35"/>`;
+    [[22,52,26,40],[64,46,32,44],[92,62,22,34],[8,80,20,26],[42,84,26,32],[78,96,28,34]].sort((a,b)=>a[1]-b[1]).forEach(p=>s+=peak(...p));
+    for(let i=0;i<14;i++){const x=R()*100,y=60+R()*40;s+=`<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(1.5+R()*2)}" ry="${f1(1+R())}" fill="#4f5762"/><ellipse cx="${f1(x-.5)}" cy="${f1(y-.5)}" rx="${f1(1+R())}" ry=".6" fill="#8e98a4"/>`}
+  } else {
+    [[20,40,34],[70,52,38],[38,80,40],[85,92,30]].forEach(([x,y,w])=>s+=`<path d="M${x-w} ${y} Q${x} ${y-14} ${x+w} ${y} Z" fill="#ecd598"/><path d="M${x} ${y-7} Q${f1(x+w*.5)} ${y-5} ${x+w} ${y} L${f1(x+w*.15)} ${y} Z" fill="#c9a35c" opacity=".75"/>`);
+    for(let i=0;i<30;i++)s+=`<circle cx="${f1(R()*100)}" cy="${f1(R()*100)}" r=".45" fill="#b8954f"/>`;
+    s+=`<ellipse cx="62" cy="63" rx="7" ry="1.6" fill="rgba(80,50,10,.3)"/><path d="M60 63V43M60 54h-5v-6M60 50h5v-6" stroke="#4d7f3d" stroke-width="4.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M59 62V44M54.4 53v-5M64.4 49v-5" stroke="#78ad5c" stroke-width="1" fill="none" stroke-linecap="round"/>`;
+    s+=`<ellipse cx="28" cy="66" rx="5" ry="3" fill="#a88a5a"/><ellipse cx="27" cy="65" rx="3" ry="1.4" fill="#cdb183"/><ellipse cx="80" cy="30" rx="3.5" ry="2" fill="#a88a5a"/>`;
+  }
+  return s;
+}
+function glyph(r){
+  if(r==='wood')return `<path d="M12 2.5 L19.5 15 H4.5 Z" fill="#205026"/><path d="M12 2.5 L4.5 15 H12 Z" fill="#3f8a3c"/><rect x="10.8" y="15" width="2.4" height="5" fill="#5b3a1e"/>`;
+  if(r==='brick')return `<rect x="3" y="7" width="8.5" height="5" fill="#a63e1c" stroke="#f0c8a2" stroke-width=".5"/><rect x="12.5" y="7" width="8.5" height="5" fill="#a63e1c" stroke="#f0c8a2" stroke-width=".5"/><rect x="7.5" y="12.5" width="9" height="5" fill="#a63e1c" stroke="#f0c8a2" stroke-width=".5"/>`;
+  if(r==='wool')return `<g transform="translate(11 13) scale(.95)"><circle cx="-4" cy="0" r="3.4" fill="#f8f5ec"/><circle cx="0" cy="-1.8" r="3.8" fill="#f8f5ec"/><circle cx="3.5" cy="0" r="3.4" fill="#f8f5ec"/><circle cx="0" cy="1.5" r="3.8" fill="#f8f5ec"/><ellipse cx="7" cy="-.5" rx="2.2" ry="2.8" fill="#2d2a28"/><path d="M-3 4v3M2 4v3" stroke="#2d2a28" stroke-width="1.2"/></g>`;
+  if(r==='grain')return `<path d="M12 21 V6" stroke="#8a6210" stroke-width="1.4"/>${[6.5,10,13.5].map(y=>`<ellipse cx="9.8" cy="${y}" rx="2.1" ry="1.3" fill="#fff0b0" stroke="#8a6210" stroke-width=".5"/><ellipse cx="14.2" cy="${y}" rx="2.1" ry="1.3" fill="#fff0b0" stroke="#8a6210" stroke-width=".5"/>`).join('')}`;
+  if(r==='ore')return `<path d="M2.5 19.5 L10 6.5 L12 19.5 Z" fill="#c3cbd4"/><path d="M10 6.5 L17 19.5 H12 Z" fill="#4f5762"/><path d="M14 19.5 L17.5 12 L21.5 19.5Z" fill="#6c7581"/><path d="M10 6.5 L8 10 L10.5 9.5 L12 10.5 Z" fill="#fff"/>`;
+  return `<path d="M1 19 Q7 10 13 16 Q17 12 23 19 Z" fill="#c2a462"/>`;
+}
+function icon(r,s=22){return `<svg class="ri" width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="url(#g-${r})"/>${glyph(r)}</svg>`}
+function costIcons(c,s=14){return `<span class="cost">${RES.flatMap(r=>Array(c[r]||0).fill(icon(r,s))).join('')}</span>`}
+function house(x,y,c,k=1){return `<g transform="translate(${f1(x)},${f1(y)}) scale(${k})"><ellipse cx="1" cy="9.5" rx="11" ry="3" fill="rgba(0,0,0,.3)"/><path d="M2 0 L9 -3.2 V6 L2 9.5Z" fill="${shade(c,-.32)}" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><path d="M-8 9.5 V0 L-3 -5.5 L2 0 V9.5Z" fill="${c}" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><path d="M-3 -5.5 L4 -8.7 L9 -3.2 L2 0Z" fill="${shade(c,-.5)}" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><path d="M-6.2 1 L-3 -2.6 L0.2 1" stroke="${shade(c,.45)}" stroke-width="1" fill="none"/><rect x="-4.3" y="4" width="2.6" height="5.5" fill="${shade(c,-.6)}"/></g>`}
+function city(x,y,c,k=1){return `<g transform="translate(${f1(x)},${f1(y)}) scale(${k})"><ellipse cx="1" cy="10.5" rx="15" ry="3.4" fill="rgba(0,0,0,.3)"/>`+
+  `<path d="M-5 -10 L-1 -12 V8.5 L-5 10.5Z" fill="${shade(c,-.32)}" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><rect x="-13" y="-10" width="8" height="20.5" fill="${c}" stroke="#111" stroke-width="1.1"/><path d="M-13 -10 L-8 -19 L-5 -10Z" fill="${shade(c,-.45)}" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><path d="M-5 -10 L-8 -19 L-1 -12Z" fill="${shade(c,-.6)}" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/>`+
+  `<rect x="-10.5" y="-6" width="3" height="3.5" fill="${shade(c,-.65)}"/><rect x="-10.5" y="1" width="3" height="3.5" fill="${shade(c,-.65)}"/>`+
+  `<path d="M9 1 L15 -1.5 V8 L9 10.5Z" fill="${shade(c,-.32)}" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><path d="M-1 10.5 V1 L4 -4.5 L9 1 V10.5Z" fill="${c}" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><path d="M4 -4.5 L10 -7 L15 -1.5 L9 1Z" fill="${shade(c,-.5)}" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/><rect x="2.6" y="4.5" width="2.8" height="6" fill="${shade(c,-.6)}"/></g>`}
+function dieSVG(n){
+  const P={1:[[12,12]],2:[[7,7],[17,17]],3:[[7,7],[12,12],[17,17]],4:[[7,7],[17,7],[7,17],[17,17]],5:[[7,7],[17,7],[12,12],[7,17],[17,17]],6:[[7,6.5],[17,6.5],[7,12],[17,12],[7,17.5],[17,17.5]]}[n]||[];
+  return `<svg viewBox="0 0 24 24" aria-label="${n||'not rolled'}"><rect x="1" y="1" width="22" height="22" rx="5" fill="#fbf6e9" stroke="#c9b98a"/><rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="none" stroke="#fff" stroke-width=".8" opacity=".8"/>${P.map(([x,y])=>`<circle cx="${x}" cy="${y}" r="2.1" fill="${(G&&G.dice[0]+G.dice[1]===7)?'#b3261e':'#1d2a30'}"/>`).join('')}${n?'':'<text x="12" y="16" text-anchor="middle" font-size="11" fill="#9b8f6c">?</text>'}</svg>`;
+}
+
+/* ---------- board ---------- */
+function hexPoints(cx,cy,s){return [...Array(6)].map((_,k)=>{const a=Math.PI/180*(60*k-30);return f1(cx+s*Math.cos(a))+','+f1(cy+s*Math.sin(a))}).join(' ')}
+function buildBoard(){
+  T=[];V=[];E=[];const vm={},em={};
+  for(let r=-2;r<=2;r++)for(let q=-2;q<=2;q++){if(Math.abs(q+r)>2)continue;
+    const cx=SIZE*S3*(q+r/2),cy=SIZE*1.5*r;const t={id:T.length,cx,cy,res:null,num:null,verts:[],seed:rand(1e9)};T.push(t);
+    const vids=[];
+    for(let k=0;k<6;k++){const a=Math.PI/180*(60*k-30),x=cx+SIZE*Math.cos(a),y=cy+SIZE*Math.sin(a),key=Math.round(x)+','+Math.round(y);
+      if(!(key in vm)){vm[key]=V.length;V.push({id:V.length,x,y,hexes:[],adj:[],edges:[],b:null,port:null})}
+      V[vm[key]].hexes.push(t.id);vids.push(vm[key]);}
+    t.verts=vids;
+    for(let k=0;k<6;k++){const a=vids[k],b=vids[(k+1)%6],key=Math.min(a,b)+'-'+Math.max(a,b);
+      if(!(key in em)){em[key]=E.length;E.push({id:E.length,a,b,hexes:[],road:null});V[a].edges.push(em[key]);V[b].edges.push(em[key]);V[a].adj.push(b);V[b].adj.push(a)}
+      E[em[key]].hexes.push(t.id);}
+  }
+  T.forEach(t=>t.nb=T.filter(o=>o!==t&&Math.hypot(o.cx-t.cx,o.cy-t.cy)<SIZE*S3+1).map(o=>o.id));
+  const pool=['wood','wood','wood','wood','wool','wool','wool','wool','grain','grain','grain','grain','brick','brick','brick','ore','ore','ore','desert'];
+  const NUMS=[2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12];
+  for(let tries=0;tries<2000;tries++){
+    const rp=shuffle(pool.slice()),np=shuffle(NUMS.slice());
+    T.forEach((t,i)=>{t.res=rp[i];t.num=t.res==='desert'?null:np.pop()});
+    const hot=n=>n===6||n===8;
+    if(!T.some(t=>hot(t.num)&&t.nb.some(n=>hot(T[n].num))))break;
+  }
+  const coast=E.filter(e=>e.hexes.length===1).map(e=>{const mx=(V[e.a].x+V[e.b].x)/2,my=(V[e.a].y+V[e.b].y)/2;return{e,mx,my,ang:Math.atan2(my,mx)}}).sort((a,b)=>a.ang-b.ang);
+  const types=shuffle(['any','any','any','any','wood','brick','wool','grain','ore']);
+  const off=rand(3);PORTS=[];
+  for(let i=0;i<9;i++){const c=coast[(Math.round(i*coast.length/9)+off)%coast.length],t=T[c.e.hexes[0]];
+    const dx=c.mx-t.cx,dy=c.my-t.cy,d=Math.hypot(dx,dy);
+    const pt={type:types[i],a:c.e.a,b:c.e.b,x:c.mx+dx/d*31,y:c.my+dy/d*31};PORTS.push(pt);V[pt.a].port=V[pt.b].port=pt.type;}
+}
+function drawStatic(){
+  let s='';
+  T.forEach(t=>s+=`<polygon points="${hexPoints(t.cx,t.cy,SIZE+19)}" fill="rgba(255,255,255,.16)"/>`);
+  T.forEach(t=>s+=`<polygon points="${hexPoints(t.cx,t.cy,SIZE+11)}" fill="url(#g-beach)" stroke="url(#g-beach)" stroke-width="2"/>`);
+  PORTS.forEach(p=>{[p.a,p.b].forEach(v=>s+=`<line x1="${f1(p.x)}" y1="${f1(p.y)}" x2="${f1(V[v].x)}" y2="${f1(V[v].y)}" stroke="#5b3d22" stroke-width="7" stroke-linecap="round"/><line x1="${f1(p.x)}" y1="${f1(p.y)}" x2="${f1(V[v].x)}" y2="${f1(V[v].y)}" stroke="#b98a55" stroke-width="5" stroke-dasharray="3.5 1.5"/>`)});
+  s+=`<defs>${T.map(t=>`<clipPath id="hc${t.id}"><polygon points="${hexPoints(t.cx,t.cy,SIZE-2)}"/></clipPath>`).join('')}</defs>`;
+  T.forEach(t=>{
+    s+=`<g clip-path="url(#hc${t.id})"><g transform="translate(${f1(t.cx-62)},${f1(t.cy-62)}) scale(1.24)">${scene(t.res,t.seed)}</g><polygon points="${hexPoints(t.cx,t.cy,SIZE-2)}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3"/></g>`;
+    s+=`<polygon points="${hexPoints(t.cx,t.cy,SIZE-2)}" fill="none" stroke="rgba(70,45,10,.45)" stroke-width="1.3"/>`;
+    if(t.num){const red=t.num===6||t.num===8,p=pips(t.num),col=red?'#b3261e':'#22282b';
+      s+=`<ellipse cx="${f1(t.cx+1)}" cy="${f1(t.cy+3.5)}" rx="19" ry="18" fill="rgba(0,0,0,.35)"/><circle cx="${f1(t.cx)}" cy="${f1(t.cy)}" r="18.5" fill="url(#g-token)" stroke="#a68b54" stroke-width="1.4"/><circle cx="${f1(t.cx)}" cy="${f1(t.cy)}" r="15.5" fill="none" stroke="rgba(120,90,40,.18)"/>`+
+        `<text x="${f1(t.cx)}" y="${f1(t.cy+4)}" text-anchor="middle" font-size="${red?18:16.5}" font-weight="800" fill="${col}">${t.num}</text>`;
+      for(let i=0;i<p;i++)s+=`<circle cx="${f1(t.cx+(i-(p-1)/2)*4.3)}" cy="${f1(t.cy+11)}" r="1.5" fill="${col}"/>`;}
+  });
+  PORTS.forEach(p=>{
+    s+=`<ellipse cx="${f1(p.x+1)}" cy="${f1(p.y+3)}" rx="18" ry="17" fill="rgba(0,0,0,.3)"/><circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="17.5" fill="url(#g-token)" stroke="#6b4a26" stroke-width="2"/>`;
+    if(p.type==='any')s+=`<text x="${f1(p.x)}" y="${f1(p.y+1)}" text-anchor="middle" font-size="12.5" font-weight="800" fill="#2e2618">3:1</text><text x="${f1(p.x)}" y="${f1(p.y+10.5)}" text-anchor="middle" font-size="7" font-weight="800" fill="#7a6640" letter-spacing=".5">ANY</text>`;
+    else s+=`<g transform="translate(${f1(p.x-8)},${f1(p.y-15)}) scale(.67)"><rect width="24" height="24" rx="5" fill="url(#g-${p.type})"/>${glyph(p.type)}</g><text x="${f1(p.x)}" y="${f1(p.y+12)}" text-anchor="middle" font-size="9.5" font-weight="800" fill="#2e2618">2:1</text>`;
+  });
+  $('gStatic').innerHTML=s;
+}
+function seg(e){const a=V[e.a],b=V[e.b],k=.16;return[a.x+(b.x-a.x)*k,a.y+(b.y-a.y)*k,b.x-(b.x-a.x)*k,b.y-(b.y-a.y)*k].map(f1)}
+function drawDynamic(){
+  const pd=G.pending,my=G.cur===0;
+  let hi='',rd='',es='',bd='',vs='';
+  if(G.flash&&Date.now()<G.flash.until)T.forEach(t=>{if(t.num===G.flash.n&&t.id!==G.robber)hi+=`<polygon class="flash" points="${hexPoints(t.cx,t.cy,SIZE-4)}"/>`});
+  if(pd&&pd.kind==='robber')T.forEach(t=>{if(t.id!==G.robber)hi+=`<polygon class="tsel" data-t="${t.id}" points="${hexPoints(t.cx,t.cy,SIZE-7)}"/>`});
+  E.forEach(e=>{if(e.road===null)return;const [x1,y1,x2,y2]=seg(e),c=P[e.road].color,L=`x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-linecap="round"`;
+    rd+=`<line ${L} stroke="#111" stroke-width="11"/><line ${L} stroke="${c}" stroke-width="7.5"/><line ${L} stroke="${shade(c,.4)}" stroke-width="2" opacity=".7" transform="translate(-.8,-1.2)"/>`});
+  let edgeList=[];
+  if(pd&&pd.kind==='setupRoad')edgeList=E.filter(e=>canRoad(0,e.id,pd.data.v));
+  else if(!pd&&my&&(G.mode==='road'||G.mode==='freeRoad'))edgeList=E.filter(e=>canRoad(0,e.id));
+  edgeList.forEach(e=>{const [x1,y1,x2,y2]=seg(e);es+=`<line class="espot" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/><line class="ehit" data-e="${e.id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`});
+  V.forEach(v=>{if(!v.b)return;const c=P[v.b.o].color;bd+=v.b.city?city(v.x,v.y-2,c,1.05):house(v.x,v.y-2,c,1.15)});
+  let vl=[];
+  if(pd&&pd.kind==='setupSettlement')vl=V.filter(v=>canSettle(0,v.id,true));
+  else if(!pd&&my&&G.mode==='settlement')vl=V.filter(v=>canSettle(0,v.id,false));
+  else if(!pd&&my&&G.mode==='city')vl=V.filter(v=>v.b&&v.b.o===0&&!v.b.city);
+  vl.forEach(v=>vs+=`<circle class="vspot" cx="${f1(v.x)}" cy="${f1(v.y)}" r="${G.mode==='city'?16:10}" ${G.mode==='city'?'fill-opacity=".3"':''}/><circle class="vhit" data-v="${v.id}" cx="${f1(v.x)}" cy="${f1(v.y)}" r="21"/>`);
+  const rt=T[G.robber];
+  const rb=`<g transform="translate(${f1(rt.cx+31)},${f1(rt.cy+10)})"><ellipse cx="0" cy="15" rx="11" ry="3.6" fill="rgba(0,0,0,.4)"/><path d="M-9 14 Q-10 1 -4.5 -2.5 A7 7 0 1 1 4.5 -2.5 Q10 1 9 14 Z" fill="url(#g-robber)" stroke="#0b0b0d" stroke-width="1.2"/><ellipse cx="0" cy="14" rx="9" ry="2.3" fill="#2a2c32"/><ellipse cx="-3" cy="-12" rx="2" ry="3" fill="#fff" opacity=".22"/></g>`;
+  $('gHi').innerHTML=hi;$('gRoads').innerHTML=rd;$('gEdge').innerHTML=es;$('gBld').innerHTML=bd;$('gVert').innerHTML=vs;$('gRobber').innerHTML=rb;
+}
+
+/* ---------- rules ---------- */
+const total=p=>sumObj(p.hand);
+const canAfford=(p,c)=>RES.every(r=>p.hand[r]>=(c[r]||0));
+function pay(p,c){RES.forEach(r=>{const n=c[r]||0;p.hand[r]-=n;G.bank[r]+=n})}
+function gain(p,r,n){n=Math.min(n,G.bank[r]);p.hand[r]+=n;G.bank[r]-=n;return n}
+function distanceOk(v){return !V[v].b&&V[v].adj.every(a=>!V[a].b)}
+function canSettle(pid,v,setup){if(!distanceOk(v))return false;if(setup)return true;if(P[pid].setsLeft<=0)return false;return V[v].edges.some(e=>E[e].road===pid)}
+function canRoad(pid,e,fromV){const ed=E[e];if(ed.road!==null||P[pid].roadsLeft<=0)return false;
+  if(fromV!=null)return ed.a===fromV||ed.b===fromV;
+  return [ed.a,ed.b].some(v=>{const vv=V[v];if(vv.b)return vv.b.o===pid;return vv.edges.some(x=>x!==e&&E[x].road===pid)})}
+function rateFor(pid,r){let rate=4;V.forEach(v=>{if(v.b&&v.b.o===pid&&v.port){if(v.port==='any')rate=Math.min(rate,3);else if(v.port===r)rate=2}});return rate}
+function vp(p,withHidden=true){let s=0;V.forEach(v=>{if(v.b&&v.b.o===p.id)s+=v.b.city?2:1});if(G.longest===p.id)s+=2;if(G.army===p.id)s+=2;if(withHidden)s+=p.dev.filter(d=>d.type==='vp').length;return s}
+function tag(p){return p.human?'<b>You</b>':`<b style="color:${p.color}">${p.name}</b>`}
+function fmt(o){return RES.filter(r=>o[r]).map(r=>`${o[r]} ${RNAME[r]}`).join(', ')}
+function tileName(t){return t.res==='desert'?'the desert':`the ${t.num} ${RNAME[t.res]} tile`}
+function longestRoad(pid){
+  let best=0;
+  function dfs(v,used,len){best=Math.max(best,len);
+    for(const eid of V[v].edges){const e=E[eid];if(e.road!==pid||used.has(eid))continue;const nv=e.a===v?e.b:e.a;used.add(eid);
+      if(V[nv].b&&V[nv].b.o!==pid)best=Math.max(best,len+1);else dfs(nv,used,len+1);used.delete(eid);}}
+  E.forEach(e=>{if(e.road===pid){dfs(e.a,new Set(),0);dfs(e.b,new Set(),0)}});
+  return best;
+}
+function updateLongest(){
+  const L=P.map(p=>longestRoad(p.id));P.forEach((p,i)=>p.roadLen=L[i]);
+  const max=Math.max(...L),prev=G.longest;
+  if(prev>=0&&L[prev]>=5&&L[prev]===max)return;
+  const top=P.filter((p,i)=>L[i]===max&&max>=5);
+  G.longest=top.length===1?top[0].id:-1;
+  if(G.longest!==prev){if(G.longest>=0)log(`${tag(P[G.longest])} ${P[G.longest].human?'take':'takes'} Longest Road with ${max} roads. +2 points.`);else log(`Nobody holds Longest Road now.`)}
+}
+function updateArmy(p){if(p.knights>=3&&G.army!==p.id&&(G.army<0||p.knights>P[G.army].knights)){G.army=p.id;log(`${tag(p)} ${p.human?'take':'takes'} Largest Army with ${p.knights} knights. +2 points.`)}}
+function buildSettlement(p,v,free){if(!free)pay(p,COST.settlement);V[v].b={o:p.id,city:false};p.setsLeft--;updateLongest()}
+function buildCity(p,v){pay(p,COST.city);V[v].b.city=true;p.citiesLeft--;p.setsLeft++}
+function buildRoad(p,e,free){if(!free)pay(p,COST.road);E[e].road=p.id;p.roadsLeft--;updateLongest()}
+function buyDev(p){pay(p,COST.dev);const t=G.deck.pop();p.dev.push({type:t,turn:G.turnNo});return t}
+function canPlayDev(p,type){return G.phase==='main'&&G.cur===p.id&&!G.devPlayed&&!G.pending&&G.mode!=='freeRoad'&&type!=='vp'&&p.dev.some(d=>d.type===type&&d.turn<G.turnNo)&&(type!=='road'||p.roadsLeft>0)}
+function useDev(p,type){const i=p.dev.findIndex(d=>d.type===type&&d.turn<G.turnNo);p.dev.splice(i,1);G.devPlayed=true}
+function steal(from,to){const pool=RES.flatMap(r=>Array(from.hand[r]).fill(r));const r=pool[rand(pool.length)];from.hand[r]--;to.hand[r]++;return r}
+function produce(sum){
+  const gains=P.map(()=>zero());
+  T.forEach(t=>{if(t.num!==sum||t.id===G.robber)return;t.verts.forEach(v=>{const b=V[v].b;if(b)gains[b.o][t.res]+=b.city?2:1})});
+  RES.forEach(r=>{const demand=gains.reduce((s,g)=>s+g[r],0);if(!demand||demand<=G.bank[r])return;
+    const takers=gains.filter(g=>g[r]>0);if(takers.length===1)takers[0][r]=G.bank[r];else{gains.forEach(g=>g[r]=0);log(`The bank is short of ${RNAME[r]}, so nobody collects it.`)}});
+  let any=false;
+  gains.forEach((g,i)=>{if(!sumObj(g))return;any=true;RES.forEach(r=>{if(g[r])gain(P[i],r,g[r])});log(`${tag(P[i])} ${P[i].human?'collect':'collects'} ${fmt(g)}.`)});
+  if(!any)log(`Nobody collects anything.`);
+}
+async function roll(){
+  const a=1+rand(6),b=1+rand(6),p=P[G.cur];G.dice=[a,b];G.rolled=true;G.diceAnim=true;
+  G.flash={n:a+b,until:Date.now()+1900};setTimeout(()=>G&&render(),1950);
+  log(`${tag(p)} rolled <b>${a+b}</b>.`);render();
+  if(a+b===7)await handleSeven();else produce(a+b);
+  render();
+}
+async function handleSeven(){
+  const g=G;
+  for(const o of P){const n=total(o);if(n>7){const k=Math.floor(n/2);
+    if(o.human)await humanDiscard(k);else{botDiscard(o,k);log(`${tag(o)} discarded ${k} cards.`)}
+    if(G!==g)return;}}
+  render();await moveRobber(P[G.cur]);
+}
+async function moveRobber(p){
+  const g=G;let t;
+  if(p.human)t=await waitFor('robber');else{await sleep(500);t=botRobberTile(p)}
+  if(G!==g)return;
+  G.robber=t;log(`${tag(p)} moved the robber to ${tileName(T[t])}.`);
+  const victims=P.filter(o=>o!==p&&total(o)>0&&T[t].verts.some(v=>V[v].b&&V[v].b.o===o.id));
+  render();
+  if(!victims.length)return;
+  let vic;
+  if(p.human)vic=victims.length>1?await chooseVictim(victims):victims[0];
+  else vic=victims.sort((a,b)=>vp(b,false)-vp(a,false)||total(b)-total(a))[0];
+  if(G!==g)return;
+  const r=steal(vic,p);
+  log(p.human?`You stole 1 ${RNAME[r]} from ${tag(vic)}.`:vic.human?`${tag(p)} stole 1 ${RNAME[r]} from you.`:`${tag(p)} stole a card from ${tag(vic)}.`);
+  if(vic.human)toast(`${p.name} stole 1 ${RNAME[r]} from you.`);
+  render();
+}
+function checkWin(){
+  if(G.phase==='over')return true;if(G.phase!=='main')return false;
+  const p=P[G.cur];if(vp(p)>=10){G.phase='over';G.winner=p.id;G.mode=null;log(`${tag(p)} reached ${vp(p)} points. Game over.`);render();setTimeout(showWin,600);return true}
+  return false;
+}
+
+/* ---------- turns ---------- */
+function waitFor(kind,data){return new Promise(res=>{G.pending={kind,data,resolve:res};render()})}
+function resolvePending(v){const p=G.pending;G.pending=null;p.resolve(v)}
+async function runSetup(){
+  const g=G,order=[0,1,2,3,3,2,1,0];
+  for(let i=0;i<8;i++){
+    const p=P[order[i]];G.cur=p.id;G.setupRound=i<4?1:2;render();
+    let v,e;
+    if(p.human)v=await waitFor('setupSettlement');else{await sleep(700);if(G!==g)return;v=botBestSpot(p,true)}
+    if(G!==g)return;
+    buildSettlement(p,v,true);
+    if(i>=4){const got=zero();V[v].hexes.forEach(h=>{const t=T[h];if(t.res!=='desert')got[t.res]+=gain(p,t.res,1)});log(`${tag(p)} placed a second settlement and ${p.human?'collect':'collects'} ${fmt(got)||'nothing'}.`)}
+    else log(`${tag(p)} placed a settlement.`);
+    render();
+    if(p.human)e=await waitFor('setupRoad',{v});else{await sleep(450);if(G!==g)return;e=botSetupRoad(p,v)}
+    if(G!==g)return;
+    buildRoad(p,e,true);render();
+  }
+  G.phase='main';G.cur=0;G.turnNo=0;log(`Setup done. Your turn first.`);startTurn();
+}
+function startTurn(){G.rolled=false;G.devPlayed=false;G.mode=null;G.freeRoads=0;G.turnNo++;render();if(!P[G.cur].human)botTurn(P[G.cur])}
+function endTurn(){if(G.phase!=='main')return;G.mode=null;G.freeRoads=0;G.cur=(G.cur+1)%4;startTurn()}
+
+/* ---------- bots ---------- */
+function production(pid){const pr=zero();V.forEach(v=>{if(v.b&&v.b.o===pid)v.hexes.forEach(h=>{const t=T[h];if(t.res!=='desert')pr[t.res]+=pips(t.num)*(v.b.city?2:1)})});return pr}
+function spotValue(pid,vid,pr){pr=pr||production(pid);let s=0;
+  V[vid].hexes.forEach(h=>{const t=T[h];if(t.res==='desert')return;s+=pips(t.num)*(pr[t.res]<3?1.45:1)*(t.id===G.robber?.35:1)*(t.res==='brick'||t.res==='wood'?1.08:1)});
+  const port=V[vid].port;if(port)s+=port==='any'?1.4:(pr[port]>=5?3:.7);return s}
+function botBestSpot(p,setup){const pr=production(p.id);let best=null,bs=-1;V.forEach(v=>{if(!canSettle(p.id,v.id,setup))return;const s=spotValue(p.id,v.id,pr)+Math.random()*.3;if(s>bs){bs=s;best=v.id}});return best}
+function botSetupRoad(p,v){const pr=production(p.id);let best=null,bs=-1;
+  V[v].edges.forEach(eid=>{if(E[eid].road!==null)return;const e=E[eid],nv=e.a===v?e.b:e.a;let s=0;
+    V[nv].adj.forEach(w=>{if(w!==v&&distanceOk(w))s=Math.max(s,spotValue(p.id,w,pr))});s+=Math.random()*.2;if(s>bs){bs=s;best=eid}});
+  return best??V[v].edges.find(x=>E[x].road===null)}
+function botRoadTarget(p){const pr=production(p.id);let best=null,bs=-1;
+  E.forEach(e=>{if(!canRoad(p.id,e.id))return;let s=0;
+    [e.a,e.b].forEach(v=>{if(distanceOk(v))s=Math.max(s,spotValue(p.id,v,pr)*1.2);V[v].adj.forEach(w=>{if(distanceOk(w))s=Math.max(s,spotValue(p.id,w,pr)*.75)})});
+    s+=Math.random()*.4;if(s>bs){bs=s;best=e.id}});
+  return best}
+function botGoal(p){
+  const hasSet=V.some(v=>v.b&&v.b.o===p.id&&!v.b.city);
+  const spots=p.setsLeft>0&&V.some(v=>canSettle(p.id,v.id,false));
+  if(hasSet&&p.citiesLeft>0&&(p.hand.ore>=2||production(p.id).ore>=5))return 'city';
+  if(spots)return 'settlement';
+  if(p.roadsLeft>0&&p.setsLeft>0&&botRoadTarget(p)!=null)return 'road';
+  if(hasSet&&p.citiesLeft>0)return 'city';
+  return 'dev';
+}
+function botBankTrade(p,goal){
+  const need=COST[goal];const missing=RES.filter(r=>p.hand[r]<(need[r]||0));if(!missing.length)return false;
+  for(const r of shuffle(RES.slice())){const rate=rateFor(p.id,r);const extra=p.hand[r]-(need[r]||0);
+    if(extra>=rate){const want=missing.find(m=>G.bank[m]>0);if(!want)return false;
+      p.hand[r]-=rate;G.bank[r]+=rate;gain(p,want,1);log(`${tag(p)} traded ${rate} ${RNAME[r]} to the bank for 1 ${RNAME[want]}.`);return true}}
+  return false;
+}
+function botAct(p){
+  const goal=botGoal(p);
+  if(canAfford(p,COST.city)&&p.citiesLeft>0){const sets=V.filter(v=>v.b&&v.b.o===p.id&&!v.b.city);
+    if(sets.length){const pr=zero();sets.sort((a,b)=>spotValue(p.id,b.id,pr)-spotValue(p.id,a.id,pr));buildCity(p,sets[0].id);log(`${tag(p)} upgraded a settlement to a city.`);return true}}
+  if(canAfford(p,COST.settlement)){const v=botBestSpot(p,false);if(v!=null){buildSettlement(p,v);log(`${tag(p)} built a settlement.`);return true}}
+  if(canAfford(p,COST.road)&&p.roadsLeft>0&&(goal==='road'||(goal!=='city'&&total(p)>=8))){const e=botRoadTarget(p);if(e!=null){buildRoad(p,e);log(`${tag(p)} built a road.`);return true}}
+  if(canAfford(p,COST.dev)&&G.deck.length&&(goal==='dev'||total(p)>=8||(goal==='road'&&Math.random()<.4))){buyDev(p);log(`${tag(p)} bought a development card.`);return true}
+  if(botBankTrade(p,goal))return true;
+  if(goal!=='dev'&&total(p)>=7&&canAfford(p,COST.dev)&&G.deck.length){buyDev(p);log(`${tag(p)} bought a development card.`);return true}
+  return false;
+}
+async function botKnight(p){useDev(p,'knight');p.knights++;log(`${tag(p)} played a Knight.`);updateArmy(p);render();await moveRobber(p)}
+async function botMaybeDev(p){
+  if(G.devPlayed)return;
+  const robOwn=T[G.robber].verts.some(v=>V[v].b&&V[v].b.o===p.id);
+  if(canPlayDev(p,'knight')&&(robOwn||(G.army!==p.id&&p.knights+1>=3&&(G.army<0||p.knights+1>P[G.army].knights))||Math.random()<.3)){await botKnight(p);return}
+  if(canPlayDev(p,'mono')){let best=null,bc=0;RES.forEach(r=>{const c=P.reduce((s,o)=>o!==p?s+o.hand[r]:s,0);if(c>bc){bc=c;best=r}});
+    if(bc>=4){useDev(p,'mono');let got=0,mine=P[0].hand[best];P.forEach(o=>{if(o!==p){got+=o.hand[best];p.hand[best]+=o.hand[best];o.hand[best]=0}});log(`${tag(p)} played Monopoly on ${RNAME[best]} and took ${got}.`);if(mine)toast(`${p.name} played Monopoly and took your ${mine} ${RNAME[best]}.`);return}}
+  if(canPlayDev(p,'plenty')){const need=COST[botGoal(p)];const want=[];RES.forEach(r=>{for(let k=p.hand[r];k<(need[r]||0);k++)want.push(r)});
+    while(want.length<2)want.push(['ore','grain','wood','brick'][rand(4)]);
+    useDev(p,'plenty');const got=zero();want.slice(0,2).forEach(r=>got[r]+=gain(p,r,1));log(`${tag(p)} played Year of Plenty and took ${fmt(got)||'nothing'}.`);return}
+  if(canPlayDev(p,'road')&&botRoadTarget(p)!=null&&['road','settlement'].includes(botGoal(p))){
+    useDev(p,'road');log(`${tag(p)} played Road Building.`);
+    for(let k=0;k<2&&p.roadsLeft>0;k++){const e=botRoadTarget(p);if(e==null)break;buildRoad(p,e,true);render();await sleep(400)}}
+}
+function botDiscard(p,k){for(let i=0;i<k;i++){const r=RES.slice().sort((a,b)=>p.hand[b]-p.hand[a]||Math.random()-.5)[0];p.hand[r]--;G.bank[r]++}}
+function botRobberTile(p){let best=null,bs=-1e9;
+  T.forEach(t=>{if(t.id===G.robber)return;let s=Math.random()*.5;
+    t.verts.forEach(v=>{const b=V[v].b;if(!b)return;if(b.o===p.id)s-=60;else s+=pips(t.num)*(b.city?2:1)*(1+vp(P[b.o],false)/4)+(total(P[b.o])?1.5:0)});
+    if(s>bs){bs=s;best=t.id}});return best}
+async function botTurn(p){
+  const g=G;
+  await sleep(650);if(G!==g)return;
+  if(T[G.robber].verts.some(v=>V[v].b&&V[v].b.o===p.id)&&canPlayDev(p,'knight')){await botKnight(p);if(G!==g||checkWin())return;await sleep(400)}
+  await roll();if(G!==g||G.phase==='over')return;
+  await sleep(900);if(G!==g)return;
+  await botMaybeDev(p);if(G!==g)return;render();if(checkWin())return;
+  for(let i=0;i<14;i++){const did=botAct(p);render();if(checkWin())return;if(!did)break;await sleep(650);if(G!==g)return}
+  await sleep(450);if(G!==g)return;endTurn();
+}
+function botValues(p){const need=COST[botGoal(p)],v={};RES.forEach(r=>{const n=need[r]||0;v[r]=1+Math.max(0,n-p.hand[r])*1.2-Math.max(0,p.hand[r]-n-1)*.25});return v}
+function botConsider(p,give,get){
+  if(!RES.every(r=>p.hand[r]>=get[r]))return 'cards';
+  if(vp(P[0])>=8)return 'leader';
+  const v=botValues(p);const inV=RES.reduce((s,r)=>s+give[r]*v[r],0),outV=RES.reduce((s,r)=>s+get[r]*v[r],0);
+  return inV>outV+.1?'yes':'no';
+}
+
+/* ---------- human input ---------- */
+function modal(html,bind){$('mbody').innerHTML=html;$('overlay').hidden=false;bind&&bind($('mbody'))}
+function closeModal(){$('overlay').hidden=true}
+function pickModal({title,text,n,max,btn}){return new Promise(res=>{const sel=zero();
+  const draw=()=>{const c=sumObj(sel);modal(`<h2>${title}</h2><p>${text}</p><div class="pick">${RES.map(r=>`<div class="pr">${icon(r,26)}<span>${RNAME[r]}</span><span class="have">${max(r)} available</span><div class="step"><button data-m="${r}" ${sel[r]<=0?'disabled':''} aria-label="Less ${RNAME[r]}">−</button><b>${sel[r]}</b><button data-p="${r}" ${sel[r]>=max(r)||c>=n?'disabled':''} aria-label="More ${RNAME[r]}">+</button></div></div>`).join('')}</div><button class="btn primary" id="mok" ${c!==n?'disabled':''}>${btn} (${c}/${n})</button>`,
+    m=>{m.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{sel[b.dataset.m]--;draw()});m.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{sel[b.dataset.p]++;draw()});m.querySelector('#mok').onclick=()=>{closeModal();res(sel)}})};
+  draw()})}
+async function humanDiscard(k){const me=P[0];const sel=await pickModal({title:`Discard ${k} cards`,text:'A 7 was rolled and you hold more than 7 cards. Choose which half to give back.',n:k,max:r=>me.hand[r],btn:'Discard'});
+  RES.forEach(r=>{me.hand[r]-=sel[r];G.bank[r]+=sel[r]});log(`You discarded ${fmt(sel)}.`);render()}
+function chooseVictim(vs){return new Promise(res=>modal(`<h2>Steal from whom?</h2><p>Pick a rival with a building on that tile. You take one random card.</p><div class="choices">${vs.map(v=>`<button class="btn" data-id="${v.id}"><span style="width:12px;height:12px;border-radius:3px;background:${v.color}"></span>${v.name} · ${total(v)} cards</button>`).join('')}</div>`,
+  m=>m.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{closeModal();res(P[+b.dataset.id])})))}
+function monoModal(){return new Promise(res=>modal(`<h2>Monopoly</h2><p>Name a resource. Every rival gives you all of theirs.</p><div class="choices">${RES.map(r=>`<button class="btn" data-r="${r}">${icon(r,20)}${RNAME[r]}</button>`).join('')}</div>`,
+  m=>m.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{closeModal();res(b.dataset.r)})))}
+async function humanPlayDev(type){
+  const me=P[0];if(!canPlayDev(me,type))return;useDev(me,type);log(`You played ${DEVNAME[type]}.`);G.sheet=null;
+  if(type==='knight'){me.knights++;updateArmy(me);render();await moveRobber(me)}
+  else if(type==='road'){G.freeRoads=Math.min(2,me.roadsLeft);G.mode='freeRoad';if(!E.some(e=>canRoad(0,e.id))){G.mode=null;G.freeRoads=0;toast('No legal spot for a road.')}}
+  else if(type==='plenty'){const n=Math.min(2,sumObj(G.bank));const sel=await pickModal({title:'Year of Plenty',text:'Take any 2 resources from the bank.',n,max:r=>G.bank[r],btn:'Take'});RES.forEach(r=>sel[r]&&gain(me,r,sel[r]));log(`You took ${fmt(sel)}.`)}
+  else if(type==='mono'){const r=await monoModal();let got=0;P.forEach(o=>{if(o!==me){got+=o.hand[r];me.hand[r]+=o.hand[r];o.hand[r]=0}});log(`You took ${got} ${RNAME[r]} with Monopoly.`)}
+  render();checkWin();
+}
+function myTurnFree(){return G.phase==='main'&&G.cur===0&&!G.pending}
+$('board').addEventListener('click',ev=>{
+  const el=ev.target.closest('[data-v],[data-e],[data-t]');if(!el)return;const pd=G.pending,me=P[0];
+  if(el.dataset.t!=null){if(pd&&pd.kind==='robber')resolvePending(+el.dataset.t);return}
+  if(el.dataset.v!=null){const v=+el.dataset.v;
+    if(pd&&pd.kind==='setupSettlement'){resolvePending(v);return}
+    if(G.mode==='settlement'&&canAfford(me,COST.settlement)&&canSettle(0,v,false)){buildSettlement(me,v);log('You built a settlement.');G.mode=null}
+    else if(G.mode==='city'&&canAfford(me,COST.city)){buildCity(me,v);log('You upgraded a settlement to a city.');G.mode=null}
+    render();checkWin();return}
+  if(el.dataset.e!=null){const e=+el.dataset.e;
+    if(pd&&pd.kind==='setupRoad'){resolvePending(e);return}
+    if(G.mode==='freeRoad'){buildRoad(me,e,true);log('You built a free road.');G.freeRoads--;if(G.freeRoads<=0||!E.some(x=>canRoad(0,x.id))){G.mode=null;G.freeRoads=0}}
+    else if(G.mode==='road'&&canAfford(me,COST.road)){buildRoad(me,e);log('You built a road.');if(!canAfford(me,COST.road)||!E.some(x=>canRoad(0,x.id)))G.mode=null}
+    render();checkWin()}
+});
+async function doRoll(){if(myTurnFree()&&!G.rolled&&G.mode!=='freeRoad'){await roll();checkWin()}}
+function doEnd(){if(myTurnFree()&&G.rolled&&G.mode!=='freeRoad')endTurn()}
+$('rollBtn').onclick=doRoll;$('endBtn').onclick=doEnd;
+$('actions').addEventListener('click',ev=>{const b=ev.target.closest('[data-b]');if(!b||b.disabled)return;const k=b.dataset.b,me=P[0];
+  if(k==='trade'){openSheet('trade');return}
+  if(k==='dev'){const t=buyDev(me);log(`You bought a development card: ${DEVNAME[t]}.`);toast(`You drew ${DEVNAME[t]}.`)}
+  else G.mode=G.mode===k?null:k;
+  render();checkWin()});
+$('hand').addEventListener('click',ev=>{if(ev.target.closest('.devback'))openSheet('dev')});
+$('bLog').onclick=()=>openSheet('log');$('bRules').onclick=()=>openSheet('rules');
+$('sheetClose').onclick=()=>{G.sheet=null;render()};
+$('tabs').addEventListener('click',ev=>{const b=ev.target.closest('[data-tab]');if(b)openSheet(b.dataset.tab)});
+$('bFull').onclick=()=>{const d=document;if(d.fullscreenElement){d.exitFullscreen?.()}else{const p=d.documentElement.requestFullscreen?.();if(p)p.catch(()=>toast('Fullscreen isn’t available here. The board already fills the window.'));else toast('Fullscreen isn’t available here. The board already fills the window.')}};
+function openSheet(t){G.sheet=t;render()}
+$('sheetBody').addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b||b.disabled)return;const me=P[0];
+  if(b.dataset.play){humanPlayDev(b.dataset.play);return}
+  if(b.dataset.gp)tradeGive[b.dataset.gp]++;else if(b.dataset.gm)tradeGive[b.dataset.gm]--;
+  else if(b.dataset.tp)tradeGet[b.dataset.tp]++;else if(b.dataset.tm)tradeGet[b.dataset.tm]--;
+  else if(b.id==='tClear'){tradeGive=zero();tradeGet=zero()}
+  else if(b.id==='tBank'){if(bankValid()){RES.forEach(r=>{me.hand[r]+=tradeGet[r]-tradeGive[r];G.bank[r]+=tradeGive[r]-tradeGet[r]});log(`You traded ${fmt(tradeGive)} to the bank for ${fmt(tradeGet)}.`);toast('Trade done.');tradeGive=zero();tradeGet=zero()}}
+  else if(b.id==='tOffer')offerTrade();
+  render()});
+document.addEventListener('keydown',ev=>{if(ev.target.closest('input,select,textarea')||!$('overlay').hidden)return;
+  const k=ev.key.toLowerCase();if(k==='r')doRoll();else if(k==='e')doEnd();else if(k==='escape'){if(G.sheet)G.sheet=null;else if(G.mode&&G.mode!=='freeRoad')G.mode=null;render()}});
+function bankValid(){const me=P[0];let credits=0;
+  for(const r of RES){if(tradeGive[r]){if(tradeGive[r]>me.hand[r]||tradeGive[r]%rateFor(0,r)||tradeGet[r])return false;credits+=tradeGive[r]/rateFor(0,r)}if(tradeGet[r]>G.bank[r])return false}
+  return credits>0&&credits===sumObj(tradeGet)}
+function offerTrade(){const me=P[0];if(!sumObj(tradeGive)||!sumObj(tradeGet))return;
+  const replies=P.slice(1).map(b=>({b,r:botConsider(b,tradeGive,tradeGet)}));const yes=replies.filter(x=>x.r==='yes');
+  if(yes.length){const b=yes[rand(yes.length)].b;RES.forEach(r=>{me.hand[r]+=tradeGet[r]-tradeGive[r];b.hand[r]+=tradeGive[r]-tradeGet[r]});
+    log(`${tag(b)} accepted: you gave ${fmt(tradeGive)} for ${fmt(tradeGet)}.`);toast(`${b.name} accepted your trade.`);tradeGive=zero();tradeGet=zero()}
+  else toast(replies.map(x=>`${x.b.name}: ${x.r==='cards'?"doesn't have that":x.r==='leader'?"won't help the leader":'no thanks'}`).join(' · '))}
+
+/* ---------- render ---------- */
+function log(html){G.log.push(html);if(G.log.length>150)G.log.shift()}
+let toastT;function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,3200)}
+function hintText(){
+  if(G.phase==='over')return `${G.winner===0?'You win':P[G.winner].name+' wins'}. Tap New game to play again.`;
+  const pd=G.pending;
+  if(pd&&pd.kind==='setupSettlement')return `Tap a glowing corner to place your ${G.setupRound===1?'first':'second'} settlement.${G.setupRound===2?' It pays out right away.':''}`;
+  if(pd&&pd.kind==='setupRoad')return 'Tap a glowing edge to place a road next to it.';
+  if(pd&&pd.kind==='robber')return 'Tap a tile to move the robber there.';
+  if(G.cur!==0)return `${P[G.cur].name} is playing…`;
+  if(G.mode==='freeRoad')return `Place ${G.freeRoads} more free road${G.freeRoads>1?'s':''}.`;
+  if(G.mode==='road')return 'Tap a glowing edge to build a road.';
+  if(G.mode==='settlement')return 'Tap a glowing corner to build a settlement.';
+  if(G.mode==='city')return 'Tap one of your settlements to make it a city.';
+  if(!G.rolled)return 'Your turn. Roll the dice.';
+  return 'Build, trade or play a card, then end your turn.';
+}
+function render(){
+  drawDynamic();
+  const cp=P[G.cur],me=P[0],free=myTurnFree();
+  // players
+  $('players').innerHTML=P.map(p=>{const pts=p.human||G.phase==='over'?vp(p):vp(p,false);
+    return `<div class="pchip ${p.id===G.cur&&G.phase!=='over'?'cur':''} ${p.human?'':'bot'}" style="--pc:${p.color}"><div class="av">${p.human?'You':p.name[0]}</div><div><div class="nm">${p.human?'You':p.name}${G.longest===p.id?'<span class="badge" title="Longest Road">Road</span>':''}${G.army===p.id?'<span class="badge" title="Largest Army">Army</span>':''}</div><div class="meta">${total(p)} cards · ${p.dev.length} dev · road ${p.roadLen}${p.knights?` · ${p.knights} kn`:''}</div></div><div class="vp">${pts}<small>PTS</small></div></div>`}).join('');
+  // board overlays
+  $('hint').textContent=hintText();
+  $('ticker').innerHTML=G.log.slice(-3).map(l=>`<li>${l}</li>`).join('');
+  // dice
+  $('dice').innerHTML=dieSVG(G.dice[0])+dieSVG(G.dice[1]);
+  if(G.diceAnim){G.diceAnim=false;const d=$('dice');d.classList.remove('anim');void d.offsetWidth;d.classList.add('anim')}
+  $('rollBtn').disabled=!(free&&!G.rolled&&G.mode!=='freeRoad');
+  $('endBtn').disabled=!(free&&G.rolled&&G.mode!=='freeRoad');
+  // hand
+  const now=Date.now(),prev=lastHand||me.hand;
+  RES.forEach(r=>{const d=me.hand[r]-prev[r];if(d){const b=bubbles[r];bubbles[r]={d:(b&&b.until>now?b.d:0)+d,until:now+1800,fresh:true};setTimeout(()=>G&&render(),1850)}});
+  lastHand={...me.hand};
+  $('hand').innerHTML=RES.map(r=>{const b=bubbles[r]&&bubbles[r].until>now?bubbles[r]:null;const fresh=b&&b.fresh;if(b)b.fresh=false;
+    return `<div class="rcard ${me.hand[r]?'':'zero'} ${fresh&&b.d>0?'gain':''}" title="${RNAME[r]}"><div class="art"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">${scene(r,r.length*977+31)}</svg><div class="lab">${RNAME[r]}</div></div><span class="cnt">${me.hand[r]}</span>${fresh?`<span class="bub ${b.d>0?'plus':'minus'}">${b.d>0?'+':''}${b.d}</span>`:''}</div>`}).join('')
+    +`<span class="sep"></span><button class="rcard devback" title="Your development cards"><div class="art"><svg viewBox="0 0 60 84" width="70%" aria-hidden="true"><polygon points="30,14 50,26 50,50 30,62 10,50 10,26" fill="none" stroke="#f0c34d" stroke-width="2.5"/><polygon points="30,24 41,31 41,45 30,52 19,45 19,31" fill="#f0c34d" opacity=".85"/><text x="30" y="77" text-anchor="middle" font-size="9" font-weight="800" fill="#f0c34d" letter-spacing="1">DEV</text></svg></div><span class="cnt">${me.dev.length}</span></button>`;
+  // actions
+  const can=free&&G.rolled&&G.mode!=='freeRoad';
+  const ok={road:can&&canAfford(me,COST.road)&&E.some(e=>canRoad(0,e.id)),
+    settlement:can&&canAfford(me,COST.settlement)&&V.some(v=>canSettle(0,v.id,false)),
+    city:can&&canAfford(me,COST.city)&&me.citiesLeft>0&&V.some(v=>v.b&&v.b.o===0&&!v.b.city),
+    dev:can&&canAfford(me,COST.dev)&&G.deck.length>0};
+  const art={road:`<svg class="bi" viewBox="-15 -12 30 24"><line x1="-11" y1="6" x2="11" y2="-6" stroke="#111" stroke-width="7" stroke-linecap="round"/><line x1="-11" y1="6" x2="11" y2="-6" stroke="${me.color}" stroke-width="4.5" stroke-linecap="round"/></svg>`,
+    settlement:`<svg class="bi" viewBox="-15 -12 30 24">${house(0,0,me.color,1)}</svg>`,city:`<svg class="bi" viewBox="-17 -21 34 34">${city(0,0,me.color,1)}</svg>`,
+    dev:`<svg class="bi" viewBox="0 0 30 24"><rect x="8" y="1" width="15" height="22" rx="2.5" fill="#1f2c5c" stroke="#f0c34d"/><polygon points="15.5,6 20,8.6 20,13.8 15.5,16.4 11,13.8 11,8.6" fill="#f0c34d"/></svg>`,
+    trade:`<svg class="bi" viewBox="0 0 30 24"><path d="M5 8h17l-4-4M25 16H8l4 4" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`};
+  const nm={road:'Road',settlement:'Settlement',city:'City',dev:'Dev card'};
+  $('actions').innerHTML=['road','settlement','city','dev'].map(k=>`<button class="act ${G.mode===k?'on':''}" data-b="${k}" ${ok[k]||G.mode===k?'':'disabled'} title="${G.mode===k?'Cancel':'Build '+nm[k].toLowerCase()}">${art[k]}<strong>${G.mode===k?'Cancel':nm[k]}</strong>${costIcons(COST[k])}</button>`).join('')
+    +`<button class="act" data-b="trade" title="Trade with the bank or rivals">${art.trade}<strong>Trade</strong><span class="cost" style="font-size:10.5px;color:var(--muted)">bank · rivals</span></button>`;
+  renderSheet();
+}
+function renderSheet(){
+  const sh=$('sheet');if(!G.sheet){sh.hidden=true;return}sh.hidden=false;
+  const tabs={trade:'Trade',dev:'Dev cards',log:'Log',rules:'Rules'};
+  $('tabs').innerHTML=Object.entries(tabs).map(([k,v])=>`<button class="tab ${G.sheet===k?'on':''}" data-tab="${k}">${v}</button>`).join('');
+  const me=P[0],can=myTurnFree()&&G.rolled&&G.mode!=='freeRoad';let h='';
+  if(G.sheet==='trade'){
+    h=`<p class="note">${can?'Choose what you give and what you want. The rate under each resource is what the bank charges you.':'You can trade on your turn after rolling the dice.'}</p>
+     <div class="trade"><span></span>${RES.map(r=>`<div class="hd">${icon(r,26)}<span>have <b>${me.hand[r]}</b></span><span>${rateFor(0,r)}:1</span></div>`).join('')}
+     <span class="tl">You give</span>${RES.map(r=>`<div class="step"><button data-gm="${r}" ${!can||tradeGive[r]<=0?'disabled':''} aria-label="Give less ${RNAME[r]}">−</button><b>${tradeGive[r]}</b><button data-gp="${r}" ${!can||tradeGive[r]>=me.hand[r]?'disabled':''} aria-label="Give more ${RNAME[r]}">+</button></div>`).join('')}
+     <span class="tl">You get</span>${RES.map(r=>`<div class="step"><button data-tm="${r}" ${!can||tradeGet[r]<=0?'disabled':''} aria-label="Get less ${RNAME[r]}">−</button><b>${tradeGet[r]}</b><button data-tp="${r}" ${!can?'disabled':''} aria-label="Get more ${RNAME[r]}">+</button></div>`).join('')}</div>
+     <div class="row"><button class="btn primary" id="tBank" ${can&&bankValid()?'':'disabled'}>Trade with bank</button><button class="btn" id="tOffer" ${can&&sumObj(tradeGive)&&sumObj(tradeGet)&&RES.every(r=>tradeGive[r]<=me.hand[r])?'':'disabled'}>Offer to rivals</button><button class="btn" id="tClear" ${sumObj(tradeGive)+sumObj(tradeGet)?'':'disabled'}>Clear</button></div>
+     <p class="note">Example: give 4 Lumber, get 1 Ore. Settle on a harbor to get 3:1 or 2:1 rates. Rivals take trades that help them, and refuse once you reach 8 points.</p>`;
+  } else if(G.sheet==='dev'){
+    const groups={};me.dev.forEach(d=>{groups[d.type]=groups[d.type]||{n:0,ready:0};groups[d.type].n++;if(d.turn<G.turnNo)groups[d.type].ready++});
+    h=Object.keys(groups).length?Object.entries(groups).map(([t,g])=>`<div class="dev"><span class="n">${g.n}</span><div><strong>${DEVNAME[t]}</strong><small>${DEVDESC[t]}${t!=='vp'&&g.ready<g.n?' Cards bought this turn can be played next turn.':''}</small></div>${t==='vp'?'':`<button class="btn primary" data-play="${t}" ${canPlayDev(me,t)?'':'disabled'}>Play</button>`}</div>`).join('')
+      :'<p class="note">You have no development cards yet. Buy one for 1 Wool, 1 Grain and 1 Ore.</p>';
+    h+=`<p class="note">You can play one development card per turn, before or after rolling. ${G.deck.length} cards are left in the deck.</p>`;
+  } else if(G.sheet==='log'){
+    h=`<ul class="log">${G.log.slice().reverse().map(l=>`<li>${l}</li>`).join('')}</ul>`;
+  } else {
+    h=`<p class="lbl">Building costs</p><div class="costs">
+      <strong>Road</strong>${costIcons(COST.road,20)}<strong>Settlement · 1 pt</strong>${costIcons(COST.settlement,20)}<strong>City · 2 pts</strong>${costIcons(COST.city,20)}<strong>Dev card</strong>${costIcons(COST.dev,20)}</div>
+      <p class="lbl">How a game goes</p><ol class="rules">
+      <li>Everyone places 2 settlements and 2 roads. Your second settlement pays 1 card from each tile around it.</li>
+      <li>Roll the dice each turn. Tiles showing that number pay their resource to settlements (1 card) and cities (2 cards) on their corners. Dots under a number show how often it comes up.</li>
+      <li>On a 7, anyone with more than 7 cards discards half. The roller moves the robber and steals a card. The robber's tile pays nothing.</li>
+      <li>Settlements need an empty corner on every side and must touch your road. Cities upgrade a settlement you already have.</li>
+      <li>Longest Road (5+ in a row) and Largest Army (3+ knights) are worth 2 points each.</li>
+      <li>First to 10 points on their turn wins.</li></ol>
+      <p class="note">Shortcuts: R rolls, E ends your turn, Esc cancels or closes this panel.</p>`;
+  }
+  $('sheetBody').innerHTML=h;
+}
+function showWin(){
+  const rows=P.slice().sort((a,b)=>vp(b)-vp(a)).map(p=>`<div><span style="width:12px;height:12px;border-radius:3px;background:${p.color}"></span>${p.human?'You':p.name}${p.dev.some(d=>d.type==='vp')?` <small style="color:var(--muted)">(${p.dev.filter(d=>d.type==='vp').length} hidden VP)</small>`:''}<b>${vp(p)}</b></div>`).join('');
+  modal(`<h2>${G.winner===0?'You win!':P[G.winner].name+' wins'}</h2><p>${G.winner===0?'Your harbor, your island.':'Hidden victory point cards are now revealed.'}</p><div class="results">${rows}</div><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">New game</button></div>`,
+    m=>{m.querySelector('#mview').onclick=closeModal;m.querySelector('#magain').onclick=newGame});
+}
+function newGame(){
+  closeModal();buildBoard();
+  P=[{name:'You',color:'#d8402c',human:true},{name:'Brann',color:'#2f6fd4'},{name:'Odette',color:'#ee9622'},{name:'Tamsin',color:'#8d55d8'}]
+    .map((p,i)=>({...p,id:i,hand:zero(),dev:[],knights:0,roadsLeft:15,setsLeft:5,citiesLeft:4,roadLen:0}));
+  const deck=[...Array(14).fill('knight'),...Array(5).fill('vp'),'road','road','plenty','plenty','mono','mono'];
+  G={phase:'setup',cur:0,setupRound:1,rolled:false,devPlayed:false,mode:null,freeRoads:0,pending:null,robber:T.find(t=>t.res==='desert').id,
+     bank:{wood:19,brick:19,wool:19,grain:19,ore:19},deck:shuffle(deck),longest:-1,army:-1,turnNo:0,dice:[0,0],log:[],winner:null,sheet:null,flash:null};
+  tradeGive=zero();tradeGet=zero();lastHand=null;bubbles={};
+  log('New island. Place your first settlement.');
+  drawStatic();render();runSetup();
+}
+$('newgame').onclick=newGame;
+newGame();
+</script>
+
+</body>
+</html>

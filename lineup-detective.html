@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lineup Detective</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: an ink-indigo game board of 24 flip portraits on the left, a detective's notepad (your suspect, questions, case log, rival's board) on the right */
+:root{
+  --bg:#eceef5; --fg:#1b2140; --muted:#5d6485; --board:#25316a; --board-2:#1c2654;
+  --tile:#fbfaf7; --panel:#ffffff; --line:#d6d9e6; --accent:#e5a033; --accent-ink:#2a1c05;
+  --yes:#2c8a5e; --no:#bf4436; --chip:#eef0f8;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11142a; --fg:#e7e9f5; --muted:#9aa0c2; --board:#1d2758; --board-2:#151d45;
+  --tile:#f4f2ec; --panel:#1a1e3a; --line:#2d3359; --accent:#f0b04a; --accent-ink:#2a1c05;
+  --yes:#4cc08a; --no:#ef6f5f; --chip:#232849; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#11142a; --fg:#e7e9f5; --muted:#9aa0c2; --board:#1d2758; --board-2:#151d45;
+  --tile:#f4f2ec; --panel:#1a1e3a; --line:#2d3359; --accent:#f0b04a; --accent-ink:#2a1c05;
+  --yes:#4cc08a; --no:#ef6f5f; --chip:#232849; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1200px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,5vw,44px);letter-spacing:-.02em;line-height:1;margin:0;text-wrap:balance}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:4px 0 0}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:700}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.on{background:var(--no);border-color:var(--no);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+@media (max-width:920px){.game{grid-template-columns:minmax(0,1fr)}}
+
+.boardwrap{background:linear-gradient(180deg,var(--board),var(--board-2));border-radius:18px;padding:14px;box-shadow:0 10px 30px -14px rgba(10,15,50,.6)}
+.status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;color:#e9ebf7;margin:2px 4px 12px}
+.turn{font-family:var(--display);font-weight:800;font-size:20px}
+.turn .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-right:8px;vertical-align:middle}
+.turn.cpu .dot{background:#9aa6e8;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.standing{font-size:13px;color:#bcc3ea;letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.board{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+@media (max-width:620px){.board{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}}
+.board.accuse .tile:not(.down) .front{box-shadow:0 0 0 3px var(--no)}
+.tile{perspective:700px;background:none;border:0;padding:0;aspect-ratio:3/4;cursor:pointer;border-radius:9px;max-width:100%}
+.card{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.3,.7,.3,1)}
+.tile.down .card{transform:rotateX(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:9px;overflow:hidden}
+.front{background:var(--tile);padding:5px;display:flex;flex-direction:column;gap:3px;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.front svg{width:100%;flex:1;min-height:0;border-radius:6px;display:block}
+.nm{font-family:var(--display);font-weight:800;font-size:13px;color:#1b2140;text-align:center;line-height:1.1}
+.back{transform:rotateX(180deg);background:repeating-linear-gradient(45deg,#3a4a94 0 6px,#33428a 6px 12px);border:2px solid #4b5bab}
+.back::after{content:"?";position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:28px;color:rgba(255,255,255,.25)}
+.hint{color:#bcc3ea;font-size:13px;margin:12px 4px 0}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.secret{display:flex;gap:12px;align-items:center}
+.secret .pic{width:76px;flex:none;background:var(--tile);border-radius:10px;padding:4px}
+.secret .pic svg{display:block;width:100%;border-radius:7px}
+.secret b{font-family:var(--display);font-size:22px;display:block}
+.secret small{color:var(--muted)}
+.qgroup{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.qgroup:last-child{margin-bottom:0}
+.qgroup h4{margin:0;font-size:12.5px;color:var(--muted);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:5px 11px;cursor:pointer;font-size:13.5px}
+.chip:hover:not(:disabled){border-color:var(--accent)}
+.chip.asked{text-decoration:line-through;opacity:.55}
+.chip:disabled{cursor:not-allowed;opacity:.5}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;font-size:13.5px}
+.log li{display:flex;gap:8px;align-items:baseline}
+.who{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;min-width:42px;color:var(--muted)}
+.ans{margin-left:auto;font-weight:700;padding:1px 8px;border-radius:999px;font-size:12px;color:#fff}
+.ans.y{background:var(--yes)} .ans.n{background:var(--no)}
+.empty{color:var(--muted);font-size:13.5px;margin:0}
+.rival{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin-top:4px}
+.rival i{aspect-ratio:3/4;border-radius:3px;background:var(--accent);transition:background .4s,opacity .4s}
+.rival i.down{background:var(--line);opacity:.6}
+.rivalinfo{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;font-size:13.5px}
+
+.overlay{position:fixed;inset:0;background:rgba(10,12,30,.6);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:420px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:800;font-size:32px;margin:0}
+.reveal{display:flex;justify-content:center;gap:18px}
+.reveal div{width:110px}
+.reveal .pic{background:var(--tile);border-radius:10px;padding:4px}
+.reveal svg{display:block;width:100%;border-radius:7px}
+.reveal small{color:var(--muted);display:block;margin-top:4px}
+@media (prefers-reduced-motion:reduce){.card,.rival i{transition:none}.turn.cpu .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Lineup <span>Detective</span></h1>
+      <p class="sub">Ask yes-or-no questions, flip down the suspects who don't fit, and name your rival's person first.</p>
+    </div>
+    <div class="controls">
+      <label for="diff" class="label" style="margin:0">Rival</label>
+      <select id="diff"><option value="easy">Easygoing</option><option value="sharp" selected>Sharp</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="boardwrap" aria-label="Your board">
+      <div class="status">
+        <div class="turn" id="turn"><span class="dot"></span><span id="turnText">Your turn</span></div>
+        <div class="standing" id="standing">24 standing</div>
+      </div>
+      <div class="board" id="board"></div>
+      <p class="hint" id="hint">Pick a question on the right. Suspects that don't match flip down automatically. Tap a card to flip it by hand.</p>
+    </section>
+
+    <aside class="side">
+      <div class="panel">
+        <p class="label">Your secret suspect</p>
+        <div class="secret" id="secret"></div>
+      </div>
+      <div class="panel">
+        <p class="label">Ask a question</p>
+        <div id="questions"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="accuse">Make an accusation</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--muted)"><input type="checkbox" id="auto" checked> Auto-flip</label>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="label">Rival's board</p>
+        <div class="rivalinfo"><span id="rivalCount">24 standing</span><span id="rivalQs">0 questions</span></div>
+        <div class="rival" id="rival"></div>
+      </div>
+      <div class="panel">
+        <p class="label">Case log</p>
+        <ul class="log" id="log"></ul>
+        <p class="empty" id="logEmpty">No questions asked yet.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+// name, hairColor, hairStyle, eyes, glasses, hat, beard, mustache, earrings, skin
+const RAW = [
+ ['Ada','blonde','long','blue',1,0,0,0,1,0],['Bruno','black','short','brown',0,1,1,1,0,3],
+ ['Cleo','red','curly','green',0,0,0,0,1,1],['Dev','black','short','brown',1,0,0,1,0,2],
+ ['Esme','gray','long','blue',0,1,0,0,1,0],['Farid','none','bald','brown',1,0,1,1,0,2],
+ ['Gus','brown','short','blue',0,0,1,0,0,1],['Hana','black','long','brown',0,0,0,0,1,2],
+ ['Ivo','blonde','short','green',1,1,0,0,0,0],['June','brown','curly','brown',0,1,0,0,1,3],
+ ['Kofi','black','curly','brown',1,0,1,0,0,4],['Lena','red','long','blue',0,0,0,0,0,0],
+ ['Milo','red','short','green',0,0,0,1,0,1],['Nadia','brown','long','green',1,0,0,0,1,3],
+ ['Otto','gray','short','blue',1,0,1,1,0,1],['Pia','blonde','curly','brown',0,0,0,0,1,2],
+ ['Quinn','none','bald','blue',0,1,0,0,1,1],['Rosa','gray','curly','brown',1,0,0,0,1,4],
+ ['Sami','brown','short','brown',0,0,0,1,1,4],['Tess','black','long','green',0,1,0,0,0,1],
+ ['Ugo','none','bald','green',0,0,1,0,0,3],['Vera','brown','long','blue',1,1,0,0,0,0],
+ ['Wes','blonde','short','brown',0,0,1,1,0,2],['Yara','black','curly','blue',0,0,0,0,1,3]];
+const BGS=['#f6c9a8','#b9d8f0','#cfe5b8','#f2d48a','#d9c6ef','#f4b7bf','#a9dccf','#f0dcc0'];
+const SHIRTS=['#3b5bab','#c2473a','#2f8f62','#7a4fa8','#d98a2b','#2c7d8f','#5a5f73','#b0436f'];
+const people = RAW.map((r,i)=>({i,name:r[0],hc:r[1],hs:r[2],eye:r[3],glasses:!!r[4],hat:!!r[5],beard:!!r[6],mus:!!r[7],ear:!!r[8],skin:r[9]}));
+
+const QS=[
+ {g:'Hair',id:'black',label:'Black',q:'Does your person have black hair?',t:c=>c.hc==='black'},
+ {g:'Hair',id:'brown',label:'Brown',q:'Does your person have brown hair?',t:c=>c.hc==='brown'},
+ {g:'Hair',id:'blonde',label:'Blonde',q:'Does your person have blonde hair?',t:c=>c.hc==='blonde'},
+ {g:'Hair',id:'red',label:'Red',q:'Does your person have red hair?',t:c=>c.hc==='red'},
+ {g:'Hair',id:'gray',label:'Gray',q:'Does your person have gray hair?',t:c=>c.hc==='gray'},
+ {g:'Hair',id:'long',label:'Long',q:'Is their hair long?',t:c=>c.hs==='long'},
+ {g:'Hair',id:'short',label:'Short',q:'Is their hair short?',t:c=>c.hs==='short'},
+ {g:'Hair',id:'curly',label:'Curly',q:'Is their hair curly?',t:c=>c.hs==='curly'},
+ {g:'Hair',id:'bald',label:'Bald',q:'Is your person bald?',t:c=>c.hs==='bald'},
+ {g:'Eyes',id:'eblue',label:'Blue',q:'Do they have blue eyes?',t:c=>c.eye==='blue'},
+ {g:'Eyes',id:'ebrown',label:'Brown',q:'Do they have brown eyes?',t:c=>c.eye==='brown'},
+ {g:'Eyes',id:'egreen',label:'Green',q:'Do they have green eyes?',t:c=>c.eye==='green'},
+ {g:'Wearing or has',id:'glasses',label:'Glasses',q:'Are they wearing glasses?',t:c=>c.glasses},
+ {g:'Wearing or has',id:'hat',label:'Hat',q:'Are they wearing a hat?',t:c=>c.hat},
+ {g:'Wearing or has',id:'beard',label:'Beard',q:'Do they have a beard?',t:c=>c.beard},
+ {g:'Wearing or has',id:'mus',label:'Mustache',q:'Do they have a mustache?',t:c=>c.mus},
+ {g:'Wearing or has',id:'ear',label:'Earrings',q:'Are they wearing earrings?',t:c=>c.ear}];
+
+const HAIR={black:'#25211f',brown:'#6b4428',blonde:'#e0b95c',red:'#b8502b',gray:'#b8b8bd',none:'#3b2a20'};
+const SKIN=['#f3d2b6','#e2b48f','#c48a5e','#9a6440','#6b4329'];
+const EYE={blue:'#3f7fc4',brown:'#5a3519',green:'#3a9455'};
+
+function face(c){
+  const h=HAIR[c.hc], s=SKIN[c.skin], bg=BGS[c.i%BGS.length], shirt=SHIRTS[(c.i*3)%SHIRTS.length];
+  const fh=c.hc==='none'?HAIR.none:h; let o='';
+  o+=`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="100" height="100" fill="${bg}"/>`;
+  if(c.hs==='long') o+=`<path d="M25 46 Q22 18 50 17 Q78 18 75 46 L79 88 L21 88 Z" fill="${h}"/>`;
+  if(c.hs==='curly') o+=[[27,40],[25,52],[28,63],[73,40],[75,52],[72,63]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="8" fill="${h}"/>`).join('');
+  o+=`<path d="M14 100 Q16 80 50 79 Q84 80 86 100 Z" fill="${shirt}"/><rect x="43" y="66" width="14" height="15" rx="4" fill="${s}"/>`;
+  o+=`<circle cx="29" cy="53" r="5" fill="${s}"/><circle cx="71" cy="53" r="5" fill="${s}"/>`;
+  o+=`<ellipse cx="50" cy="51" rx="21" ry="25" fill="${s}"/>`;
+  if(c.ear) o+=`<circle cx="28.5" cy="60" r="2.6" fill="#f2c230" stroke="#a9811a" stroke-width=".6"/><circle cx="71.5" cy="60" r="2.6" fill="#f2c230" stroke="#a9811a" stroke-width=".6"/>`;
+  if(c.hs==='short'||c.hs==='long') o+=`<path d="M28.5 48 Q26 21 50 20 Q74 21 71.5 48 Q68 33 50 31 Q32 33 28.5 48Z" fill="${h}"/>`;
+  if(c.hs==='curly') o+=[[32,32],[41,25],[50,23],[59,25],[68,32],[30,42],[70,42]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="8.5" fill="${h}"/>`).join('');
+  if(c.hs==='bald') o+=`<ellipse cx="42" cy="34" rx="6" ry="2.5" fill="#fff" opacity=".25"/>`;
+  o+=`<path d="M36 43 Q41 40 46 43 M54 43 Q59 40 64 43" stroke="${fh==='#e0b95c'?'#9a7a30':fh}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  o+=`<circle cx="41" cy="50" r="3.4" fill="#fff"/><circle cx="59" cy="50" r="3.4" fill="#fff"/><circle cx="41" cy="50" r="2.4" fill="${EYE[c.eye]}"/><circle cx="59" cy="50" r="2.4" fill="${EYE[c.eye]}"/><circle cx="41" cy="50" r="1" fill="#111"/><circle cx="59" cy="50" r="1" fill="#111"/>`;
+  if(c.glasses) o+=`<g stroke="#1d1d24" stroke-width="1.8" fill="none"><circle cx="41" cy="50" r="7"/><circle cx="59" cy="50" r="7"/><path d="M48 50 h4 M34 49 l-5 -1 M66 49 l5 -1"/></g>`;
+  o+=`<path d="M50 52 Q47 58 50 60" stroke="rgba(0,0,0,.35)" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+  if(c.beard) o+=`<path d="M29.5 54 Q30 80 50 80 Q70 80 70.5 54 Q66 70 50 71 Q34 70 29.5 54Z" fill="${fh}"/>`;
+  o+=`<path d="M43 ${c.beard?66:67} Q50 ${c.i%3===0?70:73} 57 ${c.beard?66:67}" stroke="#7a2e2e" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  if(c.mus) o+=`<path d="M40 64 Q45 59 50 62 Q55 59 60 64 Q55 63 50 65 Q45 63 40 64Z" fill="${fh}"/>`;
+  if(c.hat){ const hc=['#c2473a','#2f8f62','#3b5bab','#7a4fa8'][c.i%4];
+    o+=`<path d="M27 39 Q27 11 50 11 Q73 11 73 39Z" fill="${hc}"/><rect x="25" y="34" width="50" height="8" rx="3" fill="${hc}" stroke="rgba(0,0,0,.2)"/><circle cx="50" cy="10" r="4" fill="${hc}"/>`;}
+  return o+`</svg>`;
+}
+
+const $=id=>document.getElementById(id);
+let S;
+function rand(n){return Math.floor(Math.random()*n)}
+function newGame(){
+  const you=rand(24); let cpu; do{cpu=rand(24)}while(cpu===you);
+  S={you,cpu,mine:Array(24).fill(true),theirs:Array(24).fill(true),asked:new Set(),cpuAsked:new Set(),phase:'you',accuse:false,log:[],cpuQ:0};
+  $('overlay').hidden=true; renderBoard(); renderSecret(); renderQuestions(); renderAll();
+}
+function renderBoard(){
+  $('board').innerHTML=people.map(p=>`<button class="tile" id="t${p.i}" data-i="${p.i}" aria-label="${p.name}"><span class="card"><span class="face front">${face(p)}<span class="nm">${p.name}</span></span><span class="face back"></span></span></button>`).join('');
+  $('rival').innerHTML=people.map(p=>`<i id="r${p.i}"></i>`).join('');
+}
+function renderSecret(){const p=people[S.you];$('secret').innerHTML=`<div class="pic">${face(p)}</div><div><b>${p.name}</b><small>Your rival is trying to find this person. Answers are given for you, truthfully.</small></div>`}
+function renderQuestions(){
+  const groups=[...new Set(QS.map(q=>q.g))];
+  $('questions').innerHTML=groups.map(g=>`<div class="qgroup"><h4>${g}</h4><div class="chips">${QS.filter(q=>q.g===g).map(q=>`<button class="chip" data-q="${q.id}" title="${q.q}">${q.label}</button>`).join('')}</div></div>`).join('');
+}
+function renderAll(){
+  people.forEach(p=>{$('t'+p.i).classList.toggle('down',!S.mine[p.i]);$('r'+p.i).classList.toggle('down',!S.theirs[p.i]);});
+  const up=S.mine.filter(Boolean).length, rup=S.theirs.filter(Boolean).length;
+  $('standing').textContent=`${up} standing`;
+  $('rivalCount').textContent=`${rup} standing`; $('rivalQs').textContent=`${S.cpuQ} question${S.cpuQ===1?'':'s'}`;
+  const yt=S.phase==='you';
+  $('turn').classList.toggle('cpu',S.phase==='cpu');
+  $('turnText').textContent=S.phase==='over'?'Case closed':yt?(S.accuse?'Pick your suspect':'Your turn'):'Rival is thinking…';
+  document.querySelectorAll('.chip').forEach(b=>{b.disabled=!yt||S.accuse;b.classList.toggle('asked',S.asked.has(b.dataset.q))});
+  $('accuse').disabled=!yt; $('accuse').classList.toggle('on',S.accuse);
+  $('accuse').textContent=S.accuse?'Cancel accusation':'Make an accusation';
+  $('board').classList.toggle('accuse',S.accuse);
+  $('hint').textContent=S.accuse?'Tap the face you think your rival is hiding. A wrong accusation loses the game.':
+    up===1&&yt?'Only one suspect left. Make your accusation!':'Pick a question on the right. Suspects that don\'t match flip down automatically. Tap a card to flip it by hand.';
+  $('log').innerHTML=S.log.map(l=>`<li><span class="who">${l.who}</span><span>${l.text}</span><span class="ans ${l.a?'y':'n'}">${l.a?'Yes':'No'}</span></li>`).join('');
+  $('logEmpty').hidden=S.log.length>0; $('log').scrollTop=1e5;
+}
+function ask(id){
+  if(S.phase!=='you'||S.accuse) return;
+  const q=QS.find(x=>x.id===id), a=q.t(people[S.cpu]);
+  S.asked.add(id); S.log.push({who:'You',text:q.q,a});
+  if($('auto').checked) people.forEach(p=>{if(q.t(p)!==a) S.mine[p.i]=false});
+  S.phase='cpu'; renderAll(); setTimeout(cpuTurn,1100);
+}
+function cpuTurn(){
+  if(S.phase!=='cpu') return;
+  const cand=people.filter(p=>S.theirs[p.i]);
+  if(cand.length===1){ return end(cand[0].i===S.you?'lose':'win', cand[0].i===S.you?`Your rival named ${people[S.you].name}.`:`Your rival wrongly accused ${cand[0].name}.`); }
+  const sharp=$('diff').value==='sharp';
+  if(sharp&&cand.length===2&&Math.random()<.5){const g=cand[rand(2)];
+    if(g.i===S.you) return end('lose',`Your rival guessed ${g.name} on a coin flip and got it.`);
+    S.theirs[g.i]=false; S.log.push({who:'Rival',text:`Is it ${g.name}?`,a:false}); }
+  else{
+    const useful=QS.filter(q=>!S.cpuAsked.has(q.id)).map(q=>({q,y:cand.filter(q.t).length})).filter(x=>x.y>0&&x.y<cand.length);
+    let pick;
+    if(sharp){useful.sort((a,b)=>Math.abs(cand.length/2-a.y)-Math.abs(cand.length/2-b.y));const best=useful.filter(x=>Math.abs(cand.length/2-x.y)===Math.abs(cand.length/2-useful[0].y));pick=best[rand(best.length)].q}
+    else pick=useful[rand(useful.length)].q;
+    const a=pick.t(people[S.you]); S.cpuAsked.add(pick.id); S.cpuQ++;
+    S.log.push({who:'Rival',text:pick.q,a});
+    cand.forEach(p=>{if(pick.t(p)!==a) S.theirs[p.i]=false});
+  }
+  S.phase='you'; renderAll();
+}
+function accuse(i){
+  const p=people[i];
+  if(i===S.cpu) end('win',`You named ${p.name}. Case closed.`); else end('lose',`It wasn't ${p.name}. Your rival was hiding ${people[S.cpu].name}.`);
+}
+function end(res,msg){
+  S.phase='over'; S.accuse=false; renderAll();
+  const a=people[S.you], b=people[S.cpu];
+  $('modal').innerHTML=`<h2>${res==='win'?'You cracked it':'Rival wins'}</h2><p style="margin:0">${msg}</p>
+   <div class="reveal"><div><div class="pic">${face(a)}</div><small>Yours: ${a.name}</small></div><div><div class="pic">${face(b)}</div><small>Rival's: ${b.name}</small></div></div>
+   <p style="margin:0;color:var(--muted);font-size:13.5px">You asked ${S.asked.size}, the rival asked ${S.cpuQ}.</p>
+   <div style="display:flex;gap:8px;justify-content:center"><button class="btn" id="close">View board</button><button class="btn primary" id="again">Play again</button></div>`;
+  $('overlay').hidden=false;
+  $('again').onclick=newGame; $('close').onclick=()=>{$('overlay').hidden=true};
+}
+$('board').addEventListener('click',e=>{const t=e.target.closest('.tile');if(!t||S.phase==='over')return;const i=+t.dataset.i;
+  if(S.accuse){ if(S.mine[i]&&S.phase==='you') accuse(i); return;}
+  S.mine[i]=!S.mine[i]; renderAll();});
+$('questions').addEventListener('click',e=>{const b=e.target.closest('.chip'); if(b&&!b.disabled) ask(b.dataset.q)});
+$('accuse').onclick=()=>{S.accuse=!S.accuse;renderAll()};
+$('newgame').onclick=newGame;
+newGame();
+</script>
+
+</body>
+</html>
