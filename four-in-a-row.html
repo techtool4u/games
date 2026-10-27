@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Four in a Row</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Lexend:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a classic upright blue frame. Header with settings, the 7×6 frame with a drop row above it, and a scorecard (turn, wins, moves, rules) beside it on wide screens and below it on phones. */
+:root{
+  --bg:#f6f0e1; --fg:#1d2340; --muted:#5f6584; --panel:#fffdf7; --line:#e4dcc7; --chip:#f3ecdb;
+  --accent:#2d56c2; --accent-ink:#ffffff; --frame:#2d56c2; --frame-2:#1f3f96; --hole:#f6f0e1;
+  --red:#e2362f; --yellow:#f4c21b;
+  --display:"Lilita One", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Lexend", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12152a; --fg:#e8ebf8; --muted:#a2a8c8; --panel:#1b1f38; --line:#2c3256; --chip:#232845;
+  --accent:#7d9cff; --accent-ink:#0b1230; --frame:#284fb5; --frame-2:#183783; --hole:#12152a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#12152a; --fg:#e8ebf8; --muted:#a2a8c8; --panel:#1b1f38; --line:#2c3256; --chip:#232845;
+  --accent:#7d9cff; --accent-ink:#0b1230; --frame:#284fb5; --frame-2:#183783; --hole:#12152a; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1060px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(32px,5.5vw,48px);line-height:1;margin:4px 0 0;letter-spacing:.01em}
+h1 .r{color:var(--red)} h1 .y{color:var(--yellow);-webkit-text-stroke:1px rgba(0,0,0,.15)}
+.sub{color:var(--muted);margin:6px 0 0;max-width:44ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;justify-content:center}
+.boardbox{width:min(100%,620px,calc((100dvh - 200px) * 7 / 7.1));min-width:min(100%,290px)}
+.drop{display:grid;grid-template-columns:repeat(7,1fr);padding:0 3%;margin-bottom:4px}
+.board{position:relative;--gap:2.2%;background:linear-gradient(180deg,var(--frame),var(--frame-2));border-radius:18px;padding:3%;box-shadow:inset 0 3px 0 rgba(255,255,255,.18),inset 0 -6px 0 rgba(0,0,0,.18),0 18px 34px -18px rgba(15,30,90,.7);touch-action:manipulation;outline:none}
+.board:focus-visible{box-shadow:0 0 0 4px var(--yellow)}
+.field{position:relative;aspect-ratio:7/6}
+.grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr)}
+.cols{position:absolute;inset:0}
+.hole{position:relative;display:grid;place-items:center}
+.hole::before{content:"";width:82%;aspect-ratio:1;border-radius:50%;background:var(--hole);box-shadow:inset 0 4px 6px rgba(0,0,0,.35)}
+.col{position:absolute;top:0;bottom:0;width:calc(100%/7);border:0;background:none;padding:0;cursor:pointer;border-radius:10px;z-index:3}
+.col:hover,.col.cur{background:rgba(255,255,255,.08)}
+.col:disabled{cursor:default;background:none}
+.discs{position:absolute;inset:0;pointer-events:none;z-index:2}
+.disc{position:absolute;width:calc(100%/7);height:calc(100%/6);display:grid;place-items:center}
+.disc i{width:82%;aspect-ratio:1;border-radius:50%;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),inset 0 3px 0 rgba(255,255,255,.3)}
+.disc i::after{content:"";display:block;margin:20%;height:60%;border-radius:50%;border:3px solid rgba(0,0,0,.12)}
+.disc.r i{background:var(--red)} .disc.y i{background:var(--yellow)}
+.disc.fall{animation:fall var(--t,.4s) cubic-bezier(.45,0,1,.6)}
+@keyframes fall{from{transform:translateY(var(--from))}}
+.disc.win i{box-shadow:0 0 0 4px #fff,0 0 18px 6px rgba(255,255,255,.65);animation:glow 1s infinite alternate}
+@keyframes glow{to{transform:scale(.9)}}
+.ghost{display:grid;place-items:center;opacity:.55;transition:opacity .15s}
+.ghost i{width:72%;aspect-ratio:1;border-radius:50%}
+.ghost.r i{background:var(--red)} .ghost.y i{background:var(--yellow)}
+.ghost.off{opacity:0}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.turn{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:24px;line-height:1.1}
+.dot{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.dot.r{background:var(--red)} .dot.y{background:var(--yellow)}
+.turn.think .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.hint{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.score{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center}
+.score>div{background:var(--chip);border-radius:10px;padding:8px 4px}
+.score b{display:block;font-family:var(--display);font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}
+.score small{color:var(--muted);font-size:12px;display:flex;gap:5px;align-items:center;justify-content:center}
+.score .dot{width:12px;height:12px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(10,15,40,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:34px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+
+@media (max-height:500px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:8px 16px}
+  .game{display:contents}
+  .stage{grid-column:1;grid-row:1/3;position:sticky;top:8px;align-self:start}
+  header,.side{grid-column:2}
+  .sub{display:none} h1{font-size:28px}
+  .boardbox{width:calc((100dvh - 16px) * .98);min-width:0}
+}
+@media (prefers-reduced-motion:reduce){.disc.fall,.disc.win i,.turn.think .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Four <span class="r">in</span> a <span class="y">Row</span></h1>
+      <p class="sub">Drop discs into the frame. Line up four of your color across, down or diagonally before your rival does.</p>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="first" aria-label="Who goes first"><option value="you">You go first</option><option value="cpu">Computer first</option><option value="alt">Take turns starting</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="stage" aria-label="Board">
+      <div class="boardbox">
+        <div class="drop" id="drop" aria-hidden="true"></div>
+        <div class="board" id="board" tabindex="0" aria-label="Board. Left and right arrows pick a column, Enter drops a disc. Keys 1 to 7 drop straight into a column.">
+          <div class="field">
+            <div class="grid" id="grid"></div>
+            <div class="discs" id="discs"></div>
+            <div class="cols" id="cols"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="panel" aria-live="polite">
+        <div class="turn" id="turn"><span class="dot r" id="tdot"></span><span id="turnText">Your turn</span></div>
+        <p class="hint" id="hint"></p>
+        <div class="row"><button class="btn" id="undo">Undo</button></div>
+      </div>
+      <div class="panel">
+        <p class="label">Wins this session</p>
+        <div class="score">
+          <div><b id="w0">0</b><small><span class="dot r"></span><span id="n0">You</span></small></div>
+          <div><b id="wd">0</b><small>Draws</small></div>
+          <div><b id="w1">0</b><small><span class="dot y"></span><span id="n1">Computer</span></small></div>
+        </div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Players take turns dropping a disc into one of the seven columns. It falls to the lowest empty space.</li>
+            <li>Get four of your discs in a line: across, up and down, or diagonally.</li>
+            <li>If the frame fills up with no four in a row, it's a draw.</li>
+            <li>Red always moves first. Tip: the middle column is part of the most possible lines.</li>
+            <li>Keyboard: ← → choose a column, Enter or Space drops, 1–7 drop into that column, U undoes.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+// board[c][r]: column c (0-6), row r counted from the bottom (0-5). 1 = red (moves first), 2 = yellow.
+const W=7,H=6,ORDER=[3,2,4,1,5,0,6];
+const LEVELS={easy:{depth:2,random:.3,blunder:.5},medium:{depth:5,random:.05,blunder:0},hard:{depth:42,ms:900,random:0,blunder:0}};
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',level:'medium',first:'you'},store.get('parlor-four',{}));
+const wins={1:0,2:0,d:0};
+let S=null,games=0,cursor=3;
+
+/* ---------- rules ---------- */
+const height=(b,c)=>{let r=0;while(r<H&&b[c][r])r++;return r};
+const canPlay=(b,c)=>!b[c][H-1];
+const DIRS=[[1,0],[0,1],[1,1],[1,-1]];
+function lineAt(b,c,r){const p=b[c][r];if(!p)return null;
+  for(const [dc,dr] of DIRS){const cells=[[c,r]];
+    for(const s of [1,-1]){let x=c+dc*s,y=r+dr*s;while(x>=0&&x<W&&y>=0&&y<H&&b[x][y]===p){cells.push([x,y]);x+=dc*s;y+=dr*s}}
+    if(cells.length>=4)return cells}
+  return null}
+const full=b=>b.every(col=>col[H-1]);
+
+/* ---------- computer ---------- */
+// Score every window of four: favor own threes and the centre column, punish the rival's.
+function evaluate(b,p){const o=3-p;let s=0;
+  for(let r=0;r<H;r++)if(b[3][r]===p)s+=4;else if(b[3][r]===o)s-=4;
+  const win=(a,k)=>{let mine=0,theirs=0;for(let i=0;i<4;i++){const v=b[a[0]+k[0]*i][a[1]+k[1]*i];if(v===p)mine++;else if(v===o)theirs++}
+    if(mine&&theirs)return 0;if(mine===3)return 6;if(mine===2)return 2;if(theirs===3)return -8;if(theirs===2)return -2;return 0};
+  for(let c=0;c<W;c++)for(let r=0;r<H;r++)for(const d of DIRS){const ec=c+d[0]*3,er=r+d[1]*3;if(ec<0||ec>=W||er<0||er>=H)continue;s+=win([c,r],d)}
+  return s}
+function negamax(b,p,depth,alpha,beta,moves,ctx){
+  if(++ctx.nodes%4096===0&&ctx.deadline&&Date.now()>ctx.deadline)throw ctx;
+  if(moves===W*H)return 0;
+  for(const c of ORDER)if(canPlay(b,c)){const r=height(b,c);b[c][r]=p;const w=lineAt(b,c,r);b[c][r]=0;if(w)return 1000-moves}
+  if(depth===0)return evaluate(b,p);
+  let best=-Infinity;
+  for(const c of ORDER){if(!canPlay(b,c))continue;const r=height(b,c);b[c][r]=p;
+    const v=-negamax(b,3-p,depth-1,-beta,-alpha,moves+1,ctx);b[c][r]=0;
+    if(v>best)best=v;if(v>alpha)alpha=v;if(alpha>=beta)break}
+  return best}
+function chooseMove(b,p,moves){
+  const L=LEVELS[cfg.level],legal=ORDER.filter(c=>canPlay(b,c));
+  const test=(c,q)=>{const r=height(b,c);b[c][r]=q;const w=lineAt(b,c,r);b[c][r]=0;return!!w};
+  const winNow=legal.find(c=>test(c,p));if(winNow!=null)return winNow;
+  const block=legal.find(c=>test(c,3-p));if(block!=null&&Math.random()>=L.blunder)return block;
+  if(Math.random()<L.random)return legal[rand(legal.length)];
+  const ctx={nodes:0,deadline:L.ms?Date.now()+L.ms:0};let scored=null;
+  try{for(let d=1;d<=Math.min(L.depth,W*H-moves);d++){
+    const cur=legal.map(c=>{const r=height(b,c);b[c][r]=p;const v=-negamax(b,3-p,d-1,-Infinity,Infinity,moves+1,ctx);b[c][r]=0;return{c,v}});
+    scored=cur;if(cur.some(x=>Math.abs(x.v)>900))break}}
+  catch(e){if(e!==ctx)throw e}
+  if(!scored)return legal[0];
+  const top=Math.max(...scored.map(x=>x.v)),best=scored.filter(x=>x.v>=top-(cfg.level==='easy'?3:0));
+  return best[rand(best.length)].c}
+
+/* ---------- game flow ---------- */
+const isCpu=p=>cfg.mode==='cpu'&&p===S.cpu;
+const nameOf=p=>cfg.mode==='cpu'?(p===S.cpu?'Computer':'You'):(p===1?'Red':'Yellow');
+function newGame(){
+  $('overlay').hidden=true;games++;
+  const cpuFirst=cfg.first==='cpu'||(cfg.first==='alt'&&games%2===0);
+  S={b:[...Array(W)].map(()=>Array(H).fill(0)),turn:1,cpu:cfg.mode==='cpu'?(cpuFirst?1:2):0,hist:[],over:null,busy:false,last:null,gen:(S?S.gen:0)+1};
+  $('discs').innerHTML='';render();next();
+}
+function next(){render();if(!S.over&&isCpu(S.turn)){S.busy=true;render();const g=S.gen;
+  setTimeout(()=>{if(g!==S.gen)return;const c=chooseMove(S.b,S.turn,S.hist.length);S.busy=false;drop(c)},420)}}
+function drop(c){
+  if(S.over||!canPlay(S.b,c))return;const r=height(S.b,c),p=S.turn;
+  S.b[c][r]=p;S.hist.push(c);S.last=[c,r];
+  const d=document.createElement('div');d.className=`disc ${p===1?'r':'y'} fall`;d.id=`d${c}_${r}`;
+  d.style.left=`calc(${c}*100%/7)`;d.style.top=`calc(${H-1-r}*100%/6)`;d.style.setProperty('--from',`-${(H-r)*100+40}%`);d.style.setProperty('--t',`${.18+.06*(H-r)}s`);d.innerHTML='<i></i>';
+  $('discs').appendChild(d);
+  const line=lineAt(S.b,c,r);
+  if(line){S.over={w:p,line};wins[p]++;line.forEach(([x,y])=>$(`d${x}_${y}`).classList.add('win'));render();setTimeout(()=>finish(),900);return}
+  if(full(S.b)){S.over={w:0};wins.d++;render();setTimeout(()=>finish(),500);return}
+  S.turn=3-p;next()}
+function finish(){const w=S.over.w;
+  const title=w===0?'Draw':cfg.mode==='cpu'?(w===S.cpu?'Computer wins':'You win!'):`${nameOf(w)} wins`;
+  $('modal').innerHTML=`<h2>${title}</h2><p>${w?`Four in a row after ${S.hist.length} moves.`:'The frame is full.'}</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+  $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame}
+// Undo takes back moves until it is a human's turn again (in 2-player mode, just the last move).
+function undo(){if(!S.hist.length||S.busy)return;
+  if(S.over){if(S.over.w)wins[S.over.w]--;else wins.d--;S.over=null;$('overlay').hidden=true;document.querySelectorAll('.disc.win').forEach(e=>e.classList.remove('win'))}
+  const pop=()=>{const c=S.hist.pop(),r=height(S.b,c)-1;S.turn=S.b[c][r];S.b[c][r]=0;const e=$(`d${c}_${r}`);if(e)e.remove()};
+  if(cfg.mode==='two')pop();else do pop();while(S.hist.length&&isCpu(S.turn));
+  S.gen++;S.last=null;next()}
+/* ---------- render ---------- */
+function build(){
+  $('grid').innerHTML='<div class="hole"></div>'.repeat(W*H);
+  $('cols').innerHTML=[...Array(W)].map((_,c)=>`<button class="col" data-c="${c}" style="left:calc(${c}*100%/7)" aria-label="Column ${c+1}"></button>`).join('');
+  $('drop').innerHTML=[...Array(W)].map((_,c)=>`<div class="ghost off" id="g${c}"><i></i></div>`).join('');
+}
+function render(){if(!S)return;
+  const me=!S.over&&!S.busy&&!isCpu(S.turn),p=S.turn,cls=p===1?'r':'y';
+  document.querySelectorAll('.col').forEach(b=>{const c=+b.dataset.c;b.disabled=!me||!canPlay(S.b,c);b.classList.toggle('cur',me&&c===cursor&&kb)});
+  for(let c=0;c<W;c++){const g=$('g'+c);g.className=`ghost ${cls}${me&&c===hover&&canPlay(S.b,c)?'':' off'}`}
+  $('tdot').className='dot '+(S.over?(S.over.w===2?'y':'r'):cls);
+  $('turn').classList.toggle('think',!S.over&&isCpu(p));
+  $('turnText').textContent=S.over?(S.over.w===0?'Draw':cfg.mode==='cpu'?(S.over.w===S.cpu?'Computer wins':'You win'):`${nameOf(S.over.w)} wins`):isCpu(p)?'Computer is thinking…':cfg.mode==='cpu'?'Your turn':`${nameOf(p)} to move`;
+  $('hint').textContent=S.over?'Press New game or Play again for another round.':isCpu(p)?`Computer plays ${p===1?'red':'yellow'} on ${cfg.level}.`:cfg.mode==='cpu'?`You are ${p===1?'red':'yellow'}. Tap a column to drop a disc.`:`Tap a column to drop a ${p===1?'red':'yellow'} disc.`;
+  $('w0').textContent=wins[cfg.mode==='cpu'?3-S.cpu:1];$('w1').textContent=wins[cfg.mode==='cpu'?S.cpu:2];$('wd').textContent=wins.d;
+  $('n0').textContent=cfg.mode==='cpu'?'You':'Red';$('n1').textContent=cfg.mode==='cpu'?'Computer':'Yellow';
+  const youDot=cfg.mode==='cpu'?(S.cpu===1?'y':'r'):'r';document.querySelector('.score>div:first-child .dot').className='dot '+youDot;document.querySelector('.score>div:last-child .dot').className='dot '+(youDot==='r'?'y':'r');
+  $('undo').disabled=S.busy||!S.hist.length||(cfg.mode==='cpu'&&!S.hist.some((c,i)=>(i%2===0?1:2)!==S.cpu))}
+
+/* ---------- input & settings ---------- */
+let hover=-1,kb=false;
+$('cols').addEventListener('click',e=>{const b=e.target.closest('.col');if(b&&!b.disabled){kb=false;drop(+b.dataset.c)}});
+$('cols').addEventListener('pointerover',e=>{const b=e.target.closest('.col');hover=b?+b.dataset.c:-1;render()});
+$('board').addEventListener('pointerleave',()=>{hover=-1;render()});
+$('board').addEventListener('keydown',e=>{if(!S||S.over||S.busy||isCpu(S.turn))return;
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();kb=true;cursor=(cursor+(e.key==='ArrowLeft'?W-1:1))%W;hover=cursor;render()}
+  else if(e.key==='Enter'||e.key===' '){e.preventDefault();if(canPlay(S.b,cursor))drop(cursor)}
+  else if(e.key>='1'&&e.key<='7'){const c=+e.key-1;if(canPlay(S.b,c))drop(c)}});
+$('board').addEventListener('focus',()=>{kb=true;hover=cursor;render()});
+$('board').addEventListener('blur',()=>{kb=false;hover=-1;render()});
+document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true;else if((e.key==='u'||e.key==='U')&&!$('undo').disabled)undo()});
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('first').value=cfg.first;$('level').hidden=$('first').hidden=cfg.mode!=='cpu'}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-four',cfg);sync();if(restart){games=0;newGame()}else render()}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('first').onchange=e=>setCfg('first',e.target.value,true);
+$('newgame').onclick=newGame;$('undo').onclick=undo;
+if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['you','cpu','alt'].includes(cfg.first))cfg.first='you';
+build();sync();newGame();
+</script>
+</body>
+</html>
