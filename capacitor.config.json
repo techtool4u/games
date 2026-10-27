@@ -1,0 +1,14 @@
+{
+  "appId": "com.techtool4u.gameparlor",
+  "appName": "Game Parlor",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#eef0f6"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}

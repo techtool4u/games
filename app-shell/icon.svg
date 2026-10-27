@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- Game Parlor app icon artwork (adaptive-icon foreground, 108×108 with the art inside the 66-unit safe circle). Background colour: #f0532f. -->
+  <g transform="rotate(-12 50 50)">
+    <rect x="31" y="31" width="38" height="38" rx="8" fill="#171a2c" opacity=".25" transform="translate(1.5 2.5)"/>
+    <rect x="31" y="31" width="38" height="38" rx="8" fill="#ffffff"/>
+    <circle cx="40" cy="40" r="3.6" fill="#171a2c"/><circle cx="60" cy="40" r="3.6" fill="#171a2c"/>
+    <circle cx="50" cy="50" r="3.6" fill="#f0532f"/>
+    <circle cx="40" cy="60" r="3.6" fill="#171a2c"/><circle cx="60" cy="60" r="3.6" fill="#171a2c"/>
+  </g>
+  <circle cx="69.5" cy="71.5" r="12" fill="#171a2c" opacity=".25"/>
+  <circle cx="68" cy="69.5" r="12" fill="#171a2c"/>
+  <circle cx="68" cy="69.5" r="7.5" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="1.6"/>
+</svg>

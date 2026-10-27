@@ -1,0 +1,121 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - '*.html'
+      - 'app-shell/**'
+      - 'scripts/**'
+      - 'android/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.json'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install Capacitor
+        run: npm ci
+
+      - name: Build the web bundle (pages + local fonts + app shell)
+        run: npm run build:web
+
+      - name: Copy it into the Android project
+        run: npx cap sync android
+
+      # Optional: with these repository secrets set, every APK is signed with the same key and installs
+      # over the previous one. Without them each build gets a throwaway debug key.
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/app.keystore"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/app.keystore" >> "$GITHUB_ENV"
+            echo "Signing with the key from repository secrets."
+          else
+            echo "No ANDROID_KEYSTORE_BASE64 secret, so signing with a throwaway debug key."
+          fi
+
+      - name: Build APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Name the APK
+        run: mv android/app/build/outputs/apk/debug/app-debug.apk "GameParlor-1.0.${{ github.run_number }}.apk"
+
+      - name: Inspect the APK
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/aapt2" dump badging GameParlor-*.apk | grep -E "^(package|sdkVersion|targetSdkVersion|application-label|launchable-activity)"
+          "$BT/apksigner" verify --print-certs GameParlor-*.apk | head -3
+          echo "Bundled web files:"; unzip -l GameParlor-*.apk 'assets/public/*' | awk '{print $4}' | grep -E "\.(html|js|css)$"
+          echo "Font files: $(unzip -l GameParlor-*.apk 'assets/public/fonts/*.woff2' | grep -c woff2)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameParlor-apk-1.0.${{ github.run_number }}
+          path: GameParlor-*.apk
+          if-no-files-found: error
+
+  # Installs the APK on an Android 14 emulator and checks that it starts, loads the library and handles Back.
+  smoke-test:
+    needs: apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: GameParlor-apk-*
+          merge-multiple: true
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash scripts/android-smoke-test.sh "$(ls GameParlor-*.apk)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test-${{ github.run_number }}
+          path: |
+            smoke-index.png
+            logcat.txt

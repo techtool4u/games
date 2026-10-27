@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sweet Swap</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a sweet-shop counter. Level map of 12 lollipop buttons; in play, a scorecard strip (level, moves, score with star marks, goals) above an 8×8 candy board. Landscape phones put the scorecard beside the board. */
+:root{
+  --bg:#ffe8f1; --bg-2:#ffd3e6; --fg:#4a1832; --muted:#8a5a72; --panel:#ffffff; --line:#f5c6da; --chip:#fff3f8;
+  --accent:#e23d7b; --accent-ink:#ffffff; --good:#1f9d63; --star:#ffb703;
+  --tray:#7a2a55; --tray-2:#5c1d40; --cell:rgba(255,255,255,.09); --cell-2:rgba(255,255,255,.04);
+  --display:"Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1d0f18; --bg-2:#2a1422; --fg:#fbe7f1; --muted:#c79bb3; --panel:#2b1724; --line:#4a2a3d; --chip:#36202e;
+  --accent:#ff6fa5; --accent-ink:#2a0716; --good:#4fd08f; --tray:#4b1a36; --tray-2:#33112a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#1d0f18; --bg-2:#2a1422; --fg:#fbe7f1; --muted:#c79bb3; --panel:#2b1724; --line:#4a2a3d; --chip:#36202e;
+  --accent:#ff6fa5; --accent-ink:#2a0716; --good:#4fd08f; --tray:#4b1a36; --tray-2:#33112a; color-scheme:dark }
+body{background:radial-gradient(circle at 20% 0%,var(--bg-2),var(--bg) 60%) fixed;color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;min-height:100vh}
+.wrap{max-width:980px;margin:0 auto;padding-block:16px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,6vw,48px);line-height:1;margin:4px 0 0;letter-spacing:-.01em}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:var(--panel);padding:9px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* level map */
+.map h2{font-family:var(--display);font-size:24px;margin:0 0 10px}
+.levels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:620px}
+@media (min-width:700px){.levels{grid-template-columns:repeat(6,minmax(0,1fr));max-width:none}}
+.lvl{position:relative;aspect-ratio:1;border:0;border-radius:22px;background:var(--panel);box-shadow:0 4px 0 var(--line),0 8px 18px -10px rgba(120,20,70,.35);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px}
+.lvl b{font-family:var(--display);font-size:clamp(24px,5vw,32px);line-height:1;color:var(--accent)}
+.lvl small{font-size:11.5px;color:var(--muted);font-weight:700}
+.lvl .st{font-size:13px;letter-spacing:1px;color:var(--line)}
+.lvl .st i{font-style:normal;color:var(--star)}
+.lvl:disabled{cursor:not-allowed;opacity:.55;box-shadow:none}
+.lvl:disabled b{color:var(--muted)}
+.lvl:not(:disabled):hover{transform:translateY(-2px)}
+.lvl.next{box-shadow:0 4px 0 var(--accent),0 0 0 3px var(--accent)}
+.note{color:var(--muted);font-size:13.5px;margin:12px 0 0}
+
+/* play */
+.play{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;justify-items:center}
+.hud{width:100%;max-width:560px;display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:10px;align-items:stretch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.card small{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card b{font-family:var(--display);font-size:26px;line-height:1.05;font-variant-numeric:tabular-nums}
+.moves b{color:var(--accent)}
+.moves.low b{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.45}}
+.scorebar{position:relative;height:8px;border-radius:99px;background:var(--chip);margin-top:6px}
+.scorebar .fill{position:absolute;inset:0 auto 0 0;border-radius:99px;background:linear-gradient(90deg,#ff8fb8,var(--accent));transition:width .3s}
+.scorebar .mk{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:14px;color:var(--line);line-height:1}
+.scorebar .mk.on{color:var(--star)}
+.goals{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.goal{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 5px;font-weight:800;font-variant-numeric:tabular-nums}
+.goal svg{width:26px;height:26px;display:block}
+.goal.done{border-color:var(--good);color:var(--good)}
+.goal .jl{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,#ffb3d1,#ff7fb0);box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
+.goal .tg{font-size:20px;line-height:1;padding-left:4px}
+.status{grid-column:1/-1;margin:0;min-height:1.45em;color:var(--muted);font-size:13.5px;text-align:center}
+
+.boardwrap{width:min(100%,560px,calc(100dvh - 250px));min-width:min(100%,280px);background:linear-gradient(160deg,var(--tray),var(--tray-2));padding:clamp(6px,1.6vw,12px);border-radius:22px;box-shadow:0 16px 34px -18px rgba(90,10,50,.7);box-sizing:border-box}
+.board{position:relative;aspect-ratio:1;overflow:hidden;border-radius:14px;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
+.board:focus-visible{box-shadow:0 0 0 3px var(--star)}
+.cells,.fx{position:absolute;inset:0}
+.fx{pointer-events:none;z-index:3}
+.cell{position:absolute;width:12.5%;height:12.5%}
+.cell.alt{background:var(--cell)}
+.cell:not(.alt){background:var(--cell-2)}
+.cell .jelly{position:absolute;inset:6%;border-radius:22%;background:linear-gradient(135deg,rgba(255,179,209,.85),rgba(255,111,165,.85));box-shadow:inset 0 0 0 2px rgba(255,255,255,.45)}
+.cell .jelly.j2{background:linear-gradient(135deg,#ff6fa5,#c42a68);box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 4px #c42a68,inset 0 0 0 6px rgba(255,255,255,.8)}
+.cell.cur{box-shadow:inset 0 0 0 3px var(--star);border-radius:10px;z-index:1}
+.cnd{position:absolute;left:0;top:0;width:12.5%;height:12.5%;transition:transform .2s cubic-bezier(.35,.1,.45,1);z-index:2;pointer-events:none}
+.cnd.fall{transition-duration:.28s;transition-timing-function:cubic-bezier(.5,0,.75,.4)}
+.cnd svg{position:absolute;inset:5%;width:90%;height:90%;transition:transform .2s,opacity .2s;filter:drop-shadow(0 3px 2px rgba(0,0,0,.28))}
+.cnd.sel svg{transform:scale(1.14)}
+.cnd.sel::before{content:"";position:absolute;inset:2%;border-radius:24%;background:rgba(255,255,255,.28)}
+.cnd.pop svg{transform:scale(0) rotate(40deg);opacity:0}
+.cnd.born svg{animation:born .3s}
+@keyframes born{0%{transform:scale(.4)}60%{transform:scale(1.25)}}
+.cnd.hint svg{animation:wiggle .9s infinite}
+@keyframes wiggle{25%{transform:rotate(-12deg) scale(1.08)}75%{transform:rotate(12deg) scale(1.08)}}
+.beam{position:absolute;background:linear-gradient(90deg,transparent,#fff,transparent);opacity:0;animation:beam .38s ease-out;border-radius:99px}
+.beam.v{background:linear-gradient(180deg,transparent,#fff,transparent)}
+@keyframes beam{30%{opacity:.95}100%{opacity:0}}
+.burst{position:absolute;border-radius:50%;background:radial-gradient(circle,#fff 0,rgba(255,255,255,.6) 35%,transparent 70%);animation:burst .4s ease-out forwards}
+@keyframes burst{0%{transform:scale(.2);opacity:1}100%{transform:scale(1.4);opacity:0}}
+.float{position:absolute;font-family:var(--display);font-weight:700;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.35);font-size:clamp(14px,3vw,20px);animation:float .8s ease-out forwards;transform:translate(-50%,-50%)}
+@keyframes float{100%{transform:translate(-50%,-150%);opacity:0}}
+.banner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--display);font-weight:700;font-size:clamp(26px,7vw,44px);color:#fff;text-shadow:0 3px 0 var(--accent),0 6px 18px rgba(0,0,0,.4);white-space:nowrap;animation:banner 1.1s ease-out forwards}
+@keyframes banner{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}20%{transform:translate(-50%,-50%) scale(1.1);opacity:1}75%{opacity:1}100%{transform:translate(-50%,-60%) scale(1);opacity:0}}
+
+details{max-width:560px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px;box-sizing:border-box}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(60,10,35,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:24px;padding:24px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px}
+.modal h2{font-family:var(--display);font-size:34px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .bigstars{font-size:44px;letter-spacing:6px;color:var(--line);line-height:1}
+.modal .bigstars i{font-style:normal;color:var(--star)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+
+/* Short landscape screens: scorecard beside the board. */
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{padding-block:8px 16px;gap:8px}
+  .sub{display:none} h1{font-size:28px}
+  .wrap:has(.play:not([hidden])){display:grid;grid-template-columns:minmax(220px,300px) auto;column-gap:16px;align-items:start;justify-content:center}
+  .play{display:contents}
+  header,.hud,details{grid-column:1}
+  .hud{grid-template-columns:1fr 1fr}
+  .boardwrap{grid-column:2;grid-row:1/4;width:calc(100dvh - 20px);min-width:0;position:sticky;top:10px}
+}
+@media (prefers-reduced-motion:reduce){.cnd,.cnd svg{transition:none}.cnd.hint svg,.cnd.born svg,.moves.low b{animation:none}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs id="defs"></defs>
+</svg>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Sweet <span>Swap</span></h1>
+      <p class="sub">Swap neighboring candies to line up three or more. Bigger matches make special candies that clear whole rows, blast holes or wipe out a color.</p>
+    </div>
+    <div class="controls">
+      <button class="btn" id="bLevels">Levels</button>
+      <button class="btn" id="bRestart" hidden>Restart level</button>
+    </div>
+  </header>
+
+  <section class="map" id="map" aria-label="Levels">
+    <h2>Pick a level</h2>
+    <div class="levels" id="levels"></div>
+    <p class="note" id="mapNote"></p>
+  </section>
+
+  <section class="play" id="play" hidden aria-label="Game">
+    <div class="hud">
+      <div class="card"><small id="lvlName">Level 1</small><b id="lvlType">Score</b></div>
+      <div class="card moves" id="movesCard"><small>Moves</small><b id="moves">20</b></div>
+      <div class="card"><small>Score</small><b id="score">0</b><div class="scorebar" id="bar"><div class="fill" id="fill"></div></div></div>
+      <div class="goals" id="goals"></div>
+      <p class="status" id="status" aria-live="polite"></p>
+    </div>
+    <div class="boardwrap">
+      <div class="board" id="board" tabindex="0" aria-label="Candy board. Arrow keys move, Space picks a candy, then an arrow swaps it.">
+        <div class="cells" id="cells"></div>
+        <div class="fx" id="fx"></div>
+      </div>
+    </div>
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Swipe a candy toward a neighbor, or tap two neighbors, to swap them. A swap only counts if it makes a line of 3 or more.</li>
+        <li>Match 4 in a line: a <b>striped</b> candy that clears its whole row or column.</li>
+        <li>Match in an L or T shape: a <b>wrapped</b> candy that blasts the 3×3 square around it.</li>
+        <li>Match 5 in a line: a <b>color bomb</b>. Swap it with any candy to clear every candy of that color.</li>
+        <li>Swap two specials together for a bigger combo. Two color bombs clear the whole board.</li>
+        <li>Pink squares are <b>jelly</b>. Make a match on top to clear it; dark jelly needs two hits.</li>
+        <li>Reach the goal before you run out of moves. Leftover moves turn into bonus points and more stars.</li>
+        <li>Keyboard: arrow keys move the yellow box, Space picks a candy, then an arrow swaps it. H shows a hint.</li>
+      </ul>
+    </details>
+  </section>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+
+<script>
+const N=8;
+const COL=['#ef4566','#ff8f1f','#ffcf33','#36c46a','#3d8bff','#a05cf0'];
+const CNAME=['cherry','orange','lemon','mint','blueberry','grape'];
+const BOMB=6;
+const star=(cx,cy,R,r)=>'M'+[...Array(10)].map((_,k)=>{const a=-Math.PI/2+k*Math.PI/5,d=k%2?r:R;return(cx+d*Math.cos(a)).toFixed(1)+' '+(cy+d*Math.sin(a)).toFixed(1)}).join('L')+'Z';
+const SHAPE=['<circle cx="50" cy="53" r="37"/>','<rect x="15" y="17" width="70" height="70" rx="20"/>','<ellipse cx="50" cy="53" rx="41" ry="31"/>',
+  '<path d="M50 13Q55 13 58 18L88 74Q92 84 82 86H18Q8 84 12 74L42 18Q45 13 50 13Z"/>','<path d="M50 9Q54 9 57 12L86 46Q90 52 86 57L57 91Q50 98 43 91L14 57Q10 52 14 46L43 12Q46 9 50 9Z"/>',
+  `<path d="${star(50,54,42,20)}"/>`];
+// Each level: moves, how many candy colors appear, a goal (score / collect / jelly) and the scores for 2 and 3 stars.
+const J=rows=>rows.map(r=>[...r].map(Number));
+const LEVELS=[
+  {moves:15,colors:5,goal:{score:3000},stars:[3000,7000,9000]},
+  {moves:18,colors:5,goal:{collect:{0:22,4:22}},stars:[0,15000,19000]},
+  {moves:16,colors:5,goal:{jelly:J(['00000000','00000000','00111100','00111100','00111100','00111100','00000000','00000000'])},stars:[0,14000,18000]},
+  {moves:18,colors:6,goal:{score:7000},stars:[7000,9000,11000]},
+  {moves:22,colors:6,goal:{collect:{3:20,5:20}},stars:[0,13000,17000]},
+  {moves:24,colors:6,goal:{jelly:J(['00000000','01111110','01111110','00000000','00000000','01111110','01111110','00000000'])},stars:[0,15000,19000]},
+  {moves:24,colors:6,goal:{collect:{1:22,2:22,4:12}},stars:[0,15000,17000]},
+  {moves:24,colors:6,goal:{jelly:J(['00000000','00011000','00122100','01222210','01222210','00122100','00011000','00000000'])},stars:[0,16500,21000]},
+  {moves:16,colors:6,goal:{score:9000},stars:[9000,10500,12000]},
+  {moves:30,colors:6,goal:{jelly:J(['00000000','01111110','01111110','01111110','01111110','01111110','01111110','00000000'])},stars:[0,19000,22000]},
+  {moves:25,colors:6,goal:{collect:{0:20,1:20,3:20,5:20}},stars:[0,15000,18000]},
+  {moves:34,colors:6,goal:{jelly:J(['00000000','02222220','02111120','02111120','02111120','02111120','02222220','00000000'])},stars:[0,24000,29000]}];
+
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const idx=(r,c)=>r*N+c, rc=i=>[Math.floor(i/N),i%N];
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const prog=Object.assign({unlocked:1,stars:{},best:{}},store.get('parlor-sweetswap',{}));
+let S=null,uid=0,hintT=0;
+const FAST=()=>S&&S.fast;
+const wait=ms=>FAST()?Promise.resolve():new Promise(r=>setTimeout(r,ms));
+
+/* ---------- candy art ---------- */
+function mix(hex,t){const n=parseInt(hex.slice(1),16),f=x=>Math.round(x+(255-x)*t);return`rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`}
+function dark(hex,t){const n=parseInt(hex.slice(1),16),f=x=>Math.round(x*(1-t));return`rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`}
+$('defs').innerHTML=COL.map((c,i)=>`<radialGradient id="cg${i}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="${mix(c,.55)}"/><stop offset=".55" stop-color="${c}"/><stop offset="1" stop-color="${dark(c,.25)}"/></radialGradient>`).join('')+
+  `<pattern id="ph" width="100" height="17" patternUnits="userSpaceOnUse"><rect y="4" width="100" height="7" fill="#fff" opacity=".85"/></pattern><pattern id="pv" width="17" height="100" patternUnits="userSpaceOnUse"><rect x="4" width="7" height="100" fill="#fff" opacity=".85"/></pattern>`+
+  `<radialGradient id="cgb" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#8a5130"/><stop offset=".6" stop-color="#4a2512"/><stop offset="1" stop-color="#2a1208"/></radialGradient>`;
+function candySVG(c,s){
+  if(c===BOMB){let sp='';for(let k=0;k<14;k++){const a=k*2.4,d=12+(k*7)%22,x=50+Math.cos(a)*d,y=52+Math.sin(a)*d;sp+=`<rect x="${(x-5).toFixed(1)}" y="${(y-1.8).toFixed(1)}" width="10" height="3.6" rx="1.8" fill="${COL[k%6]}" transform="rotate(${k*47} ${x.toFixed(1)} ${y.toFixed(1)})"/>`}
+    return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="52" r="38" fill="url(#cgb)" stroke="#1c0b04" stroke-width="3"/>${sp}<ellipse cx="37" cy="33" rx="11" ry="6" fill="#fff" opacity=".35" transform="rotate(-25 37 33)"/></svg>`}
+  let t=`<svg viewBox="0 0 100 100" aria-hidden="true"><g fill="url(#cg${c})" stroke="${dark(COL[c],.45)}" stroke-width="3" stroke-linejoin="round">${SHAPE[c]}</g>`;
+  if(s==='h'||s==='v')t+=`<g fill="url(#p${s})">${SHAPE[c]}</g>`;
+  if(s==='w')t+=`<g fill="none" stroke="#fff" stroke-width="6" stroke-dasharray="9 7" stroke-linejoin="round" opacity=".95">${SHAPE[c]}</g><circle cx="50" cy="53" r="10" fill="#fff" opacity=".8"/>`;
+  return t+`<ellipse cx="37" cy="35" rx="12" ry="6.5" fill="#fff" opacity=".55" transform="rotate(-28 37 35)"/></svg>`}
+const icon=c=>candySVG(c,null);
+
+/* ---------- board state ---------- */
+function newCandy(c,s=null){return{id:++uid,c,s}}
+const colorAt=(g,i)=>g[i]?g[i].c:-1;
+function runAt(g,i){const [r,c]=rc(i),k=colorAt(g,i);if(k<0||k===BOMB)return false;
+  let h=1;for(let x=c-1;x>=0&&colorAt(g,idx(r,x))===k;x--)h++;for(let x=c+1;x<N&&colorAt(g,idx(r,x))===k;x++)h++;if(h>=3)return true;
+  let v=1;for(let y=r-1;y>=0&&colorAt(g,idx(y,c))===k;y--)v++;for(let y=r+1;y<N&&colorAt(g,idx(y,c))===k;y++)v++;return v>=3}
+const neighbors=(a,b)=>{const[r1,c1]=rc(a),[r2,c2]=rc(b);return Math.abs(r1-r2)+Math.abs(c1-c2)===1};
+function swapWorks(g,a,b){const A=g[a],B=g[b];if(!A||!B)return false;
+  if(A.c===BOMB||B.c===BOMB)return true;if(A.s&&B.s)return true;
+  g[a]=B;g[b]=A;const ok=runAt(g,a)||runAt(g,b);g[a]=A;g[b]=B;return ok}
+function findMove(g){const moves=[];for(let i=0;i<N*N;i++){const[r,c]=rc(i);if(c<N-1&&swapWorks(g,i,i+1))moves.push([i,i+1]);if(r<N-1&&swapWorks(g,i,i+N))moves.push([i,i+N])}return moves}
+function fillBoard(g,colors){for(let i=0;i<N*N;i++){if(g[i])continue;let k,t=0;do{k=rand(colors);g[i]=newCandy(k)}while(runAt(g,i)&&++t<20)}}
+function makeBoard(colors){for(let t=0;t<200;t++){const g=Array(N*N).fill(null);fillBoard(g,colors);if(findMove(g).length>=3)return g}return makeBoard(colors)}
+function shuffleBoard(){const g=S.grid,cells=g.map((x,i)=>i).filter(i=>g[i]&&g[i].c!==BOMB),cols=cells.map(i=>g[i].c);
+  for(let t=0;t<300;t++){for(let i=cols.length-1;i>0;i--){const j=rand(i+1);[cols[i],cols[j]]=[cols[j],cols[i]]}
+    cells.forEach((p,k)=>g[p].c=cols[k]);if(!cells.some(p=>runAt(g,p))&&findMove(g).length)return}
+  cells.forEach(p=>g[p]=newCandy(rand(S.L.colors)));if(!findMove(g).length||cells.some(p=>runAt(g,p)))shuffleBoard()}
+
+// All lines of 3+, plus which special candy each group creates and where.
+function findMatches(g,pref){
+  const runs=[];
+  for(let r=0;r<N;r++){let c=0;while(c<N){const k=colorAt(g,idx(r,c));let e=c+1;if(k>=0&&k!==BOMB)while(e<N&&colorAt(g,idx(r,e))===k)e++;if(k>=0&&k!==BOMB&&e-c>=3)runs.push({d:'h',k,cells:[...Array(e-c)].map((_,x)=>idx(r,c+x))});c=e}}
+  for(let c=0;c<N;c++){let r=0;while(r<N){const k=colorAt(g,idx(r,c));let e=r+1;if(k>=0&&k!==BOMB)while(e<N&&colorAt(g,idx(e,c))===k)e++;if(k>=0&&k!==BOMB&&e-r>=3)runs.push({d:'v',k,cells:[...Array(e-r)].map((_,y)=>idx(r+y,c))});r=e}}
+  const cells=new Set(),specials=[],used=new Set();
+  runs.forEach(R=>R.cells.forEach(i=>cells.add(i)));
+  const free=i=>!used.has(i)&&!(g[i]&&g[i].s);
+  const pick=list=>{const p=(pref||[]).find(i=>list.includes(i)&&free(i));return p!=null?p:list.find(free)??list[Math.floor(list.length/2)]};
+  runs.filter(R=>R.cells.length>=5).forEach(R=>{const p=pick(R.cells);used.add(p);specials.push({at:p,c:BOMB,s:'b'});R.done=true});
+  runs.forEach(A=>{if(A.d!=='h')return;runs.forEach(B=>{if(B.d!=='v'||A.k!==B.k||A.done&&B.done)return;const x=A.cells.find(i=>B.cells.includes(i));if(x==null||used.has(x))return;used.add(x);specials.push({at:x,c:A.k,s:'w'});A.done=B.done=true})});
+  runs.filter(R=>!R.done&&R.cells.length===4).forEach(R=>{const p=pick(R.cells);used.add(p);specials.push({at:p,c:R.k,s:R.d})});
+  return{cells,specials}}
+
+/* ---------- rendering ---------- */
+const els=new Map();
+const pos=(r,c)=>`translate(${c*100}%,${r*100}%)`;
+function buildCells(){let h='';for(let i=0;i<N*N;i++){const[r,c]=rc(i);h+=`<div class="cell${(r+c)%2?' alt':''}" id="cl${i}" style="left:${c*12.5}%;top:${r*12.5}%"></div>`}$('cells').innerHTML=h;
+  $('board').querySelectorAll('.cnd').forEach(e=>e.remove());els.clear()}
+function elFor(cd,spawnRow,c){let e=els.get(cd.id);
+  if(!e){e=document.createElement('div');e.className='cnd';e.style.transform=pos(spawnRow??0,c??0);e.innerHTML=candySVG(cd.c,cd.s);e.dataset.k=cd.c+(cd.s||'');$('board').insertBefore(e,$('fx'));els.set(cd.id,e)}
+  return e}
+function render(){if(FAST())return;
+  const g=S.grid,live=new Set();
+  g.forEach((cd,i)=>{if(!cd)return;const[r,c]=rc(i),e=elFor(cd);live.add(cd.id);const k=cd.c+(cd.s||'');if(e.dataset.k!==k){e.innerHTML=candySVG(cd.c,cd.s);e.dataset.k=k;e.classList.remove('born');void e.offsetWidth;e.classList.add('born')}
+    e.style.transform=pos(r,c);e.classList.toggle('sel',S.sel===i)});
+  els.forEach((e,id)=>{if(!live.has(id)&&!e.classList.contains('pop')){e.remove();els.delete(id)}});
+  for(let i=0;i<N*N;i++){const j=S.jelly[i],cl=$('cl'+i);const want=j?`<div class="jelly${j>1?' j2':''}"></div>`:'';if(cl.innerHTML!==want)cl.innerHTML=want;cl.classList.toggle('cur',S.cursor===i&&S.kb)}
+  renderHud()}
+function goalLeft(){const G=S.L.goal;if(G.score)return Math.max(0,G.score-S.score);if(G.collect)return Object.entries(G.collect).reduce((s,[k,n])=>s+Math.max(0,n-(S.got[k]||0)),0);return S.jelly.reduce((s,x)=>s+x,0)}
+function renderHud(){if(FAST())return;const L=S.L,G=L.goal;
+  $('lvlName').textContent=`Level ${S.n}`;$('lvlType').textContent=G.score?'Score':G.collect?'Collect':'Jelly';
+  $('moves').textContent=S.moves;$('movesCard').classList.toggle('low',S.moves<=5&&!S.over);
+  $('score').textContent=S.score.toLocaleString();
+  const top=L.stars[2]*1.08;$('fill').style.width=Math.min(100,S.score/top*100)+'%';
+  $('bar').querySelectorAll('.mk').forEach(m=>m.classList.toggle('on',m.dataset.v==='goal'?goalMet():S.score>=+m.dataset.v));
+  let h='';if(G.score)h=`<span class="goal${S.score>=G.score?' done':''}"><span class="tg">🎯</span>${S.score>=G.score?'Done!':'Reach '+G.score.toLocaleString()}</span>`;
+  else if(G.collect)h=Object.entries(G.collect).map(([k,n])=>{const left=Math.max(0,n-(S.got[k]||0));return`<span class="goal${left?'':' done'}" title="Collect ${n} ${CNAME[k]}">${icon(+k)}${left||'✓'}</span>`}).join('');
+  else{const left=S.jelly.reduce((s,x)=>s+x,0);h=`<span class="goal${left?'':' done'}"><span class="jl"></span>${left?left+' jelly':'✓ All clear'}</span>`}
+  $('goals').innerHTML=h}
+function fxAt(cls,i,extra){if(FAST())return;const[r,c]=rc(i),d=document.createElement('div');d.className=cls;Object.assign(d.style,extra||{left:(c+.5)*12.5+'%',top:(r+.5)*12.5+'%'});$('fx').appendChild(d);setTimeout(()=>d.remove(),1200);return d}
+function beam(i,dir){const[r,c]=rc(i);fxAt('beam'+(dir==='v'?' v':''),i,dir==='v'?{left:c*12.5+3+'%',width:'6.5%',top:0,height:'100%'}:{top:r*12.5+3+'%',height:'6.5%',left:0,width:'100%'})}
+function burst(i,size){const[r,c]=rc(i),s=size*12.5;fxAt('burst',i,{left:(c+.5)*12.5-s/2+'%',top:(r+.5)*12.5-s/2+'%',width:s+'%',height:s+'%'})}
+function floatText(i,t){const d=fxAt('float',i);if(d)d.textContent=t}
+function banner(t){if(FAST())return;const d=document.createElement('div');d.className='banner';d.textContent=t;$('fx').appendChild(d);setTimeout(()=>d.remove(),1200)}
+
+/* ---------- clearing, specials, gravity ---------- */
+// Expand a set of cells to clear with the effects of any special candies inside it (chains included).
+function expand(set,fired){const g=S.grid,q=[...set];
+  while(q.length){const i=q.pop(),cd=g[i];if(!cd||!cd.s||fired.has(i))continue;fired.add(i);const[r,c]=rc(i);let add=[];
+    if(cd.s==='h'){add=[...Array(N)].map((_,x)=>idx(r,x));beam(i,'h')}
+    else if(cd.s==='v'){add=[...Array(N)].map((_,y)=>idx(y,c));beam(i,'v')}
+    else if(cd.s==='w'){for(let y=r-1;y<=r+1;y++)for(let x=c-1;x<=c+1;x++)if(y>=0&&y<N&&x>=0&&x<N)add.push(idx(y,x));burst(i,3)}
+    else if(cd.s==='b'){const cnt={};g.forEach(o=>{if(o&&o.c!==BOMB)cnt[o.c]=(cnt[o.c]||0)+1});const k=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];g.forEach((o,j)=>{if(o&&o.c===k)add.push(j)});burst(i,4)}
+    add.forEach(j=>{if(!set.has(j)){set.add(j);q.push(j)}})}
+  return set}
+async function clearCells(set,specials=[],fired=new Set()){
+  const g=S.grid;
+  specials.forEach(sp=>set.delete(sp.at));
+  expand(set,fired);
+  specials.forEach(sp=>set.delete(sp.at));
+  let pts=0,first=null;
+  set.forEach(i=>{const cd=g[i];if(S.jelly[i]){S.jelly[i]--;pts+=100}if(!cd)return;
+    if(cd.c!==BOMB)S.got[cd.c]=(S.got[cd.c]||0)+1;pts+=60*S.cascade;if(first==null)first=i;
+    const e=els.get(cd.id);if(e)e.classList.add('pop');g[i]=null});
+  specials.forEach(sp=>{const cd=g[sp.at];if(!cd)return;cd.c=sp.c;cd.s=sp.s;pts+=sp.s==='b'?300:sp.s==='w'?200:120;if(S.jelly[sp.at]){S.jelly[sp.at]--;pts+=100}});
+  S.score+=pts;if(first!=null&&pts)floatText(first,'+'+pts);
+  render();await wait(230);
+  els.forEach((e,id)=>{if(e.classList.contains('pop')){e.remove();els.delete(id)}});
+  return set.size}
+async function gravity(){const g=S.grid;let moved=false;
+  for(let c=0;c<N;c++){let w=N-1;for(let r=N-1;r>=0;r--){const i=idx(r,c);if(g[i]){if(w!==r){g[idx(w,c)]=g[i];g[i]=null;moved=true}w--}}
+    for(let r=w,k=1;r>=0;r--,k++){const cd=newCandy(rand(S.L.colors));g[idx(r,c)]=cd;moved=true;if(!FAST()){const e=elFor(cd,-k,c);e.classList.add('fall')}}}
+  if(!FAST()){void $('board').offsetWidth;els.forEach(e=>e.classList.add('fall'))}
+  render();await wait(300);if(!FAST())els.forEach(e=>e.classList.remove('fall'));return moved}
+async function cascade(pref){
+  for(;;){const m=findMatches(S.grid,pref);if(!m.cells.size)break;
+    await clearCells(m.cells,m.specials);await gravity();S.cascade++;pref=null;
+    if(S.cascade===3)banner('Sweet!');else if(S.cascade===5)banner('Delicious!');else if(S.cascade===7)banner('Sugar rush!')}}
+
+// Swapping two special candies (or a color bomb with anything) fires a combo instead of a normal match.
+function comboCells(a,b){const g=S.grid,A=g[a],B=g[b],set=new Set([a,b]),fired=new Set([a,b]),[r,c]=rc(b);
+  const row=y=>{if(y>=0&&y<N){for(let x=0;x<N;x++)set.add(idx(y,x));beam(idx(y,c),'h')}},col=x=>{if(x>=0&&x<N){for(let y=0;y<N;y++)set.add(idx(y,x));beam(idx(r,x),'v')}};
+  if(A.c===BOMB&&B.c===BOMB){g.forEach((o,i)=>{if(o)set.add(i)});burst(b,8);banner('Wipe out!');return{set,fired}}
+  if(A.c===BOMB||B.c===BOMB){const other=A.c===BOMB?B:A,k=other.c;burst(A.c===BOMB?a:b,4);
+    g.forEach((o,i)=>{if(o&&o.c===k){set.add(i);if(other.s==='h'||other.s==='v'){o.s=Math.random()<.5?'h':'v'}else if(other.s==='w')o.s='w'}});
+    fired.delete(A.c===BOMB?b:a);return{set,fired}}
+  const st=x=>x.s==='h'||x.s==='v';
+  if(st(A)&&st(B)){row(r);col(c)}
+  else if(A.s==='w'&&B.s==='w'){for(let y=r-2;y<=r+2;y++)for(let x=c-2;x<=c+2;x++)if(y>=0&&y<N&&x>=0&&x<N)set.add(idx(y,x));burst(b,5)}
+  else{for(let d=-1;d<=1;d++){row(r+d);col(c+d)}}
+  return{set,fired}}
+
+/* ---------- turns ---------- */
+async function trySwap(a,b){
+  if(!S||S.busy||S.over||!neighbors(a,b))return false;
+  const g=S.grid;if(!g[a]||!g[b])return false;
+  S.busy=true;S.sel=-1;clearHint();
+  const ok=swapWorks(g,a,b);
+  [g[a],g[b]]=[g[b],g[a]];render();await wait(190);
+  if(!ok){[g[a],g[b]]=[g[b],g[a]];render();await wait(190);S.busy=false;status('No match there. Try another swap.');armHint();return false}
+  S.moves--;S.cascade=1;status('');
+  const A=g[a],B=g[b];
+  if(A.c===BOMB||B.c===BOMB||(A.s&&B.s)){const{set,fired}=comboCells(a,b);await clearCells(set,[],fired);await gravity();S.cascade++}
+  await cascade([b,a]);
+  if(!findMove(S.grid).length){status('No moves left, so the board was reshuffled.');banner('Shuffle!');await wait(500);shuffleBoard();render()}
+  S.busy=false;checkEnd();if(!S.over)armHint();return true}
+function goalMet(){return goalLeft()===0}
+function starsFor(score){const st=S.L.stars;return 1+(score>=st[1])+(score>=st[2])}
+async function checkEnd(){
+  if(goalMet()){S.over=true;S.busy=true;const bonus=S.moves*250;if(S.moves){banner('Sweet bonus!');await wait(600)}S.score+=bonus;renderHud();
+    const stars=starsFor(S.score);if(S.fast){S.result={win:true,stars,score:S.score};return}
+    const n=S.n;prog.stars[n]=Math.max(prog.stars[n]||0,stars);prog.best[n]=Math.max(prog.best[n]||0,S.score);prog.unlocked=Math.max(prog.unlocked,Math.min(LEVELS.length,n+1));store.set('parlor-sweetswap',prog);
+    await wait(500);showEnd(true,stars,bonus)}
+  else if(S.moves<=0){S.over=true;if(S.fast){S.result={win:false,score:S.score,left:goalLeft()};return}await wait(400);showEnd(false)}
+  render()}
+function showEnd(win,stars,bonus){const n=S.n,last=n===LEVELS.length;
+  $('modal').innerHTML=win?`<h2>${last?'You beat every level!':'Level '+n+' complete'}</h2><div class="bigstars" aria-label="${stars} of 3 stars">${[1,2,3].map(k=>k<=stars?'<i>★</i>':'★').join('')}</div><p>Score ${S.score.toLocaleString()}${bonus?` · includes ${bonus.toLocaleString()} for ${S.moves} spare move${S.moves===1?'':'s'}`:''}</p>${stars<3?`<p>${(S.L.stars[stars]).toLocaleString()} points for ${stars+1} stars.</p>`:''}<div class="row"><button class="btn" id="mRetry">Replay</button><button class="btn" id="mMap">Levels</button>${last?'':'<button class="btn primary" id="mNext">Next level</button>'}</div>`
+    :`<h2>Out of moves</h2><p>${goalText(true)}</p><div class="row"><button class="btn" id="mMap">Levels</button><button class="btn primary" id="mRetry">Try again</button></div>`;
+  $('overlay').hidden=false;(($('mNext')||$('mRetry'))).focus();
+  $('mRetry').onclick=()=>startLevel(n);$('mMap').onclick=showMap;if($('mNext'))$('mNext').onclick=()=>startLevel(n+1)}
+function goalText(left){const G=S.L.goal;
+  if(G.score)return left?`You were ${goalLeft().toLocaleString()} points short of ${G.score.toLocaleString()}.`:`Reach ${G.score.toLocaleString()} points in ${S.L.moves} moves.`;
+  if(G.collect){const parts=Object.entries(G.collect).map(([k,n])=>`${left?Math.max(0,n-(S.got[k]||0)):n} ${CNAME[k]}`);return left?`Still needed: ${parts.join(', ')}.`:`Collect ${parts.join(', ')} in ${S.L.moves} moves.`}
+  const j=S.jelly.reduce((s,x)=>s+x,0);return left?`${j} jelly left to clear.`:`Clear all the jelly in ${S.L.moves} moves.`}
+function status(t){if(!FAST())$('status').textContent=t}
+
+/* ---------- hints ---------- */
+function clearHint(){clearTimeout(hintT);document.querySelectorAll('.cnd.hint').forEach(e=>e.classList.remove('hint'))}
+function showHint(){if(!S||S.busy||S.over)return;const m=findMove(S.grid);if(!m.length)return;const best=m[rand(m.length)];best.forEach(i=>{const e=S.grid[i]&&els.get(S.grid[i].id);if(e)e.classList.add('hint')})}
+function armHint(){clearHint();if(!FAST())hintT=setTimeout(showHint,6000)}
+
+/* ---------- screens ---------- */
+function startLevel(n){
+  $('overlay').hidden=true;const L=LEVELS[n-1];
+  S={n,L,grid:makeBoard(L.colors),jelly:L.goal.jelly?L.goal.jelly.flat():Array(N*N).fill(0),score:0,moves:L.moves,got:{},cascade:1,busy:false,over:false,sel:-1,cursor:idx(3,3),kb:false};
+  $('map').hidden=true;$('play').hidden=false;$('bRestart').hidden=false;
+  $('bar').querySelectorAll('.mk').forEach(m=>m.remove());
+  const top=L.stars[2]*1.08;[[L.goal.score||'goal',L.goal.score||top*.12],[L.stars[1],L.stars[1]],[L.stars[2],L.stars[2]]].forEach(([v,at])=>{const m=document.createElement('span');m.className='mk';m.textContent='★';m.dataset.v=v;m.style.left=Math.min(97,at/top*100)+'%';$('bar').appendChild(m)});
+  buildCells();render();status(goalText(false));armHint();
+}
+function showMap(){$('overlay').hidden=true;clearHint();S=null;$('play').hidden=true;$('map').hidden=false;$('bRestart').hidden=true;
+  $('levels').innerHTML=LEVELS.map((L,k)=>{const n=k+1,lock=n>prog.unlocked,st=prog.stars[n]||0,G=L.goal;
+    return `<button class="lvl${n===prog.unlocked&&!st?' next':''}" data-n="${n}" ${lock?'disabled':''} aria-label="Level ${n}${lock?', locked':`, ${st} stars`}"><b>${lock?'🔒':n}</b><small>${G.score?'Score':G.collect?'Collect':'Jelly'}</small><span class="st">${[1,2,3].map(i=>i<=st?'<i>★</i>':'★').join('')}</span></button>`}).join('');
+  const total=Object.values(prog.stars).reduce((s,x)=>s+x,0);
+  $('mapNote').textContent=`${total} of ${LEVELS.length*3} stars collected. Beat a level to unlock the next one.`}
+
+/* ---------- input ---------- */
+const board=$('board');let drag=null;
+function cellAt(ev){const r=board.getBoundingClientRect();const c=Math.floor((ev.clientX-r.left)/r.width*N),w=Math.floor((ev.clientY-r.top)/r.height*N);return c>=0&&c<N&&w>=0&&w<N?idx(w,c):-1}
+board.addEventListener('pointerdown',ev=>{if(!S||S.busy||S.over)return;const i=cellAt(ev);if(i<0)return;S.kb=false;drag={i,x:ev.clientX,y:ev.clientY,moved:false};board.setPointerCapture(ev.pointerId)});
+board.addEventListener('pointermove',ev=>{if(!drag||drag.moved||!S)return;const dx=ev.clientX-drag.x,dy=ev.clientY-drag.y,th=board.getBoundingClientRect().width/N*.35;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<th)return;drag.moved=true;const[r,c]=rc(drag.i);const t=Math.abs(dx)>Math.abs(dy)?(dx>0?(c<N-1?drag.i+1:-1):(c>0?drag.i-1:-1)):(dy>0?(r<N-1?drag.i+N:-1):(r>0?drag.i-N:-1));
+  if(t>=0)trySwap(drag.i,t)});
+board.addEventListener('pointerup',ev=>{if(!drag||!S)return;const d=drag;drag=null;if(d.moved)return;tapCell(d.i)});
+board.addEventListener('pointercancel',()=>{drag=null});
+function tapCell(i){if(S.busy||S.over)return;if(S.sel>=0&&neighbors(S.sel,i)){trySwap(S.sel,i);return}S.sel=S.sel===i?-1:i;render()}
+board.addEventListener('keydown',ev=>{if(!S||S.over)return;const k=ev.key,[r,c]=rc(S.cursor);const d={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]}[k];
+  if(k==='h'||k==='H'){showHint();return}
+  if(d){ev.preventDefault();S.kb=true;const nr=r+d[0],nc=c+d[1];if(nr<0||nr>=N||nc<0||nc>=N)return;const t=idx(nr,nc);
+    if(S.sel>=0&&S.sel===S.cursor){S.cursor=t;trySwap(S.sel,t)}else{S.cursor=t;render()}return}
+  if(k===' '||k==='Enter'){ev.preventDefault();S.kb=true;S.sel=S.sel===S.cursor?-1:S.cursor;render()}
+  if(k==='Escape'&&S.sel>=0){S.sel=-1;render()}});
+board.addEventListener('focus',()=>{if(S&&!drag){S.kb=true;render()}});
+$('levels').addEventListener('click',e=>{const b=e.target.closest('.lvl');if(b&&!b.disabled)startLevel(+b.dataset.n)});
+$('bLevels').onclick=showMap;$('bRestart').onclick=()=>{if(S)startLevel(S.n)};
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&!$('overlay').hidden)showMap()});
+// Android app back button (see app-shell.js): leave the level for the map first.
+window.onAppBack=()=>{if(!$('overlay').hidden||S){showMap();return true}return false};
+showMap();
+</script>
+</body>
+</html>
