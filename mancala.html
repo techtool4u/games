@@ -52,8 +52,9 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
 .board{position:relative;display:grid;grid-template-columns:1.25fr repeat(6,1fr) 1.25fr;grid-template-rows:1fr 1fr;gap:clamp(5px,1.2vw,12px);padding:clamp(10px,2vw,20px);
   background:linear-gradient(180deg,var(--wood),var(--wood-2));border-radius:clamp(26px,6vw,70px);box-shadow:inset 0 2px 0 rgba(255,255,255,.18),inset 0 -6px 0 var(--wood-dark),0 18px 36px -18px rgba(40,20,0,.7);touch-action:manipulation}
 .pit{position:relative;aspect-ratio:1;border:0;padding:0;border-radius:50%;background:radial-gradient(circle at 50% 38%,var(--pit-2),var(--pit) 70%);box-shadow:inset 0 5px 10px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.18)}
-.pit.store{grid-row:1/3;aspect-ratio:auto;border-radius:999px}
-.pit.s13{grid-column:1}.pit.s6{grid-column:8}
+.pit{grid-row:var(--r);grid-column:var(--c)}
+.pit.store{aspect-ratio:auto;border-radius:999px}
+.v-only{display:none}
 button.pit{cursor:default}
 button.pit.can{cursor:pointer;box-shadow:inset 0 5px 10px rgba(0,0,0,.55),0 0 0 3px var(--hot)}
 button.pit.can:hover,button.pit.can:focus-visible{outline:none;box-shadow:inset 0 5px 10px rgba(0,0,0,.55),0 0 0 4px var(--hot),0 0 18px rgba(243,194,70,.55)}
@@ -62,6 +63,16 @@ button.pit.can:hover,button.pit.can:focus-visible{outline:none;box-shadow:inset 
 .cnt{position:absolute;left:50%;transform:translateX(-50%);font-weight:700;font-size:clamp(11px,1.6vw,14px);color:#fff4e2;background:rgba(40,20,5,.55);border-radius:999px;padding:0 7px;font-variant-numeric:tabular-nums;pointer-events:none;z-index:3;line-height:1.5}
 .top .cnt{top:-4px}.bot .cnt{bottom:-4px}
 .store .cnt{top:8px;font-size:clamp(14px,2.4vw,22px);font-family:var(--display);font-weight:400;padding:2px 10px;background:rgba(40,20,5,.35)}
+/* Narrow screens: the board stands upright. Your pits run down the left column into your store at the bottom; the rival's run up the right column into theirs at the top. Sowing stays counterclockwise. */
+@media (max-width:560px){
+  .board{grid-template-columns:1fr 1fr;grid-template-rows:none;box-sizing:border-box;width:clamp(170px,calc((100dvh - 110px)/3.6),100%);margin:0 auto;border-radius:clamp(26px,12vw,56px);padding:12px}
+  .pit{grid-row:var(--vr);grid-column:var(--vc)}
+  .pit.store{aspect-ratio:2.5/1}
+  .top .cnt,.bot .cnt{top:-4px;bottom:auto}
+  .store .cnt{top:50%;left:14px;transform:translateY(-50%);font-size:18px}
+  .who-row{justify-content:center;flex-wrap:wrap;text-align:center}
+  .h-only{display:none}.v-only{display:inline}
+}
 .seeds{position:absolute;inset:0;pointer-events:none;z-index:2}
 .seed{position:absolute;left:0;top:0;border-radius:50%;transition:transform .32s cubic-bezier(.3,.7,.3,1);box-shadow:inset -2px -2px 3px rgba(0,0,0,.35),inset 1px 1px 2px rgba(255,255,255,.6),0 1px 2px rgba(0,0,0,.5)}
 .hint{color:var(--muted);font-size:14px;margin:0;min-height:1.45em;text-align:center}
@@ -112,9 +123,9 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
   </header>
 
   <section class="boardwrap" aria-label="Board">
-    <div class="who-row"><span class="tag" id="tag1"><i></i><b id="name1">Computer</b></span><span>Store on the left ←</span></div>
+    <div class="who-row"><span class="tag" id="tag1"><i></i><b id="name1">Computer</b></span><span class="h-only">Store on the left ←</span><span class="v-only">· right column, store at the top</span></div>
     <div class="board" id="board"><div class="seeds" id="seedLayer"></div></div>
-    <div class="who-row"><span class="tag" id="tag0"><i></i><b id="name0">You</b></span><span>→ Store on the right</span></div>
+    <div class="who-row"><span class="tag" id="tag0"><i></i><b id="name0">You</b></span><span class="h-only">→ Store on the right</span><span class="v-only">· left column, store at the bottom</span></div>
     <p class="hint" id="hint" aria-live="polite"></p>
   </section>
 
@@ -265,10 +276,11 @@ function undo(){
 /* ---------- render ---------- */
 function layout(){
   const bd=$('board');bd.querySelectorAll('.pit').forEach(e=>e.remove());
-  let html=`<div class="pit store s13" data-i="13"><span class="cnt"></span></div>`;
-  [12,11,10,9,8,7].forEach((i,k)=>html+=`<button class="pit top" data-i="${i}" style="grid-row:1;grid-column:${k+2}"><span class="cnt"></span></button>`);
-  [0,1,2,3,4,5].forEach((i,k)=>html+=`<button class="pit bot" data-i="${i}" style="grid-row:2;grid-column:${k+2}"><span class="cnt"></span></button>`);
-  html+=`<div class="pit store s6" data-i="6"><span class="cnt"></span></div>`;
+  // --r/--c place a pit on the wide board, --vr/--vc on the upright one
+  let html=`<div class="pit store" data-i="13" style="--r:1/3;--c:1;--vr:1;--vc:1/3"><span class="cnt"></span></div>`;
+  [12,11,10,9,8,7].forEach((i,k)=>html+=`<button class="pit top" data-i="${i}" style="--r:1;--c:${k+2};--vr:${k+2};--vc:2"><span class="cnt"></span></button>`);
+  [0,1,2,3,4,5].forEach((i,k)=>html+=`<button class="pit bot" data-i="${i}" style="--r:2;--c:${k+2};--vr:${k+2};--vc:1"><span class="cnt"></span></button>`);
+  html+=`<div class="pit store" data-i="6" style="--r:1/3;--c:8;--vr:8;--vc:1/3"><span class="cnt"></span></div>`;
   bd.insertAdjacentHTML('afterbegin',html);
 }
 function measure(){const b=$('board').getBoundingClientRect();
