@@ -106,6 +106,18 @@ h1 span{color:var(--accent)}
 .diff i{width:7px;height:7px;border-radius:50%;background:var(--line)}
 .diff i.on{background:var(--accent)}
 
+/* tiles: square cover + name only (default) */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 10px}}
+.tile{display:flex;flex-direction:column;gap:7px;color:inherit;text-decoration:none;border:0;background:none;padding:0;font:inherit;text-align:center;cursor:pointer;min-width:0}
+.tile .cv{position:relative;aspect-ratio:1;border-radius:20px;overflow:hidden;box-shadow:0 1px 0 var(--line),0 8px 18px -12px rgba(20,25,60,.45);transition:transform .15s}
+.tile:hover .cv,.tile:focus-visible .cv{transform:translateY(-3px)}
+.tile .nm{font-weight:800;font-size:14px;line-height:1.2;overflow-wrap:anywhere}
+.tile.soon .cv svg{filter:saturate(.45) brightness(.92)}
+.tile.soon .nm{color:var(--muted);font-weight:700}
+.tile .soonb{position:absolute;left:8px;top:8px;font-size:10.5px;font-weight:800;letter-spacing:.04em;background:rgba(23,26,44,.72);color:#fff;border-radius:999px;padding:2px 8px}
+body.tiles-view .readywrap{display:none}
+
 /* grid */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:16px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:transform .15s,border-color .15s}
@@ -184,7 +196,7 @@ tbody tr:last-child td{border-bottom:0}
       </div>
       <div class="tally" id="tally"></div>
     </div>
-    <div>
+    <div class="readywrap">
       <p class="eyebrow" style="margin-bottom:10px">Ready to play now</p>
       <div class="ready" id="ready"></div>
     </div>
@@ -207,7 +219,8 @@ tbody tr:last-child td{border-bottom:0}
       <option value="hard">Hardest first</option>
     </select>
     <div class="seg" role="group" aria-label="Layout" id="layouts">
-      <button data-l="grid" aria-pressed="true" title="Grid"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="9.5" y="1" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="18" y="1" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="1" y="10" width="7" height="7" rx="1.5" fill="currentColor" opacity=".55"/><rect x="9.5" y="10" width="7" height="7" rx="1.5" fill="currentColor" opacity=".55"/><rect x="18" y="10" width="7" height="7" rx="1.5" fill="currentColor" opacity=".55"/></svg><span>Grid</span></button>
+      <button data-l="tiles" aria-pressed="true" title="Tiles"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="6.5" height="6.5" rx="1.8" fill="currentColor"/><rect x="9.75" y="1" width="6.5" height="6.5" rx="1.8" fill="currentColor"/><rect x="18.5" y="1" width="6.5" height="6.5" rx="1.8" fill="currentColor"/><rect x="1.5" y="9.5" width="5.5" height="1.6" rx=".8" fill="currentColor" opacity=".6"/><rect x="10.25" y="9.5" width="5.5" height="1.6" rx=".8" fill="currentColor" opacity=".6"/><rect x="19" y="9.5" width="5.5" height="1.6" rx=".8" fill="currentColor" opacity=".6"/><rect x="1" y="13" width="6.5" height="4" rx="1.4" fill="currentColor" opacity=".4"/><rect x="9.75" y="13" width="6.5" height="4" rx="1.4" fill="currentColor" opacity=".4"/><rect x="18.5" y="13" width="6.5" height="4" rx="1.4" fill="currentColor" opacity=".4"/></svg><span>Tiles</span></button>
+      <button data-l="grid" aria-pressed="false" title="Grid"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="9.5" y="1" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="18" y="1" width="7" height="7" rx="1.5" fill="currentColor"/><rect x="1" y="10" width="7" height="7" rx="1.5" fill="currentColor" opacity=".55"/><rect x="9.5" y="10" width="7" height="7" rx="1.5" fill="currentColor" opacity=".55"/><rect x="18" y="10" width="7" height="7" rx="1.5" fill="currentColor" opacity=".55"/></svg><span>Grid</span></button>
       <button data-l="table" aria-pressed="false" title="Table"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="24" height="3.5" rx="1" fill="currentColor"/><rect x="1" y="7" width="5" height="3" rx=".8" fill="currentColor" opacity=".7"/><rect x="8" y="7.5" width="17" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="1" y="12.5" width="5" height="3" rx=".8" fill="currentColor" opacity=".7"/><rect x="8" y="13" width="17" height="2" rx="1" fill="currentColor" opacity=".55"/></svg><span>Table</span></button>
       <button data-l="scroll" aria-pressed="false" title="Scroll"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="15" height="10" rx="2" fill="currentColor"/><rect x="18" y="2" width="7" height="2" rx="1" fill="currentColor" opacity=".7"/><rect x="18" y="5.5" width="5" height="1.6" rx=".8" fill="currentColor" opacity=".5"/><rect x="1" y="13" width="15" height="5" rx="1.5" fill="currentColor" opacity=".45"/><rect x="18" y="13.5" width="7" height="2" rx="1" fill="currentColor" opacity=".45"/></svg><span>Scroll</span></button>
     </div>
@@ -574,7 +587,7 @@ function cover(g){if(coverCache[g.id])return coverCache[g.id];const R=rng(hash(g
 /* ---------- state ---------- */
 const $=id=>document.getElementById(id);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-const S={q:'',genres:new Set(),players:'any',len:'any',diff:'any',playable:false,fav:false,sort:'featured',layout:store.get('parlor-layout','grid')};
+const S={q:'',genres:new Set(),players:'any',len:'any',diff:'any',playable:false,fav:false,sort:'featured',layout:store.get('parlor-layout-v2','tiles')};
 const favs=new Set(store.get('parlor-favs',[]));
 const BATCH=12;let list=[],shown=0,loading=false,gen=0;
 
@@ -597,26 +610,30 @@ const diffDots=d=>`<span class="diff" title="${DIFF_LBL[d]}">${[1,2,3].map(i=>`<
 const favBtn=g=>`<button class="fav" data-fav="${g.id}" aria-pressed="${favs.has(g.id)}" aria-label="${favs.has(g.id)?'Remove from':'Add to'} favorites">${heart}</button>`;
 const badge=g=>g.url?'<span class="badge ok">Play now</span>':'<span class="badge">Coming soon</span>';
 const playBtn=(g,cls='')=>g.url?`<a class="btn play ${cls}" href="${g.url}" data-stop>Play now</a>`:`<span class="btn ${cls}" aria-disabled="true">Coming soon</span>`;
+function tileItem(g){const inner=`<div class="cv">${cover(g)}${g.url?'':'<span class="soonb">Soon</span>'}</div><span class="nm">${hl(g.name)}</span>`;
+  return g.url?`<a class="tile" href="${g.url}" data-stop aria-label="Play ${esc(g.name)}">${inner}</a>`:`<button class="tile soon" data-open="${g.id}" aria-label="${esc(g.name)}, coming soon">${inner}</button>`}
 function gridItem(g){return `<article class="card ${g.url?'':'soon'}" data-open="${g.id}" tabindex="0" aria-label="${esc(g.name)}"><div class="cv">${cover(g)}${badge(g)}${favBtn(g)}</div><div class="bd"><h3>${hl(g.name)}</h3><div class="tags">${g.genres.map(x=>`<span>${x}</span>`).join('')}</div><div class="meta"><span>${g.plabel.replace('or vs computer','· vs CPU')}</span><span>${g.mins} min</span>${diffDots(g.diff)}</div></div></article>`}
 function rowItem(g){return `<tr data-open="${g.id}" tabindex="0"><td><div class="tname"><div class="tthumb cv">${cover(g)}</div><span>${hl(g.name)}</span></div></td><td>${g.genres.join(', ')}</td><td>${esc(g.plabel)}</td><td class="num">${g.mins} min</td><td>${diffDots(g.diff)} <span class="note">${DIFF_LBL[g.diff]}</span></td><td><span class="pill ${g.url?'ok':'soon'}">${g.url?'Playable':'Coming soon'}</span></td><td style="text-align:right">${g.url?playBtn(g,'sm'):`<button class="btn sm" data-open="${g.id}">Details</button>`}</td></tr>`}
 function bigItem(g,i){return `<article class="big" data-open="${g.id}" tabindex="0" aria-label="${esc(g.name)}"><div class="cv">${cover(g)}${badge(g)}${favBtn(g)}</div><div class="bd"><span class="idx">${String(i+1).padStart(2,'0')} / ${String(list.length).padStart(2,'0')}</span><h3>${hl(g.name)}</h3><div class="tags">${g.genres.map(x=>`<span>${x}</span>`).join('')}</div><p>${esc(g.blurb)}</p><div class="stats"><div><small>Players</small><b>${esc(g.plabel.replace(' or vs computer',' / CPU'))}</b></div><div><small>Length</small><b>${g.mins} min</b></div><div><small>Level</small><b>${DIFF_LBL[g.diff]}</b></div></div><div class="mrow">${playBtn(g)}<button class="btn" data-open="${g.id}">Details</button></div></div></article>`}
 
 /* ---------- rendering + infinite scroll ---------- */
-function container(){const r=$('results');
-  if(S.layout==='grid')r.innerHTML='<div class="grid" id="items"></div>';
+function container(){const r=$('results');document.body.classList.toggle('tiles-view',S.layout==='tiles');
+  if(S.layout==='tiles')r.innerHTML='<div class="tiles" id="items"></div>';
+  else if(S.layout==='grid')r.innerHTML='<div class="grid" id="items"></div>';
   else if(S.layout==='scroll')r.innerHTML='<div class="feed" id="items"></div>';
   else{const th=(k,l)=>k?`<th><button data-sort="${k}" class="${S.sort.startsWith(k)||(k==='az'&&S.sort==='az')?'on':''}">${l}${sortArrow(k)}</button></th>`:`<th>${l}</th>`;
     r.innerHTML=`<div class="tablewrap"><table><thead><tr>${th('az','Game')}${th(null,'Genre')}${th(null,'Players')}${th('len','Length')}${th('diff','Difficulty')}${th(null,'Status')}<th></th></tr></thead><tbody id="items"></tbody></table></div>`}}
 function sortArrow(k){if(k==='az')return S.sort==='az'?' ↓':'';if(k==='len')return S.sort==='short'?' ↑':S.sort==='long'?' ↓':'';if(k==='diff')return S.sort==='easy'?' ↑':S.sort==='hard'?' ↓':'';return ''}
 function skeleton(on){const sk=$('skel');sk.hidden=!on;if(!on)return;
-  if(S.layout==='grid')sk.innerHTML=`<div class="skel">${'<div class="sk" style="height:250px"></div>'.repeat(4)}</div>`;
+  if(S.layout==='tiles')sk.innerHTML=`<div class="tiles">${'<div class="sk" style="aspect-ratio:1;border-radius:20px"></div>'.repeat(6)}</div>`;
+  else if(S.layout==='grid')sk.innerHTML=`<div class="skel">${'<div class="sk" style="height:250px"></div>'.repeat(4)}</div>`;
   else if(S.layout==='table')sk.innerHTML=`<div class="skel list">${'<div class="sk" style="height:58px"></div>'.repeat(3)}</div>`;
   else sk.innerHTML=`<div class="skel list"><div class="sk" style="height:300px;border-radius:22px"></div></div>`}
-function append(batch,start){const html=batch.map((g,i)=>S.layout==='grid'?gridItem(g):S.layout==='table'?rowItem(g):bigItem(g,start+i)).join('');$('items').insertAdjacentHTML('beforeend',html)}
+function append(batch,start){const html=batch.map((g,i)=>S.layout==='tiles'?tileItem(g):S.layout==='grid'?gridItem(g):S.layout==='table'?rowItem(g):bigItem(g,start+i)).join('');$('items').insertAdjacentHTML('beforeend',html)}
 function loadMore(){
   if(loading)return;if(shown>=list.length){finish();return}
   loading=true;const my=gen;const first=shown===0;if(!first)skeleton(true);
-  setTimeout(()=>{if(my!==gen)return;const batch=list.slice(shown,shown+BATCH);append(batch,shown);shown+=batch.length;loading=false;skeleton(false);updateCount();finish();
+  setTimeout(()=>{if(my!==gen)return;const batch=list.slice(shown,shown+(S.layout==='tiles'?BATCH*2:BATCH));append(batch,shown);shown+=batch.length;loading=false;skeleton(false);updateCount();finish();
     requestAnimationFrame(()=>{if(my!==gen)return;if($('sentinel').getBoundingClientRect().top<innerHeight+500)loadMore()})},first?0:450)}
 function finish(){const e=$('end');
   if(!list.length){e.hidden=false;e.innerHTML=`<strong>No games match</strong><span>Try a different word or loosen a filter.</span><button class="btn" data-clear>Clear all filters</button>`;return}
@@ -667,12 +684,12 @@ $('sort').onchange=e=>{S.sort=e.target.value;refresh()};
 $('playable').onchange=e=>{S.playable=e.target.checked;refresh()};
 $('favs').onchange=e=>{S.fav=e.target.checked;refresh()};
 $('genres').addEventListener('click',e=>{const c=e.target.closest('[data-g]');if(!c||c.disabled)return;const g=c.dataset.g;if(!g)S.genres.clear();else S.genres.has(g)?S.genres.delete(g):S.genres.add(g);refresh()});
-$('layouts').addEventListener('click',e=>{const b=e.target.closest('[data-l]');if(!b)return;S.layout=b.dataset.l;store.set('parlor-layout',S.layout);refresh()});
+$('layouts').addEventListener('click',e=>{const b=e.target.closest('[data-l]');if(!b)return;S.layout=b.dataset.l;store.set('parlor-layout-v2',S.layout);refresh()});
 $('fbtn').onclick=()=>{const f=$('filters');f.classList.toggle('open');$('fbtn').setAttribute('aria-expanded',f.classList.contains('open'))};
 $('clear').onclick=clearAll;
 function clearAll(){S.q='';S.genres.clear();S.players=S.len=S.diff='any';S.playable=S.fav=false;$('q').value='';['players','len','diff'].forEach(k=>$(k).value='any');$('playable').checked=$('favs').checked=false;refresh()}
 new IntersectionObserver(es=>{if(es[0].isIntersecting)loadMore()},{rootMargin:'500px 0px'}).observe($('sentinel'));
-if(!['grid','table','scroll'].includes(S.layout))S.layout='grid';
+if(!['tiles','grid','table','scroll'].includes(S.layout))S.layout='tiles';
 renderTop();refresh();
 </script>
 
