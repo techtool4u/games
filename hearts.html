@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hearts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a card table seen from your seat. Rivals' names and card counts at the left, top and right; the current trick in the middle; your hand fanned along the bottom. The scoreboard and rules sit beside the table on wide screens and below it on phones. */
+:root{
+  --bg:#3a1416; --felt:#7a2328; --felt-2:#55171b; --fg:#fbf1ee; --muted:#e2b9b5; --panel:rgba(255,255,255,.08); --line:rgba(255,255,255,.16);
+  --accent:#f3c246; --accent-ink:#2a1d00; --card:#fffdf8; --red:#c62b2b; --black:#1d1d22; --back-1:#1d4e89; --back-2:#163c6a;
+  --display:"Libre Baskerville", Georgia, "Times New Roman", serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#200a0b;--felt:#5a191d;--felt-2:#3d1013;--card:#f1ece2}}
+:root[data-theme="dark"]{--bg:#200a0b;--felt:#5a191d;--felt-2:#3d1013;--card:#f1ece2}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4;min-height:100vh}
+.wrap{max-width:1180px;margin:0 auto;padding-block:10px 20px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+h1{font-family:var(--display);font-size:clamp(24px,4.5vw,34px);line-height:1.05;margin:2px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:#4a1a1d;color:var(--fg);padding:7px 10px;border-radius:999px;min-height:38px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:700;min-height:38px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.table{position:relative;background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--felt-2) 75%);border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset 0 10px 40px rgba(0,0,0,.3);padding:12px;display:grid;grid-template-columns:minmax(56px,1fr) minmax(0,2.4fr) minmax(56px,1fr);grid-template-rows:auto minmax(170px,1fr) auto;gap:8px;--cw:clamp(46px,9vw,74px);user-select:none;-webkit-user-select:none}
+.seat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;min-width:0}
+.seat b{font-size:14.5px}
+.seat small{color:var(--muted);font-size:12.5px}
+.seat.cur b{color:var(--accent)}
+.seat .backs{display:flex}
+.seat .backs i{width:16px;height:24px;border-radius:3px;background:repeating-linear-gradient(45deg,var(--back-1) 0 3px,var(--back-2) 3px 6px);box-shadow:0 0 0 1px #fff;margin-left:-9px}
+.seat .backs i:first-child{margin-left:0}
+.seat .backs em{display:none;font-style:normal;font-weight:800;font-size:13px;margin-left:4px;align-self:center}
+.north{grid-column:2;grid-row:1}.west{grid-column:1;grid-row:2}.east{grid-column:3;grid-row:2}
+.trick{grid-column:2;grid-row:2;position:relative;min-height:170px}
+.trick .card{position:absolute;left:50%;top:50%;transition:transform .35s ease,opacity .35s}
+.trick .p0{transform:translate(-50%,-12%)} .trick .p1{transform:translate(-118%,-50%)} .trick .p2{transform:translate(-50%,-88%)} .trick .p3{transform:translate(18%,-50%)}
+.trick .card.win{box-shadow:0 0 0 3px var(--accent),0 4px 12px rgba(0,0,0,.5)}
+.trick.take0 .card{transform:translate(-50%,120%);opacity:0} .trick.take1 .card{transform:translate(-300%,-50%);opacity:0}
+.trick.take2 .card{transform:translate(-50%,-250%);opacity:0} .trick.take3 .card{transform:translate(200%,-50%);opacity:0}
+.center-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:14.5px;padding:8px;pointer-events:none}
+.south{grid-column:1/-1;grid-row:3;display:flex;flex-direction:column;align-items:center;gap:8px}
+.hand{display:flex;justify-content:center;padding-top:16px;min-height:calc(var(--cw)*1.42 + 16px);max-width:100%}
+.hand .card{position:relative;margin-left:calc(var(--cw)*-.52);transition:transform .15s}
+.hand .card:first-child{margin-left:0}
+.hand .card.ok{cursor:pointer}
+.hand .card.ok:hover,.hand .card.kb{transform:translateY(-10px)}
+.hand .card.no{filter:brightness(.62)}
+.hand .card.picked{transform:translateY(-16px);box-shadow:0 0 0 3px var(--accent),0 6px 12px rgba(0,0,0,.45)}
+.hand .card.got{box-shadow:0 0 0 3px #7fd1ff,0 4px 10px rgba(0,0,0,.4)}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;min-height:40px}
+.bar span{color:var(--muted);font-size:14.5px}
+
+.card{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.12);overflow:hidden;flex:none;border:0;padding:0;font:inherit}
+.card .ix{position:absolute;left:7%;top:3%;font-weight:800;font-size:calc(var(--cw)*.3);line-height:1;letter-spacing:-.04em;display:flex;flex-direction:column;align-items:center}
+.card .ix i{font-style:normal;font-size:.85em}
+.card .cc{position:absolute;right:7%;bottom:5%;font-size:calc(var(--cw)*.5);line-height:1}
+.card.r{color:var(--red)} .card.k{color:var(--black)}
+.hand .card,.trick .card{position:relative}
+.trick .card{position:absolute}
+
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.label{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+table.sc{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+table.sc th,table.sc td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line)}
+table.sc th:first-child,table.sc td:first-child{text-align:left}
+table.sc tr.tot td{font-weight:800;border-bottom:0}
+table.sc td.lead{color:var(--accent)}
+.taken{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(10,0,0,.6);display:grid;place-items:center;padding:16px;z-index:1000}
+.modal{background:#fffdf8;color:#2a1a1a;border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px}
+.modal h2{font-family:var(--display);font-size:28px;margin:0}
+.modal p{margin:0;color:#6b5555}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.modal .btn{background:#f1efe8;color:#2a1a1a;border-color:#ddd7ca}
+.modal .btn.primary{background:#8c2f2b;color:#fff;border-color:#8c2f2b}
+.modal table{margin:0 auto;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.modal td{padding:3px 10px;text-align:right}.modal td:first-child{text-align:left}
+
+@media (max-width:520px){.table{grid-template-columns:52px minmax(0,1fr) 52px;padding:8px;--cw:clamp(40px,13.5vw,60px)}.hand .card{margin-left:calc(var(--cw)*-.6)}
+  .seat .backs i:not(:first-child){display:none}.seat .backs em{display:inline}}
+@media (max-height:520px) and (orientation:landscape){.wrap{padding-block:6px 12px}h1{font-size:22px}.table{grid-template-rows:auto minmax(120px,1fr) auto;--cw:clamp(40px,6vw,58px)}.trick{min-height:130px}}
+@media (prefers-reduced-motion:reduce){.trick .card,.hand .card{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Hearts</h1>
+    </div>
+    <div class="controls">
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="target" aria-label="Game length"><option value="50">Game to 50</option><option value="100">Game to 100</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="game">
+    <section class="table" id="table" aria-live="polite">
+      <div class="seat north" id="seat2"></div>
+      <div class="seat west" id="seat1"></div>
+      <div class="trick" id="trick"><div class="center-msg" id="cmsg"></div></div>
+      <div class="seat east" id="seat3"></div>
+      <div class="south"><div class="hand" id="hand" role="listbox" aria-label="Your hand"></div><div class="bar" id="bar"></div></div>
+    </section>
+    <aside class="side">
+      <div class="panel"><p class="label">Scores</p><table class="sc" id="scores"></table><p class="taken" id="taken"></p></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Avoid points. Each heart you take is 1 point and the queen of spades is 13. Lowest score when someone reaches the target wins.</li>
+            <li>Before each hand, pass three cards: to the left, then right, then across, then no pass, and repeat.</li>
+            <li>Whoever holds the 2♣ leads it. You must follow the suit led if you can; otherwise play anything. The highest card of the led suit wins the trick and leads next.</li>
+            <li>No points can be played on the first trick (unless you have nothing else), and hearts can't be led until one has been played.</li>
+            <li><b>Shoot the moon:</b> take all 13 hearts and the queen of spades, and everyone else gets 26 instead of you.</li>
+            <li>Keyboard: ← → choose a card, Enter plays it (or picks it for passing).</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- cards ---------- */
+// A card is 0-51: suit = floor(c/13) (0 ♣, 1 ♦, 2 ♠, 3 ♥), rank = c%13 + 2 (2..14, ace high).
+const SUITS=['♣','♦','♠','♥'],SN=['clubs','diamonds','spades','hearts'],RK=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const suit=c=>Math.floor(c/13),rank=c=>c%13+2,QS=2*13+10,TWO_C=0;
+const pts=c=>c===QS?13:suit(c)===3?1:0;
+const red=c=>suit(c)===1||suit(c)===3;
+const name=c=>`${RK[c%13]}${SUITS[suit(c)]}`;
+const PASS=['left','right','across','none'];
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const cfg=Object.assign({level:'medium',target:100},store.get('parlor-hearts',{}));
+const tally=store.get('parlor-hearts-tally',{won:0,played:0});
+const NAMES=['You','West','North','East'];
+let S=null,kb=-1;
+
+/* ---------- rules ---------- */
+function legal(p){const h=S.hands[p],t=S.trick;if(!t.length){
+    if(S.first)return h.includes(TWO_C)?[TWO_C]:h;
+    const nonH=h.filter(c=>suit(c)!==3);return S.broken||!nonH.length?h:nonH}
+  const led=suit(t[0].c),follow=h.filter(c=>suit(c)===led);if(follow.length)return follow;
+  if(S.first){const clean=h.filter(c=>!pts(c));if(clean.length)return clean}
+  return h}
+function trickWinner(t){const led=suit(t[0].c);let w=t[0];for(const x of t)if(suit(x.c)===led&&rank(x.c)>rank(w.c))w=x;return w.p}
+
+/* ---------- computer ---------- */
+const sortHand=h=>h.sort((a,b)=>suit(a)-suit(b)||rank(a)-rank(b));
+function choosePass(p){const h=S.hands[p].slice(),lv=cfg.level;if(lv==='easy')return h.sort(()=>Math.random()-.5).slice(0,3);
+  const spades=h.filter(c=>suit(c)===2);const lowSp=spades.filter(c=>rank(c)<12).length;
+  const score=c=>{let v=rank(c);if(suit(c)===2&&rank(c)>=12)v+=lowSp>=4?-10:12;if(suit(c)===3)v+=4;
+    // emptying a short suit is worth a lot
+    const n=h.filter(x=>suit(x)===suit(c)).length;if(suit(c)<2&&n<=3)v+=6-n;if(c===TWO_C)v-=5;return v};
+  return h.sort((a,b)=>score(b)-score(a)).slice(0,3)}
+function chooseCard(p){const opts=legal(p),t=S.trick,lv=cfg.level;if(opts.length===1)return opts[0];
+  if(lv==='easy'&&Math.random()<.5)return opts[rand(opts.length)];
+  const seen=new Set(S.played);const hasQS=S.hands[p].includes(QS);
+  const highest=a=>a.reduce((x,y)=>rank(y)>rank(x)?y:x),lowest=a=>a.reduce((x,y)=>rank(y)<rank(x)?y:x);
+  if(!t.length){// leading: low cards, flush the queen with spades when safe
+    const bySuit=s=>opts.filter(c=>suit(c)===s);
+    if(lv==='hard'&&!hasQS&&!seen.has(QS)){const sp=bySuit(2).filter(c=>rank(c)<12);if(sp.length)return lowest(sp)}
+    // lead from the suit where our lowest card is lowest relative to what's left
+    const cand=opts.filter(c=>suit(c)!==3||S.broken);const pool=cand.length?cand:opts;
+    const safe=pool.filter(c=>!(suit(c)===2&&rank(c)>=12));return lowest(safe.length?safe:pool)}
+  const led=suit(t[0].c),following=suit(opts[0])===led;
+  const cur=t.filter(x=>suit(x.c)===led).reduce((a,b)=>rank(b.c)>rank(a.c)?b:a);
+  const trickPts=t.reduce((n,x)=>n+pts(x.c),0),last=t.length===3;
+  if(following){const under=opts.filter(c=>rank(c)<rank(cur.c));
+    if(under.length)return highest(under);           // duck as high as possible
+    // must win (or overtake): if last and the trick is clean, take it with our highest; avoid the queen on spades
+    if(last&&!trickPts){const nq=opts.filter(c=>c!==QS);return highest(nq.length?nq:opts)}
+    if(led===2){const nq=opts.filter(c=>c!==QS);if(nq.length)return lv==='hard'&&!seen.has(QS)&&!hasQS?lowest(nq):highest(nq)}
+    return last?highest(opts):lowest(opts)}
+  // void: dump the queen, then high hearts, then the highest card
+  if(opts.includes(QS))return QS;
+  const hearts=opts.filter(c=>suit(c)===3);if(hearts.length)return highest(hearts);
+  const bigSp=opts.filter(c=>suit(c)===2&&rank(c)>12);if(bigSp.length&&!seen.has(QS))return highest(bigSp);
+  return highest(opts)}
+
+/* ---------- game flow ---------- */
+function newGame(){$('overlay').hidden=true;S={totals:[0,0,0,0],hist:[],hand:0,gen:(S?S.gen:0)+1};deal()}
+function deal(){const deck=[...Array(52).keys()].sort(()=>Math.random()-.5);
+  Object.assign(S,{hands:[0,1,2,3].map(i=>sortHand(deck.slice(i*13,i*13+13))),taken:[[],[],[],[]],trick:[],played:[],broken:false,first:true,turn:-1,phase:'pass',picked:[],got:[],busy:false,lastTrick:null});
+  S.dir=PASS[S.hand%4];if(S.dir==='none')startPlay();else render()}
+function doPass(){if(S.picked.length!==3)return;const shift={left:1,right:3,across:2}[S.dir];
+  const out=[0,1,2,3].map(p=>p===0?S.picked.slice():choosePass(p));
+  for(let p=0;p<4;p++){S.hands[p]=S.hands[p].filter(c=>!out[p].includes(c))}
+  for(let p=0;p<4;p++){const to=(p+shift)%4;S.hands[to].push(...out[p]);if(to===0)S.got=out[p].slice()}
+  S.hands.forEach(sortHand);S.picked=[];startPlay()}
+function startPlay(){S.phase='play';S.turn=S.hands.findIndex(h=>h.includes(TWO_C));render();next()}
+function next(){render();if(S.phase!=='play'||S.turn===0)return;S.busy=true;const g=S.gen;
+  setTimeout(()=>{if(g!==S.gen)return;S.busy=false;play(S.turn,chooseCard(S.turn))},cfg.level==='easy'?500:650)}
+function play(p,c){if(S.phase!=='play'||p!==S.turn||!legal(p).includes(c))return;
+  S.hands[p]=S.hands[p].filter(x=>x!==c);S.trick.push({p,c});S.played.push(c);if(pts(c))S.broken=true;S.got=[];kb=-1;
+  if(S.trick.length<4){S.turn=(p+1)%4;next();return}
+  const w=trickWinner(S.trick);S.turn=-1;S.busy=true;render(w);const g=S.gen;
+  setTimeout(()=>{if(g!==S.gen)return;$('trick').classList.add('take'+w);
+    setTimeout(()=>{if(g!==S.gen)return;$('trick').classList.remove('take'+w);S.taken[w].push(...S.trick.map(x=>x.c));S.lastTrick=S.trick;S.trick=[];S.first=false;S.busy=false;
+      if(!S.hands[0].length){endHand();return}S.turn=w;next()},380)},900)}
+function endHand(){const raw=S.taken.map(t=>t.reduce((n,c)=>n+pts(c),0));const moon=raw.findIndex(x=>x===26);
+  const add=moon>=0?raw.map((_,i)=>i===moon?0:26):raw;S.totals=S.totals.map((t,i)=>t+add[i]);S.hist.push(add);S.hand++;S.phase='done';render();
+  const over=S.totals.some(t=>t>=cfg.target);const low=Math.min(...S.totals);
+  const rows=NAMES.map((n,i)=>`<tr><td>${n}</td><td>+${add[i]}</td><td><b>${S.totals[i]}</b></td></tr>`).join('');
+  if(over){tally.played++;const win=S.totals[0]===low;if(win)tally.won++;store.set('parlor-hearts-tally',tally)}
+  const title=over?(S.totals[0]===low?'You win!':`${NAMES[S.totals.indexOf(low)]} wins`):moon>=0?(moon===0?'You shot the moon!':`${NAMES[moon]} shot the moon`):'Hand over';
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2>${over?`<p>Someone reached ${cfg.target}. Lowest score wins.</p>`:''}<table>${rows}</table>${over?`<p>You've won ${tally.won} of ${tally.played} games.</p>`:''}<div class="row"><button class="btn primary" id="mnext">${over?'New game':'Next hand'}</button></div>`;
+    $('overlay').hidden=false;$('mnext').focus();$('mnext').onclick=()=>{$('overlay').hidden=true;if(over)newGame();else deal()}},500)}
+
+/* ---------- drawing ---------- */
+const cardHTML=(c,cls='',attrs='')=>`<button class="card ${red(c)?'r':'k'} ${cls}" data-c="${c}" ${attrs} aria-label="${RK[c%13]} of ${SN[suit(c)]}"><span class="ix">${RK[c%13]}<i>${SUITS[suit(c)]}</i></span><span class="cc">${SUITS[suit(c)]}</span></button>`;
+function render(winner){if(!S)return;const pass=S.phase==='pass',play=S.phase==='play'&&S.turn===0&&!S.busy,opts=play?legal(0):[];
+  for(const p of [1,2,3]){const n=S.hands[p].length,ptsT=S.taken[p].reduce((a,c)=>a+pts(c),0);
+    $('seat'+p).className=`seat ${['','west','north','east'][p]}${S.turn===p?' cur':''}`;
+    $('seat'+p).innerHTML=`<b>${NAMES[p]}</b><div class="backs">${'<i></i>'.repeat(Math.min(n,13))}${n?`<em>×${n}</em>`:''}</div><small>${S.totals[p]} pts${ptsT?` · +${ptsT}`:''}</small>`}
+  const t=$('trick');t.querySelectorAll('.card').forEach(e=>e.remove());
+  S.trick.forEach(x=>t.insertAdjacentHTML('beforeend',cardHTML(x.c,'p'+x.p+(winner===x.p?' win':''),'tabindex="-1"')));
+  $('cmsg').textContent=pass?`Pick three cards to pass ${S.dir}.`:S.phase==='play'&&!S.trick.length&&S.turn>0?`${NAMES[S.turn]} leads…`:S.phase==='play'&&!S.trick.length&&S.turn===0?(S.first?'You have the 2♣: lead it.':'Your lead.'):'';
+  const h=S.hands[0];
+  $('hand').innerHTML=h.map((c,i)=>{const ok=pass||opts.includes(c);return cardHTML(c,`${ok?'ok':'no'}${S.picked.includes(c)?' picked':''}${S.got.includes(c)?' got':''}${kb===i?' kb':''}`)}).join('');
+  const myPts=S.taken[0].reduce((a,c)=>a+pts(c),0);
+  $('bar').innerHTML=pass?`<span>Passing ${S.dir}: ${S.picked.length}/3 picked</span><button class="btn primary" id="passBtn" ${S.picked.length===3?'':'disabled'}>Pass cards</button>`:
+    `<span>${S.phase==='play'?(S.turn===0&&!S.busy?(S.trick.length?`Follow ${SN[suit(S.trick[0].c)]} if you can.`:'Your turn.'):S.turn>0?`${NAMES[S.turn]} is thinking…`:''):''}${S.got.length?' New cards are outlined in blue.':''}</span><span>You've taken ${myPts} point${myPts===1?'':'s'} this hand</span>`;
+  if(pass)$('passBtn').onclick=doPass;
+  $('scores').innerHTML=`<tr><th></th>${NAMES.map(n=>`<th>${n}</th>`).join('')}</tr>`+S.hist.map((r,i)=>`<tr><td>${i+1}</td>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')+
+    `<tr class="tot"><td>Total</td>${S.totals.map(v=>`<td class="${v===Math.min(...S.totals)&&S.hist.length?'lead':''}">${v}</td>`).join('')}</tr>`;
+  $('taken').textContent=`Hand ${S.hand+1} · pass ${S.dir} · hearts ${S.broken?'broken':'not broken yet'} · game to ${cfg.target}`}
+
+/* ---------- input & settings ---------- */
+$('hand').addEventListener('click',e=>{const b=e.target.closest('.card');if(!b)return;const c=+b.dataset.c;
+  if(S.phase==='pass'){const i=S.picked.indexOf(c);if(i>=0)S.picked.splice(i,1);else if(S.picked.length<3)S.picked.push(c);render();return}
+  if(S.phase==='play'&&S.turn===0&&!S.busy)play(0,c)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select')||!$('overlay').hidden||!S)return;const h=S.hands[0];
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();kb=kb<0?0:(kb+(e.key==='ArrowLeft'?h.length-1:1))%h.length;render();return}
+  if(e.key==='Enter'&&kb>=0&&h[kb]!=null){e.preventDefault();const c=h[kb];if(S.phase==='pass'){const i=S.picked.indexOf(c);if(i>=0)S.picked.splice(i,1);else if(S.picked.length<3)S.picked.push(c);render()}else if(S.turn===0&&!S.busy)play(0,c)}});
+window.onAppBack=()=>false;
+function sync(){$('level').value=cfg.level;$('target').value=cfg.target}
+$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-hearts',cfg)};
+$('target').onchange=e=>{cfg.target=+e.target.value;store.set('parlor-hearts',cfg);render()};
+$('newgame').onclick=()=>{if(S&&(S.hist.length||S.played.length)&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';if(![50,100].includes(cfg.target))cfg.target=100;
+sync();newGame();
+</script>
+</body>
+</html>
