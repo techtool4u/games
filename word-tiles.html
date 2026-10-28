@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Tiles</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Work+Sans:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a word-game table. Header with players and level; the 15×15 board with your rack and actions under it; a side panel with scores, tiles left and the move log (below the rack on phones). */
+:root{
+  --bg:#efe7d6; --fg:#2a2116; --muted:#6e604c; --panel:#fffaf0; --line:#ddd0b8; --chip:#f4ecdc;
+  --accent:#2b6a5e; --accent-ink:#fff; --sq:#e9dfc8; --tile:#f4e3b8; --tile-ink:#2a2116; --pend:#ffe48a;
+  --tw:#c8553d; --dw:#e8a39a; --tl:#3a78a8; --dl:#a6cbe2; --star:#e8a39a;
+  --display:"Fraunces", Georgia, "Times New Roman", serif;
+  --body:"Work Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#171410; --fg:#f2eadc; --muted:#b5a68e; --panel:#221d17; --line:#3a3127; --chip:#2b241c; --accent:#6cc1ae; --accent-ink:#0b211c; --sq:#2c261e;
+  --tw:#b34a35; --dw:#8f5a52; --tl:#2f6690; --dl:#40657c; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#171410; --fg:#f2eadc; --muted:#b5a68e; --panel:#221d17; --line:#3a3127; --chip:#2b241c; --accent:#6cc1ae; --accent-ink:#0b211c; --sq:#2c261e;
+  --tw:#b34a35; --dw:#8f5a52; --tl:#2f6690; --dl:#40657c; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4}
+.wrap{max-width:1140px;margin:0 auto;padding-block:12px 28px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(30px,5vw,44px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:7px 10px;border-radius:999px;min-height:38px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:900px){.game{grid-template-columns:minmax(0,1fr)}}
+.play{display:flex;flex-direction:column;gap:10px;align-items:center}
+.boardwrap{width:min(100%,640px,calc(100dvh - 230px));min-width:min(100%,300px)}
+.board{display:grid;grid-template-columns:repeat(15,1fr);gap:2px;background:var(--line);padding:2px;border-radius:8px;aspect-ratio:1;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.sq{position:relative;background:var(--sq);border-radius:3px;display:grid;place-items:center;font-size:clamp(6px,1.2vw,10px);font-weight:800;color:rgba(0,0,0,.55);cursor:pointer;overflow:hidden;min-width:0}
+.sq.TW{background:var(--tw);color:#fff}.sq.DW,.sq.ST{background:var(--dw);color:#5a1f16}.sq.TL{background:var(--tl);color:#fff}.sq.DL{background:var(--dl);color:#173a52}
+.sq.ST::after{content:"★";font-size:1.9em;color:#fff}
+.sq .tile,.rack .tile{position:absolute;inset:4%;border-radius:12%;background:linear-gradient(160deg,#fbefcd,var(--tile));color:var(--tile-ink);box-shadow:0 1px 0 rgba(0,0,0,.35),inset 0 -2px 0 rgba(0,0,0,.08);display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:clamp(11px,2.3vw,22px);line-height:1}
+.tile i{position:absolute;right:8%;bottom:3%;font-style:normal;font-family:var(--body);font-size:.42em;font-weight:800}
+.tile.blank b{color:#b0563f}
+.tile.pend{background:linear-gradient(160deg,#fff5c4,var(--pend));box-shadow:0 0 0 2px #e0a800}
+.tile.last{box-shadow:0 0 0 2px var(--accent)}
+.sq.target{box-shadow:inset 0 0 0 2px var(--accent)}
+.rackrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;width:100%}
+.rack{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;background:#8a6a43;padding:6px;border-radius:10px;width:min(100%,420px);box-shadow:inset 0 -4px 0 rgba(0,0,0,.25)}
+.rack .slot{position:relative;aspect-ratio:1;border-radius:8px;background:rgba(0,0,0,.18);cursor:pointer}
+.rack .tile{font-size:clamp(20px,5vw,30px)}
+.rack .slot.sel .tile{transform:translateY(-6px);box-shadow:0 6px 10px rgba(0,0,0,.35),0 0 0 3px var(--accent)}
+.rack .slot.xsel .tile{opacity:.45;transform:scale(.9)}
+.actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.msg{min-height:1.4em;margin:0;text-align:center;font-weight:700;font-size:14px;color:var(--muted)}
+.msg.err{color:#b3261e}.msg.ok{color:var(--accent)}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.label{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.score{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:10px}
+.score.turn{background:var(--chip);box-shadow:inset 3px 0 0 var(--accent)}
+.score b{margin-left:auto;font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums}
+.score small{color:var(--muted);font-size:12px}
+.bag{color:var(--muted);font-size:13.5px;margin:6px 0 0}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;max-height:200px;overflow:auto;font-size:13.5px}
+.log b{font-weight:800}
+.log .w{font-family:var(--display);font-weight:700;letter-spacing:.03em}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12px}
+.legend span{padding:1px 7px;border-radius:5px;font-weight:800}
+
+.overlay{position:fixed;inset:0;background:rgba(30,20,8,.6);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:420px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:900;font-size:30px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.letters{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.letters button{aspect-ratio:1;border:1px solid var(--line);background:var(--chip);border-radius:8px;font-family:var(--display);font-weight:900;font-size:20px;cursor:pointer}
+.final{display:flex;flex-direction:column;gap:4px;text-align:left}
+.final div{display:flex;justify-content:space-between;background:var(--chip);border-radius:8px;padding:6px 10px;font-weight:700}
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 14px;padding-block:8px}
+  .game{display:contents} header{grid-column:2} .side{grid-column:2}
+  .play{grid-column:1;grid-row:1/3}
+  .boardwrap{width:calc(100dvh - 110px);min-width:0}
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Word Tiles</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponents"><option value="c1">You vs 1 computer</option><option value="c2">You vs 2 computers</option><option value="c3">You vs 3 computers</option><option value="h2">2 players, one device</option><option value="h3">3 players, one device</option><option value="h4">4 players, one device</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="play" aria-label="Board and rack">
+      <div class="boardwrap"><div class="board" id="board" aria-label="Board"></div></div>
+      <p class="msg" id="msg" aria-live="polite"></p>
+      <div class="rackrow">
+        <div class="rack" id="rack" aria-label="Your tiles"></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="bPlay">Play</button>
+        <button class="btn" id="bRecall">Recall</button>
+        <button class="btn" id="bShuffle">Shuffle</button>
+        <button class="btn" id="bSwap">Swap tiles</button>
+        <button class="btn" id="bPass">Pass</button>
+      </div>
+    </section>
+    <aside class="side">
+      <div class="panel" aria-live="polite"><p class="label">Scores</p><div id="scores"></div><p class="bag" id="bag"></p></div>
+      <div class="panel"><p class="label">Moves</p><ul class="log" id="log"></ul></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Tap a tile in your rack, then tap a square to place it. Tap a placed tile to take it back. You can also drag tiles.</li>
+            <li>Each turn, place tiles in one straight line to make a word that joins the words already on the board. The first word must cover the ★.</li>
+            <li>Every new word you form must be a real word. Score is the letter values plus bonus squares; using all 7 tiles adds 50.</li>
+            <li>Blank tiles can be any letter and score 0. Swap tiles or pass if you're stuck.</li>
+            <li>The game ends when the bag is empty and someone uses their last tile, or after six scoreless turns in a row. Leftover tiles count against you.</li>
+            <li>The computer's Easy and Normal players only use common words; Hard knows the full dictionary.</li>
+          </ul>
+          <div class="legend"><span style="background:var(--tw);color:#fff">TW triple word</span><span style="background:var(--dw);color:#5a1f16">DW double word</span><span style="background:var(--tl);color:#fff">TL triple letter</span><span style="background:var(--dl);color:#173a52">DL double letter</span></div>
+          <p class="bag">Dictionary: SCOWL word lists by Kevin Atkinson (see wordtiles-words.js).</p>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+
+<script src="wordtiles-words.js"></script>
+<script>
+/* ---------- tiles, board, dictionary ---------- */
+const N=15,RACK=7,BINGO=50;
+const DIST={A:[9,1],B:[2,3],C:[2,3],D:[4,2],E:[11,1],F:[2,4],G:[3,2],H:[3,3],I:[8,1],J:[1,8],K:[1,5],L:[4,1],M:[2,3],N:[6,1],O:[8,1],P:[2,3],Q:[1,10],R:[6,1],S:[5,1],T:[6,1],U:[4,1],V:[2,4],W:[2,4],X:[1,8],Y:[2,4],Z:[1,10],'?':[2,0]};
+const VAL=l=>DIST[l]?DIST[l][1]:0;
+// Bonus squares for the top-left quarter; the rest of the board mirrors it.
+const QUARTER=['...T..d.','.D...t..','..D.d...','T..D...d','..d.D...','.t...t..','d.....d.','...d...*'];
+const PREM=[...Array(N)].map((_,r)=>[...Array(N)].map((_,c)=>({T:'TW',D:'DW',t:'TL',d:'DL','*':'ST','.':''})[QUARTER[r<=7?r:14-r][c<=7?c:14-c]]));
+const WORDS_ALL=(window.WT_WORDS.common+' '+window.WT_WORDS.extra).split(' ').sort();
+const WORDS_COMMON=window.WT_WORDS.common.split(' ');
+const DICT=new Set(WORDS_ALL);
+const isWord=w=>DICT.has(w.toLowerCase());
+function hasPrefix(arr,p){let lo=0,hi=arr.length;while(lo<hi){const m=(lo+hi)>>1;if(arr[m]<p)lo=m+1;else hi=m}return lo<arr.length&&arr[lo].startsWith(p)}
+function inList(arr,w){let lo=0,hi=arr.length;while(lo<hi){const m=(lo+hi)>>1;if(arr[m]<w)lo=m+1;else hi=m}return arr[lo]===w}
+
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const cfg=Object.assign({mode:'c1',level:'normal'},store.get('parlor-wordtiles',{}));
+const BOTS=['Brann','Odette','Tamsin'];
+let G=null,pend=[],selRack=-1,swapSel=new Set(),busy=false,gen=0;
+
+/* ---------- game state ---------- */
+// G.board[r][c] = null or {l:'A', blank:bool, v:value}; racks hold letters ('?' = blank).
+function newGame(){gen++;$('overlay').hidden=true;pend=[];selRack=-1;busy=false;
+  const bag=[];for(const[l,[n]]of Object.entries(DIST))for(let i=0;i<n;i++)bag.push(l);for(let i=bag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[bag[i],bag[j]]=[bag[j],bag[i]]}
+  const humans=cfg.mode[0]==='h'?+cfg.mode[1]:1,bots=cfg.mode[0]==='c'?+cfg.mode[1]:0;
+  const players=[...Array(humans)].map((_,i)=>({name:humans>1?`Player ${i+1}`:'You',human:true})).concat([...Array(bots)].map((_,i)=>({name:BOTS[i],human:false})));
+  G={board:[...Array(N)].map(()=>Array(N).fill(null)),bag,players:players.map(p=>Object.assign(p,{rack:[],score:0})),turn:0,scoreless:0,log:[],last:[],over:false,moves:0};
+  G.players.forEach(p=>draw(p));G.turn=Math.floor(Math.random()*G.players.length);
+  logMsg(`${G.players[G.turn].name} ${G.players[G.turn].human&&G.players[G.turn].name==='You'?'go':'goes'} first.`);
+  build();startTurn()}
+function draw(p){while(p.rack.length<RACK&&G.bag.length)p.rack.push(G.bag.pop())}
+const cur=()=>G.players[G.turn];
+const boardEmpty=()=>G.board.every(r=>r.every(x=>!x));
+function save(){if(!G)return;if(G.over){store.del('parlor-wordtiles-game');return}store.set('parlor-wordtiles-game',{G,cfg:{mode:cfg.mode,level:cfg.level}})}
+function load(){const s=store.get('parlor-wordtiles-game',null);if(!s||!s.G||!s.G.board)return false;Object.assign(cfg,s.cfg);G=s.G;build();startTurn();return true}
+
+/* ---------- placing and scoring ---------- */
+// Check a set of new tiles [{r,c,l,blank}] against the board: one line, no gaps, connected, real words. Returns {ok, score, words} or {ok:false, why}.
+function evaluatePlacement(tiles,dict=isWord){
+  if(!tiles.length)return{ok:false,why:'Place some tiles first.'};
+  const B=G.board,at=(r,c)=>{if(r<0||c<0||r>=N||c>=N)return null;const t=tiles.find(x=>x.r===r&&x.c===c);return t?{l:t.l,blank:t.blank,v:t.blank?0:VAL(t.l),nw:true}:B[r][c]};
+  const rows=new Set(tiles.map(t=>t.r)),cols=new Set(tiles.map(t=>t.c));
+  if(rows.size>1&&cols.size>1)return{ok:false,why:'Tiles must be in one row or one column.'};
+  const horiz=rows.size===1&&(cols.size>1||(at(tiles[0].r,tiles[0].c-1)||at(tiles[0].r,tiles[0].c+1)));
+  const [dr,dc]=horiz?[0,1]:[1,0];
+  const s=tiles.reduce((a,t)=>horiz?Math.min(a,t.c):Math.min(a,t.r),99),e=tiles.reduce((a,t)=>horiz?Math.max(a,t.c):Math.max(a,t.r),-1);
+  const fixed=horiz?tiles[0].r:tiles[0].c;
+  for(let k=s;k<=e;k++){const r=horiz?fixed:k,c=horiz?k:fixed;if(!at(r,c))return{ok:false,why:'Leave no gaps between your tiles.'}}
+  const first=boardEmpty();
+  if(first&&!tiles.some(t=>t.r===7&&t.c===7))return{ok:false,why:'The first word must cover the ★ in the middle.'};
+  if(!first&&!tiles.some(t=>[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>B[t.r+a]&&B[t.r+a][t.c+b])))return{ok:false,why:'Your word must connect to tiles already on the board.'};
+  const wordAt=(r,c,ar,ac)=>{while(at(r-ar,c-ac)){r-=ar;c-=ac}const cells=[];while(at(r,c)){cells.push({r,c,...at(r,c)});r+=ar;c+=ac}return cells};
+  const scoreCells=cells=>{let sum=0,mult=1;for(const x of cells){let v=x.v;if(x.nw){const p=PREM[x.r][x.c];if(p==='DL')v*=2;if(p==='TL')v*=3;if(p==='DW'||p==='ST')mult*=2;if(p==='TW')mult*=3}sum+=v}return sum*mult};
+  const words=[];const main=wordAt(tiles[0].r,tiles[0].c,dr,dc);if(main.length>=2)words.push(main);
+  for(const t of tiles){const cross=wordAt(t.r,t.c,dc,dr);if(cross.length>=2)words.push(cross)}
+  if(!words.length)return{ok:false,why:'A word needs at least two letters.'};
+  const bad=words.map(w=>w.map(x=>x.l).join('')).filter(w=>!dict(w));
+  if(bad.length)return{ok:false,why:`Not in the dictionary: ${bad.join(', ')}.`,bad};
+  let score=words.reduce((s,w)=>s+scoreCells(w),0);if(tiles.length===RACK)score+=BINGO;
+  return{ok:true,score,words:words.map(w=>w.map(x=>x.l).join('')),bingo:tiles.length===RACK}}
+function commit(p,tiles,res){
+  for(const t of tiles){G.board[t.r][t.c]={l:t.l,blank:t.blank,v:t.blank?0:VAL(t.l)};const i=p.rack.indexOf(t.blank?'?':t.l);p.rack.splice(i,1)}
+  p.score+=res.score;G.scoreless=0;G.last=tiles.map(t=>[t.r,t.c]);G.moves++;draw(p);
+  logMsg(`<b>${p.name}</b> played <span class="w">${res.words[0]}</span>${res.words.length>1?` (+${res.words.length-1} more)`:''} for ${res.score}${res.bingo?' · all 7 tiles!':''}`);
+  if(!p.rack.length&&!G.bag.length)return endGame(p);
+  nextTurn()}
+function nextTurn(){G.turn=(G.turn+1)%G.players.length;startTurn()}
+
+/* ---------- computer player ---------- */
+// Classic anchor-based move generation (Appel & Jacobson) using prefix checks on a sorted word list.
+function generateMoves(rack,words){
+  const B=G.board,moves=[],letters=rack.filter(l=>l!=='?'),blanks=rack.filter(l=>l==='?').length;
+  const blankChoices=cfg.level==='hard'?'ABCDEFGHIJKLMNOPRSTUVWY'.split(''):['E','S','A'];
+  const isW=w=>inList(words,w),isP=p=>hasPrefix(words,p);
+  for(const horiz of[true,false]){
+    const get=(i,j)=>horiz?(B[i]&&B[i][j]):(B[j]&&B[j][i]);
+    for(let i=0;i<N;i++){
+      // cross-checks: which letters may go in each empty square of this line
+      const cross=[...Array(N)].map((_,j)=>{if(get(i,j))return null;let up='',dn='';for(let k=i-1;k>=0&&get(k,j);k--)up=get(k,j).l+up;for(let k=i+1;k<N&&get(k,j);k++)dn+=get(k,j).l;
+        if(!up&&!dn)return'*';const ok=new Set();for(let c=65;c<91;c++){const L=String.fromCharCode(c);if(DICT.has((up+L+dn).toLowerCase()))ok.add(L)}return ok});
+      const empty=boardEmpty();
+      const anchor=j=>!get(i,j)&&(empty?(i===7&&j===7):[[-1,0],[1,0],[0,-1],[0,1]].some(([a,b])=>get(i+a,j+b)));
+      const pool=letters.slice();let nb=blanks;const placed=[];
+      const record=()=>{const tiles=placed.map(x=>({r:horiz?i:x.j,c:horiz?x.j:i,l:x.l,blank:x.blank}));moves.push(tiles)};
+      const extend=(part,j,anchorJ)=>{
+        if(j>=N||!get(i,j)){if(j>anchorJ&&placed.length&&part.length>1&&isW(part.toLowerCase()))record()}
+        if(j>=N)return;
+        const sq=get(i,j);
+        if(sq){const p2=part+sq.l;if(isP(p2.toLowerCase()))extend(p2,j+1,anchorJ);return}
+        const cc=cross[j];
+        const tryL=(L,blank)=>{if(cc!=='*'&&!cc.has(L))return;const p2=part+L;if(!isP(p2.toLowerCase()))return;placed.push({j,l:L,blank});extend(p2,j+1,anchorJ);placed.pop()};
+        for(const L of new Set(pool)){const k=pool.indexOf(L);pool.splice(k,1);tryL(L,false);pool.splice(k,0,L)}
+        if(nb>0){nb--;for(const L of blankChoices)tryL(L,true);nb++}};
+      for(let a=0;a<N;a++){if(!anchor(a))continue;
+        if(a>0&&get(i,a-1)){let k=a-1,p='';while(k>=0&&get(i,k)){p=get(i,k).l+p;k--}if(isP(p.toLowerCase()))extend(p,a,a)}
+        else{let lim=0;for(let k=a-1;k>=0&&!get(i,k)&&!anchor(k);k--)lim++;
+          // grow left parts from the rack into the empty squares before the anchor, then extend right through it
+          const leftGen=(part,limit)=>{extend(part,a,a);if(limit<=0)return;const j=a-part.length-1;if(j<0)return;
+            const tryLeft=(L,blank)=>{const p2=L+part;if(!isP(p2.toLowerCase()))return;placed.unshift({j,l:L,blank});leftGen(p2,limit-1);placed.shift()};
+            for(const L of new Set(pool)){const k=pool.indexOf(L);pool.splice(k,1);tryLeft(L,false);pool.splice(k,0,L)}
+            if(nb>0){nb--;for(const L of blankChoices)tryLeft(L,true);nb++}};
+          leftGen('',lim)}}}}
+  // de-duplicate and score with the same rules as human moves
+  const seen=new Set(),out=[];
+  for(const tiles of moves){const key=tiles.map(t=>t.r+','+t.c+t.l+(t.blank?'*':'')).sort().join('|');if(seen.has(key))continue;seen.add(key);
+    const res=evaluatePlacement(tiles);if(res.ok)out.push({tiles,res})}
+  return out}
+function leaveValue(rack,used){const left=rack.slice();used.forEach(t=>{const i=left.indexOf(t.blank?'?':t.l);if(i>=0)left.splice(i,1)});
+  let v=0;const vow=left.filter(l=>'AEIOU'.includes(l)).length,con=left.length-vow;v-=Math.abs(vow-con)*1.5;
+  if(left.includes('?'))v+=8;if(left.includes('S'))v+=3;if(left.includes('Q')&&!left.includes('U'))v-=8;
+  const dup=left.length-new Set(left).size;v-=dup*2;return v}
+async function botTurn(g){const p=cur();busy=true;render();await new Promise(r=>setTimeout(r,500));if(g!==gen)return;
+  const words=cfg.level==='hard'?WORDS_ALL:WORDS_COMMON;const t0=Date.now();
+  let moves=generateMoves(p.rack,words);await new Promise(r=>setTimeout(r,Math.max(0,700-(Date.now()-t0))));if(g!==gen)return;
+  busy=false;
+  if(!moves.length){if(G.bag.length>=RACK){const idx=p.rack.map((l,i)=>'?SE'.includes(l)?-1:i).filter(i=>i>=0).slice(0,4);if(idx.length){exchange(p,idx);return}}passTurn(p);return}
+  let pick;
+  if(cfg.level==='easy'){moves.sort((a,b)=>a.res.score-b.res.score);const lo=Math.floor(moves.length*.2),hi=Math.max(lo+1,Math.floor(moves.length*.6));pick=moves[lo+Math.floor(Math.random()*(hi-lo))]}
+  else if(cfg.level==='normal'){moves.sort((a,b)=>b.res.score-a.res.score);const top=moves.slice(0,Math.max(1,Math.ceil(moves.length*.15)));pick=Math.random()<.5?moves[0]:top[Math.floor(Math.random()*top.length)]}
+  else{moves.forEach(m=>m.v=m.res.score+leaveValue(p.rack,m.tiles));moves.sort((a,b)=>b.v-a.v);pick=moves[0]}
+  commit(p,pick.tiles,pick.res)}
+
+/* ---------- turns ---------- */
+function startTurn(){pend=[];selRack=-1;swapSel.clear();render();save();
+  const p=cur();if(G.over)return;
+  if(!p.human){botTurn(gen);return}
+  if(G.players.filter(x=>x.human).length>1)handOver(p);else setMsg(G.moves?'Your turn.':'Your turn. The first word must cover the ★.')}
+function handOver(p){$('modal').innerHTML=`<h2>${p.name}'s turn</h2><p>Pass the device to ${p.name}. Other players, no peeking at the rack!</p><div class="row"><button class="btn primary" id="mgo">Show my tiles</button></div>`;
+  $('overlay').hidden=false;hideRack=true;render();$('mgo').focus();$('mgo').onclick=()=>{hideRack=false;$('overlay').hidden=true;render();setMsg(`${p.name}, your turn.`)}}
+let hideRack=false;
+function passTurn(p){G.scoreless++;logMsg(`<b>${p.name}</b> passed.`);if(G.scoreless>=6)return endGame(null);nextTurn()}
+function exchange(p,idxs){const out=idxs.map(i=>p.rack[i]);p.rack=p.rack.filter((_,i)=>!idxs.includes(i));draw(p);G.bag.push(...out);
+  for(let i=G.bag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[G.bag[i],G.bag[j]]=[G.bag[j],G.bag[i]]}
+  G.scoreless++;logMsg(`<b>${p.name}</b> swapped ${out.length} tile${out.length>1?'s':''}.`);if(G.scoreless>=6)return endGame(null);nextTurn()}
+function endGame(outPlayer){G.over=true;busy=false;setMsg('Game over.');let bonus=0;
+  G.players.forEach(p=>{const left=p.rack.reduce((s,l)=>s+VAL(l),0);if(p!==outPlayer){p.score-=left;bonus+=left;if(left)logMsg(`<b>${p.name}</b> loses ${left} for tiles left.`)}});
+  if(outPlayer){outPlayer.score+=bonus;logMsg(`<b>${outPlayer.name}</b> went out and gains ${bonus}.`)}
+  save();render();const ranked=G.players.slice().sort((a,b)=>b.score-a.score);const top=ranked[0];const tie=ranked[1]&&ranked[1].score===top.score;
+  const youWin=G.players.length&&top.human&&G.players.filter(p=>p.human).length===1;
+  $('modal').innerHTML=`<h2>${tie?'A tie!':youWin?'You win!':top.name+' wins'}</h2><p>${outPlayer?`${outPlayer.name} used the last tile.`:'Six scoreless turns in a row ended the game.'}</p><div class="final">${ranked.map(p=>`<div><span>${p.name}</span><span>${p.score}</span></div>`).join('')}</div><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">New game</button></div>`;
+  $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame}
+
+/* ---------- rendering ---------- */
+function build(){let h='';for(let r=0;r<N;r++)for(let c=0;c<N;c++){const p=PREM[r][c];h+=`<div class="sq ${p}" data-r="${r}" data-c="${c}" role="button" aria-label="${'ABCDEFGHIJKLMNO'[c]}${r+1}${p&&p!=='ST'?' '+({TW:'triple word',DW:'double word',TL:'triple letter',DL:'double letter'})[p]:''}">${p&&p!=='ST'?p:''}</div>`}
+  $('board').innerHTML=h}
+const tileHTML=(l,blank,cls='')=>`<div class="tile${blank?' blank':''} ${cls}"><b>${l==='?'?'':l}</b>${blank||l==='?'?'':`<i>${VAL(l)}</i>`}</div>`;
+function render(){if(!G)return;const p=cur(),me=p.human&&!busy&&!G.over;
+  document.querySelectorAll('.sq').forEach(sq=>{const r=+sq.dataset.r,c=+sq.dataset.c,t=G.board[r][c],pd=pend.find(x=>x.r===r&&x.c===c);const pr=PREM[r][c];
+    sq.innerHTML=(pr&&pr!=='ST'?pr:'')+(t?tileHTML(t.l,t.blank,G.last.some(([a,b])=>a===r&&b===c)?'last':''):pd?tileHTML(pd.l,pd.blank,'pend'):'');
+    sq.classList.toggle('target',me&&selRack>=0&&!t&&!pd)});
+  const viewer=p.human?p:G.players.find(x=>x.human);
+  const used=pend.map(x=>x.rackIdx);
+  $('rack').innerHTML=[...Array(RACK)].map((_,i)=>{const l=viewer&&!hideRack?viewer.rack[i]:null;const inUse=used.includes(i);
+    return `<div class="slot${selRack===i?' sel':''}${swapSel.has(i)?' xsel':''}" data-i="${i}" role="button" aria-label="${l&&!inUse?(l==='?'?'blank tile':l):'empty'}">${l&&!inUse?tileHTML(l,false):''}</div>`}).join('');
+  $('scores').innerHTML=G.players.map((x,i)=>`<div class="score${i===G.turn&&!G.over?' turn':''}"><span>${x.name}</span>${!x.human?`<small>${cfg.level}</small>`:''}<b>${x.score}</b></div>`).join('');
+  $('bag').textContent=`${G.bag.length} tile${G.bag.length===1?'':'s'} left in the bag`;
+  const res=pend.length?evaluatePlacement(pend):null;
+  $('bPlay').textContent=res&&res.ok?`Play ${res.score}`:'Play';$('bPlay').disabled=!me||!pend.length;
+  $('bRecall').disabled=!me||!pend.length;$('bShuffle').disabled=!me;$('bSwap').disabled=!me||G.bag.length<RACK;$('bPass').disabled=!me;
+  if(busy)setMsg(`${p.name} is thinking…`);
+  $('log').innerHTML=G.log.map(l=>`<li>${l}</li>`).join('');$('log').scrollTop=1e5;
+  $('mode').value=cfg.mode;$('level').value=cfg.level;$('level').hidden=cfg.mode[0]!=='c'}
+function setMsg(t,cls=''){$('msg').textContent=t;$('msg').className='msg '+cls}
+function logMsg(h){G.log.push(h);if(G.log.length>200)G.log.shift()}
+
+/* ---------- input ---------- */
+const human=()=>G&&!G.over&&!busy&&cur().human&&!hideRack;
+function placeAt(r,c,i){const p=cur(),l=p.rack[i];if(G.board[r][c]||pend.some(x=>x.r===r&&x.c===c)||pend.some(x=>x.rackIdx===i))return;
+  if(l==='?'){chooseBlank(L=>{pend.push({r,c,l:L,blank:true,rackIdx:i});selRack=-1;afterPlace()});return}
+  pend.push({r,c,l,blank:false,rackIdx:i});selRack=-1;afterPlace()}
+function afterPlace(){render();const res=evaluatePlacement(pend);setMsg(res.ok?`${res.words.join(', ')} · ${res.score} points`:res.why,res.ok?'ok':'')}
+function chooseBlank(cb){$('modal').innerHTML=`<h2>Blank tile</h2><p>Which letter should it be?</p><div class="letters">${'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(L=>`<button data-l="${L}">${L}</button>`).join('')}</div><div class="row"><button class="btn" id="mcancel">Cancel</button></div>`;
+  $('overlay').hidden=false;$('modal').querySelector('[data-l]').focus();
+  $('modal').onclick=e=>{const b=e.target.closest('[data-l]');if(b){$('modal').onclick=null;$('overlay').hidden=true;cb(b.dataset.l)}else if(e.target.id==='mcancel'){$('modal').onclick=null;$('overlay').hidden=true;selRack=-1;render()}}}
+$('board').addEventListener('click',e=>{if(!human())return;const sq=e.target.closest('.sq');if(!sq)return;const r=+sq.dataset.r,c=+sq.dataset.c;
+  const k=pend.findIndex(x=>x.r===r&&x.c===c);if(k>=0){pend.splice(k,1);afterPlace();if(!pend.length)setMsg('');return}
+  if(selRack>=0)placeAt(r,c,selRack)});
+$('rack').addEventListener('click',e=>{if(!human())return;const s=e.target.closest('.slot');if(!s)return;const i=+s.dataset.i;const p=cur();
+  if(swapMode){if(i<p.rack.length){swapSel.has(i)?swapSel.delete(i):swapSel.add(i);render();$('bSwap').textContent=swapSel.size?`Swap ${swapSel.size}`:'Cancel swap'}return}
+  if(i>=p.rack.length||pend.some(x=>x.rackIdx===i))return;selRack=selRack===i?-1:i;render()});
+// drag from rack to board
+let drag=null;
+$('rack').addEventListener('pointerdown',e=>{if(!human()||swapMode)return;const s=e.target.closest('.slot');if(!s||!s.querySelector('.tile'))return;drag={i:+s.dataset.i,x:e.clientX,y:e.clientY,moved:false,ghost:null}});
+addEventListener('pointermove',e=>{if(!drag)return;if(!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<8)return;
+  if(!drag.moved){drag.moved=true;const t=document.querySelector(`.slot[data-i="${drag.i}"] .tile`);drag.ghost=t.cloneNode(true);Object.assign(drag.ghost.style,{position:'fixed',width:'44px',height:'44px',inset:'auto',zIndex:50,pointerEvents:'none'});document.body.appendChild(drag.ghost)}
+  drag.ghost.style.left=e.clientX-22+'px';drag.ghost.style.top=e.clientY-22+'px'});
+addEventListener('pointerup',e=>{if(!drag)return;const d=drag;drag=null;if(d.ghost)d.ghost.remove();if(!d.moved)return;
+  const el=document.elementFromPoint(e.clientX,e.clientY);const sq=el&&el.closest('.sq');if(sq)placeAt(+sq.dataset.r,+sq.dataset.c,d.i);setTimeout(()=>{selRack=-1;render()},0)});
+let swapMode=false;
+$('bPlay').onclick=()=>{if(!human())return;const res=evaluatePlacement(pend);if(!res.ok){setMsg(res.why,'err');return}const tiles=pend.map(({r,c,l,blank})=>({r,c,l,blank}));pend=[];setMsg('');commit(cur(),tiles,res)};
+$('bRecall').onclick=()=>{pend=[];selRack=-1;render();setMsg('')};
+$('bShuffle').onclick=()=>{if(!human())return;pend=[];const r=cur().rack;for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]]}selRack=-1;render()};
+$('bSwap').onclick=()=>{if(!human())return;if(!swapMode){pend=[];swapMode=true;swapSel.clear();render();$('bSwap').textContent='Cancel swap';setMsg('Tap the tiles you want to swap, then press Swap.');return}
+  swapMode=false;$('bSwap').textContent='Swap tiles';if(swapSel.size){const idx=[...swapSel];swapSel.clear();setMsg('');exchange(cur(),idx)}else{render();setMsg('')}};
+$('bPass').onclick=()=>{if(!human())return;if(!confirm('Pass your turn without playing?'))return;pend=[];passTurn(cur())};
+document.addEventListener('keydown',e=>{if(!human()||!$('overlay').hidden||e.target.closest('select'))return;
+  if(e.key==='Enter'&&pend.length){e.preventDefault();$('bPlay').click()}else if(e.key==='Escape'){$('bRecall').click()}});
+$('mode').onchange=e=>{if(G&&!G.over&&G.moves>0&&!confirm('Start a new game with these players?')){render();return}cfg.mode=e.target.value;store.set('parlor-wordtiles',cfg);newGame()};
+$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-wordtiles',cfg);save();render()};
+$('newgame').onclick=()=>{if(G&&!G.over&&G.moves>0&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+// Android app back button (see app-shell.js): close the blank-letter or hand-over dialog first.
+window.onAppBack=()=>{if(!$('overlay').hidden&&$('mcancel')){$('mcancel').click();return true}return false};
+if(!['c1','c2','c3','h2','h3','h4'].includes(cfg.mode))cfg.mode='c1';if(!['easy','normal','hard'].includes(cfg.level))cfg.level='normal';
+if(!load())newGame();
+</script>
+</body>
+</html>

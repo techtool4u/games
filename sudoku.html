@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sudoku</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a clean puzzle page. Header with difficulty and new puzzle; a stats strip (difficulty, mistakes, time); the 9×9 grid with the number pad and tools beside it on wide screens and below it on phones. */
+:root{
+  --bg:#f6f4ee; --fg:#1d2238; --muted:#606684; --panel:#ffffff; --line:#d8dbe8; --thick:#1d2238; --chip:#eef0f7;
+  --accent:#2c58c4; --accent-ink:#fff; --given:#1d2238; --user:#2c58c4; --bad:#c62b2b;
+  --hl:#e6ecfb; --hl2:#cfdaf7; --same:#bcd0ff; --sel:#a9c1ff;
+  --display:"Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13151f; --fg:#e8ebf8; --muted:#9fa5c4; --panel:#1b1e2c; --line:#2f3448; --thick:#8a91b5; --chip:#242839; --accent:#7d9cff; --accent-ink:#0b1230; --given:#e8ebf8; --user:#8fb0ff; --bad:#ff7a6c;
+  --hl:#222944; --hl2:#2b3458; --same:#33427a; --sel:#3e5199; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#13151f; --fg:#e8ebf8; --muted:#9fa5c4; --panel:#1b1e2c; --line:#2f3448; --thick:#8a91b5; --chip:#242839; --accent:#7d9cff; --accent-ink:#0b1230; --given:#e8ebf8; --user:#8fb0ff; --bad:#ff7a6c;
+  --hl:#222944; --hl2:#2b3458; --same:#33427a; --sel:#3e5199; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4}
+.wrap{max-width:1000px;margin:0 auto;padding-block:14px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,5vw,46px);line-height:1;margin:4px 0 0;letter-spacing:-.02em}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 15px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.strip{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:14px;align-items:center}
+.strip b{color:var(--fg);font-variant-numeric:tabular-nums}
+.strip label{display:flex;align-items:center;gap:6px;margin-left:auto}
+
+.game{display:grid;grid-template-columns:minmax(0,auto) minmax(220px,300px);gap:22px;align-items:start;justify-content:center}
+@media (max-width:760px){.game{grid-template-columns:minmax(0,1fr);justify-items:center}}
+.gridwrap{width:min(100%,560px,calc(100dvh - 210px));min-width:min(100%,290px)}
+.grid{display:grid;grid-template-columns:repeat(9,1fr);aspect-ratio:1;border:2.5px solid var(--thick);border-radius:8px;overflow:hidden;background:var(--panel);outline:none;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.grid:focus-visible{box-shadow:0 0 0 3px var(--accent)}
+.cell{position:relative;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel);display:grid;place-items:center;font-family:var(--display);font-size:clamp(18px,4.6vw,32px);font-weight:500;color:var(--user);cursor:pointer;padding:0;min-width:0}
+.cell:nth-child(9n){border-right:0}
+.cell.c2,.cell.c5{border-right:2px solid var(--thick)}
+.cell.r2,.cell.r5{border-bottom:2px solid var(--thick)}
+.cell.r8{border-bottom:0}
+.cell.given{color:var(--given);font-weight:700}
+.cell.peer{background:var(--hl)}
+.cell.same{background:var(--same)}
+.cell.sel{background:var(--sel)}
+.cell.bad{color:var(--bad)}
+.cell.bad.given{color:var(--given);box-shadow:inset 0 0 0 2px var(--bad)}
+.cell.hint{animation:flash .9s}
+@keyframes flash{30%{background:#ffe48a}}
+.cell .notes{position:absolute;inset:4%;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);font-family:var(--body);font-size:clamp(7px,1.5vw,11px);font-weight:600;color:var(--muted)}
+.cell .notes span{display:grid;place-items:center}
+.cell .notes span.hit{color:var(--accent);font-weight:800}
+.grid.done .cell{animation:wave .6s calc(var(--d)*30ms) ease-out}
+@keyframes wave{40%{background:#c7f0d5;transform:scale(1.04)}}
+
+.tools{display:flex;flex-direction:column;gap:12px;width:100%;max-width:560px}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media (max-width:760px){.pad{grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}}
+.num{border:1px solid var(--line);background:var(--panel);border-radius:12px;aspect-ratio:1.15;font-family:var(--display);font-size:clamp(20px,5vw,30px);font-weight:700;color:var(--accent);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;padding:0}
+.num small{font-family:var(--body);font-size:11px;color:var(--muted);font-weight:600;margin-top:3px}
+.num:disabled{opacity:.3;cursor:default}
+@media (max-width:760px){.num{aspect-ratio:.8;border-radius:9px}.num small{font-size:9.5px}}
+.acts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.acts .btn{padding:8px 6px;font-size:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+.best{color:var(--muted);font-size:13px;margin:0}
+.overlay{position:fixed;inset:0;background:rgba(10,12,30,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px}
+.modal h2{font-family:var(--display);font-size:32px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.busy{opacity:.5;pointer-events:none}
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;padding-block:8px}
+  .game{display:contents} header,.strip,.tools{grid-column:2}
+  .gridwrap{grid-column:1;grid-row:1/4;width:calc(100dvh - 20px);min-width:0}
+  .tools{min-width:0}.pad{grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}
+  .num{aspect-ratio:auto;height:54px;border-radius:9px;font-size:22px}.num small{font-size:9.5px}
+}
+@media (prefers-reduced-motion:reduce){.cell.hint,.grid.done .cell{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Sudoku</h1>
+    </div>
+    <div class="controls">
+      <select id="level" aria-label="Difficulty"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option><option value="expert">Expert</option></select>
+      <button class="btn primary" id="newgame">New puzzle</button>
+    </div>
+  </header>
+  <div class="strip" aria-live="polite">
+    <span><b id="lvl">Easy</b></span><span>Mistakes <b id="mist">0</b></span><span>Time <b id="time">0:00</b></span>
+    <label><input type="checkbox" id="check" checked> Show mistakes</label>
+  </div>
+
+  <div class="game">
+    <div class="gridwrap"><div class="grid" id="grid" tabindex="0" role="grid" aria-label="Sudoku grid. Arrow keys move, digits fill, N toggles notes."></div></div>
+    <div class="tools">
+      <div class="acts">
+        <button class="btn" id="bUndo">Undo</button>
+        <button class="btn" id="bErase">Erase</button>
+        <button class="btn" id="bNotes" aria-pressed="false">Notes</button>
+        <button class="btn" id="bHint">Hint</button>
+      </div>
+      <div class="pad" id="pad"></div>
+      <p class="best" id="best"></p>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Fill every empty square so each row, each column and each 3×3 box contains the digits 1 to 9 exactly once.</li>
+            <li>Tap a square, then a number. Turn on <b>Notes</b> to pencil in candidates; they clear themselves when you place that digit nearby.</li>
+            <li>Squares in the same row, column and box are shaded, and every copy of the selected digit is highlighted.</li>
+            <li>With <b>Show mistakes</b> on, wrong numbers turn red. Hints fill in one correct square.</li>
+            <li>Every puzzle has exactly one solution. Your progress is saved if you leave.</li>
+            <li>Keyboard: arrows move, 1–9 fill, 0 or Backspace erases, N toggles notes, U undoes, H hints.</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- generator & solver ---------- */
+// Cells are 0-80. Candidate sets are 9-bit masks (bit d-1 = digit d).
+const ROW=i=>Math.floor(i/9),COL=i=>i%9,BOX=i=>Math.floor(ROW(i)/3)*3+Math.floor(COL(i)/3);
+const PEERS=[...Array(81)].map((_,i)=>[...Array(81).keys()].filter(j=>j!==i&&(ROW(j)===ROW(i)||COL(j)===COL(i)||BOX(j)===BOX(i))));
+const LEVELS={easy:{label:'Easy',givens:40},medium:{label:'Medium',givens:32},hard:{label:'Hard',givens:27},expert:{label:'Expert',givens:23}};
+const bits=m=>{let n=0;while(m){m&=m-1;n++}return n};
+// Count solutions up to `limit` (fills `out` with the first one found). Picks the most constrained cell first.
+function solve(g,limit=2,out=null){const rows=new Array(9).fill(0),cols=new Array(9).fill(0),boxes=new Array(9).fill(0);
+  for(let i=0;i<81;i++)if(g[i]){const b=1<<(g[i]-1);if(rows[ROW(i)]&b||cols[COL(i)]&b||boxes[BOX(i)]&b)return 0;rows[ROW(i)]|=b;cols[COL(i)]|=b;boxes[BOX(i)]|=b}
+  const a=g.slice();let count=0;
+  const rec=()=>{let best=-1,bm=0,bc=10;
+    for(let i=0;i<81;i++)if(!a[i]){const m=511&~(rows[ROW(i)]|cols[COL(i)]|boxes[BOX(i)]);const c=bits(m);if(c<bc){bc=c;best=i;bm=m;if(c<=1)break}}
+    if(best<0){count++;if(out&&count===1)out.splice(0,81,...a);return count>=limit}
+    if(!bc)return false;
+    let m=bm;while(m){const b=m&-m;m^=b;const d=31-Math.clz32(b)+1;a[best]=d;rows[ROW(best)]|=b;cols[COL(best)]|=b;boxes[BOX(best)]|=b;
+      if(rec())return true;rows[ROW(best)]^=b;cols[COL(best)]^=b;boxes[BOX(best)]^=b;a[best]=0}
+    return false};
+  rec();return count}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function fullGrid(){const g=new Array(81).fill(0);
+  const fill=i=>{if(i===81)return true;if(g[i])return fill(i+1);for(const d of shuffle([1,2,3,4,5,6,7,8,9])){if(PEERS[i].some(j=>g[j]===d))continue;g[i]=d;if(fill(i+1))return true;g[i]=0}return false};
+  fill(0);return g}
+// Remove cells in symmetric pairs while the puzzle still has exactly one solution.
+// One pass can stall above the target, so try a few grids and keep the sparsest.
+function makePuzzle(level){const target=LEVELS[level].givens;let best=null;
+  for(let t=0;t<60&&!(best&&best.givens<=target);t++){const sol=fullGrid(),p=sol.slice();
+    let givens=81;for(const i of shuffle([...Array(41).keys()])){if(givens<=target)break;const j=80-i;const a=p[i],b=p[j];p[i]=0;p[j]=0;
+      if(solve(p,2)!==1){p[i]=a;p[j]=b}else givens-=i===j?1:2}
+    if(!best||givens<best.givens)best={puzzle:p,solution:sol,givens}}
+  return{puzzle:best.puzzle,solution:best.solution}}
+
+/* ---------- game state ---------- */
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const cfg=Object.assign({level:'easy',check:true},store.get('parlor-sudoku',{}));
+const stats=store.get('parlor-sudoku-stats',{});
+let S=null,sel=-1,notesMode=false,timer=0;
+function newPuzzle(){$('overlay').hidden=true;$('grid').classList.add('busy');
+  setTimeout(()=>{const{puzzle,solution}=makePuzzle(cfg.level);
+    S={level:cfg.level,given:puzzle.map(v=>!!v),val:puzzle.slice(),sol:solution,notes:new Array(81).fill(0),mistakes:0,hints:0,elapsed:0,done:false,undo:[]};
+    sel=S.val.findIndex(v=>!v);$('grid').classList.remove('busy');build();render();save()},20)}
+function save(){if(!S)return;if(S.done){store.del('parlor-sudoku-game');return}const{undo,...rest}=S;store.set('parlor-sudoku-game',rest)}
+function load(){const o=store.get('parlor-sudoku-game',null);if(!o||!o.sol||o.sol.length!==81)return false;S=Object.assign(o,{undo:[]});cfg.level=S.level;sel=S.val.findIndex(v=>!v);build();render();return true}
+function push(){S.undo.push({val:S.val.slice(),notes:S.notes.slice()});if(S.undo.length>300)S.undo.shift()}
+function setVal(i,d){if(S.done||S.given[i])return;
+  if(notesMode&&d){if(S.val[i])return;push();S.notes[i]^=1<<(d-1);render();save();return}
+  if(S.val[i]===d)return;push();S.val[i]=d;S.notes[i]=0;
+  if(d){if(d!==S.sol[i]){S.mistakes++}else PEERS[i].forEach(j=>S.notes[j]&=~(1<<(d-1)))}
+  render();save();if(S.val.every((v,k)=>v===S.sol[k]))win()}
+function undo(){if(!S||S.done||!S.undo.length)return;const u=S.undo.pop();S.val=u.val;S.notes=u.notes;render();save()}
+function hint(){if(!S||S.done)return;let i=sel>=0&&!S.given[sel]&&S.val[sel]!==S.sol[sel]?sel:-1;
+  if(i<0){const empty=[...Array(81).keys()].filter(k=>S.val[k]!==S.sol[k]);if(!empty.length)return;
+    // prefer the square with the fewest candidates, which is what a person would solve next
+    empty.sort((a,b)=>cands(a)-cands(b));i=empty[0]}
+  push();S.val[i]=S.sol[i];S.notes[i]=0;PEERS[i].forEach(j=>S.notes[j]&=~(1<<(S.sol[i]-1)));S.hints++;sel=i;render();
+  const c=$('grid').children[i];c.classList.remove('hint');void c.offsetWidth;c.classList.add('hint');save();if(S.val.every((v,k)=>v===S.sol[k]))win()}
+function cands(i){let m=511;PEERS[i].forEach(j=>{if(S.val[j])m&=~(1<<(S.val[j]-1))});return bits(m)}
+function win(){S.done=true;const st=stats[S.level]=stats[S.level]||{solved:0};st.solved++;if(st.best==null||S.elapsed<st.best)st.best=S.elapsed;store.set('parlor-sudoku-stats',stats);save();render();
+  $('grid').classList.add('done');
+  setTimeout(()=>{$('modal').innerHTML=`<h2>Solved!</h2><p>${LEVELS[S.level].label} puzzle in ${fmt(S.elapsed)}${S.mistakes?` with ${S.mistakes} mistake${S.mistakes>1?'s':''}`:' with no mistakes'}${S.hints?` and ${S.hints} hint${S.hints>1?'s':''}`:''}.</p><p>Best ${LEVELS[S.level].label} time: ${fmt(st.best)} · solved ${st.solved}</p><div class="row"><button class="btn primary" id="mnew">New puzzle</button></div>`;
+    $('overlay').hidden=false;$('mnew').focus();$('mnew').onclick=()=>{$('grid').classList.remove('done');newPuzzle()}},900)}
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+
+/* ---------- rendering ---------- */
+function build(){$('grid').innerHTML=[...Array(81)].map((_,i)=>`<button class="cell r${ROW(i)} c${COL(i)}" data-i="${i}" style="--d:${ROW(i)+COL(i)}" role="gridcell" tabindex="-1"></button>`).join('');
+  $('pad').innerHTML=[1,2,3,4,5,6,7,8,9].map(d=>`<button class="num" data-d="${d}" aria-label="${d}">${d}<small></small></button>`).join('')}
+function render(){if(!S)return;const cells=$('grid').children,sv=sel>=0?S.val[sel]:0;
+  for(let i=0;i<81;i++){const c=cells[i],v=S.val[i];
+    const bad=cfg.check&&v&&(v!==S.sol[i]&&!S.given[i]);
+    c.className=`cell r${ROW(i)} c${COL(i)}${S.given[i]?' given':''}${i===sel?' sel':sv&&v===sv?' same':sel>=0&&(ROW(i)===ROW(sel)||COL(i)===COL(sel)||BOX(i)===BOX(sel))?' peer':''}${bad?' bad':''}`;
+    if(v)c.textContent=v;else if(S.notes[i])c.innerHTML=`<span class="notes">${[1,2,3,4,5,6,7,8,9].map(d=>`<span class="${sv===d?'hit':''}">${S.notes[i]&(1<<(d-1))?d:''}</span>`).join('')}</span>`;else c.textContent='';
+    c.setAttribute('aria-label',`Row ${ROW(i)+1}, column ${COL(i)+1}: ${v?v+(S.given[i]?' given':''):'empty'}`)}
+  const count=d=>S.val.filter((v,i)=>v===d&&v===S.sol[i]).length;
+  document.querySelectorAll('.num').forEach(b=>{const d=+b.dataset.d,left=9-count(d);b.querySelector('small').textContent=left?`${left} left`:'done';b.disabled=S.done||(!notesMode&&left===0)});
+  $('lvl').textContent=LEVELS[S.level].label;$('mist').textContent=S.mistakes;$('time').textContent=fmt(S.elapsed);
+  $('bNotes').classList.toggle('on',notesMode);$('bNotes').setAttribute('aria-pressed',notesMode);$('bUndo').disabled=!S.undo.length||S.done;$('bHint').disabled=S.done;
+  $('level').value=cfg.level;$('check').checked=cfg.check;
+  const st=stats[S.level];$('best').textContent=st&&st.solved?`${LEVELS[S.level].label}: solved ${st.solved}, best time ${fmt(st.best)}`:''}
+
+/* ---------- input ---------- */
+$('grid').addEventListener('click',e=>{const c=e.target.closest('.cell');if(!c)return;sel=+c.dataset.i;render()});
+$('pad').addEventListener('click',e=>{const b=e.target.closest('.num');if(!b||b.disabled||sel<0)return;setVal(sel,+b.dataset.d)});
+$('bErase').onclick=()=>{if(sel>=0&&S&&!S.given[sel]&&(S.val[sel]||S.notes[sel])){push();S.val[sel]=0;S.notes[sel]=0;render();save()}};
+$('bNotes').onclick=()=>{notesMode=!notesMode;render()};$('bUndo').onclick=undo;$('bHint').onclick=hint;
+$('check').onchange=e=>{cfg.check=e.target.checked;store.set('parlor-sudoku',cfg);render()};
+$('level').onchange=e=>{if(S&&!S.done&&S.val.some((v,i)=>v&&!S.given[i])&&!confirm('Start a new puzzle at this difficulty?')){$('level').value=cfg.level;return}cfg.level=e.target.value;store.set('parlor-sudoku',cfg);newPuzzle()};
+$('newgame').onclick=()=>{if(S&&!S.done&&S.val.some((v,i)=>v&&!S.given[i])&&!confirm('Abandon this puzzle and start a new one?'))return;newPuzzle()};
+document.addEventListener('keydown',e=>{if(!S||!$('overlay').hidden||e.target.closest('select,input'))return;const k=e.key;
+  const mv={ArrowUp:-9,ArrowDown:9,ArrowLeft:-1,ArrowRight:1}[k];
+  if(mv){e.preventDefault();if(sel<0)sel=0;else{const n=sel+mv;if(n>=0&&n<81&&!(Math.abs(mv)===1&&ROW(n)!==ROW(sel)))sel=n}render();return}
+  if(/^[1-9]$/.test(k)&&sel>=0){setVal(sel,+k);return}
+  if((k==='0'||k==='Backspace'||k==='Delete')&&sel>=0){e.preventDefault();$('bErase').click();return}
+  const l=k.toLowerCase();if(l==='n')$('bNotes').click();else if(l==='u'||(l==='z'&&(e.ctrlKey||e.metaKey)))undo();else if(l==='h')hint()});
+timer=setInterval(()=>{if(S&&!S.done&&!document.hidden&&$('overlay').hidden){S.elapsed++;$('time').textContent=fmt(S.elapsed);if(S.elapsed%10===0)save()}},1000);
+if(!LEVELS[cfg.level])cfg.level='easy';
+if(!load())newPuzzle();
+</script>
+</body>
+</html>
