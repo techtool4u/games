@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Free Cell</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a blue baize table filling the screen. A thin header (title, game number, new game) and a stats strip, then the table:
+   four free cells and four foundations along the top, eight columns below. */
+:root{
+  --bg:#0f2b3c; --felt:#1d4e6b; --felt-2:#133a52; --fg:#eef5f9; --muted:#b0c8d6; --panel:rgba(255,255,255,.08); --line:rgba(255,255,255,.16);
+  --accent:#f3c246; --accent-ink:#2a1d00; --card:#fffdf8; --red:#c62b2b; --black:#1d1d22;
+  --display:"Libre Baskerville", Georgia, "Times New Roman", serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#081a25;--felt:#143a50;--felt-2:#0c2a3b;--card:#f1ece2}}
+:root[data-theme="dark"]{--bg:#081a25;--felt:#143a50;--felt-2:#0c2a3b;--card:#f1ece2}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4;min-height:100vh}
+.wrap{max-width:1000px;margin:0 auto;padding-block:10px 16px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:8px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+h1{font-family:var(--display);font-size:clamp(22px,4vw,30px);line-height:1.05;margin:2px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+input[type=number]{width:96px;border:1px solid var(--line);background:#14364b;color:var(--fg);padding:7px 10px;border-radius:999px;min-height:38px;box-sizing:border-box}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:700;min-height:38px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.strip{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:14px;color:var(--muted)}
+.strip b{color:var(--fg);font-variant-numeric:tabular-nums}
+.strip .sp{flex:1}
+.strip label{display:flex;gap:6px;align-items:center}
+.table{position:relative;background:radial-gradient(ellipse at 50% 0%,var(--felt),var(--felt-2) 75%);border-radius:14px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset 0 10px 40px rgba(0,0,0,.25);touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
+.slot{position:absolute;border-radius:7%/5%;border:2px dashed rgba(255,255,255,.18);box-sizing:border-box;display:grid;place-items:center;color:rgba(255,255,255,.22);font-size:calc(var(--cw)*.45)}
+.slot.cell{border-style:solid;background:rgba(0,0,0,.12);font-size:calc(var(--cw)*.2);font-weight:800;letter-spacing:.08em}
+.slot.ok{border-color:var(--accent);background:rgba(243,194,70,.16)}
+.colhit{position:absolute;border-radius:8px}
+.colhit.ok{background:rgba(243,194,70,.16)}
+.card{position:absolute;left:0;top:0;border-radius:calc(var(--cw)*.09);background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.12);transition:transform .22s cubic-bezier(.3,.7,.3,1);cursor:pointer;overflow:hidden;will-change:transform}
+.card .ix{position:absolute;left:7%;top:3%;font-weight:800;font-size:calc(var(--cw)*.3);line-height:1;letter-spacing:-.04em;display:flex;align-items:baseline;gap:1px}
+.card .ix i{font-style:normal;font-size:.85em}
+.card .cc{position:absolute;right:6%;bottom:4%;font-size:calc(var(--cw)*.5);line-height:1}
+.card.r{color:var(--red)} .card.k{color:var(--black)}
+.card.drag{transition:none;z-index:500!important;box-shadow:0 10px 20px rgba(0,0,0,.45)}
+.card.hint{box-shadow:0 0 0 3px var(--accent),0 4px 10px rgba(0,0,0,.5)}
+.card.nope{animation:nope .3s}
+@keyframes nope{25%{translate:-4px 0}75%{translate:4px 0}}
+.toast{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(0,0,0,.72);color:#fff;padding:7px 14px;border-radius:999px;font-weight:700;font-size:13.5px;z-index:900;pointer-events:none;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(0,8,15,.6);display:grid;place-items:center;padding:16px;z-index:1000}
+.modal{background:#fffdf8;color:#1f2a30;border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px}
+.modal h2{font-family:var(--display);font-size:28px;margin:0}
+.modal p{margin:0;color:#5b6b72}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.modal .btn{background:#f1efe8;color:#1f2a30;border-color:#ddd7ca}
+.modal .btn.primary{background:#1d4e6b;color:#fff;border-color:#1d4e6b}
+.modal .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.modal .stats div{background:#f3f0e8;border-radius:10px;padding:6px}
+.modal .stats b{display:block;font-size:20px}
+.modal .stats small{color:#6b7a80}
+@media (prefers-reduced-motion:reduce){.card{transition:none}.card.nope{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Free Cell</h1>
+    </div>
+    <div class="controls">
+      <input type="number" id="dealNo" min="1" max="1000000" aria-label="Deal number" placeholder="Deal #">
+      <button class="btn" id="playNo">Play deal</button>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="strip" aria-live="polite">
+    <span>Deal <b id="deal">#1</b></span><span>Moves <b id="moves">0</b></span><span>Time <b id="time">0:00</b></span>
+    <label><input type="checkbox" id="autoplay" checked> Auto-play safe cards</label>
+    <span class="sp"></span>
+    <button class="btn" id="undo">Undo</button><button class="btn" id="hint">Hint</button>
+  </div>
+  <div class="table" id="table" aria-label="Free Cell table. Tap a card to move it to the best place, or drag it."></div>
+  <details>
+    <summary>How to play</summary>
+    <ul>
+      <li>All 52 cards are dealt face up into eight columns. Build the four foundations (top right) up by suit, ace to king, to win.</li>
+      <li>On the columns, stack cards downward in alternating colors: a red 6 on a black 7. Any card can go into an empty column.</li>
+      <li>The four free cells (top left) each hold one card while you dig.</li>
+      <li>You can move a whole run at once if there's room to do it one card at a time: up to (free cells + 1), doubled for each empty column.</li>
+      <li><b>Tap</b> a card to send it to the best spot, or <b>drag</b> it. Undo is unlimited. Deals are numbered the classic way: deal #11982 is the famous one nobody can win; almost every other deal can be.</li>
+      <li>Keyboard: U undoes, H hints.</li>
+    </ul>
+  </details>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+const SUITS=['♠','♥','♦','♣'],RANKS=['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const RED=s=>s===1||s===2;
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const stats=store.get('parlor-freecell-stats',{played:0,won:0,streak:0,best:0});
+const prefs=Object.assign({auto:true},store.get('parlor-freecell-pref',{}));
+let G=null,cards=[],els=[],undoStack=[],L=null,timerT=0,toastT=0,drag=null;
+
+/* ---------- dealing (the classic numbered deals) ---------- */
+// Card ids: rank-major with suits clubs, diamonds, hearts, spades, shuffled with the well-known numbered-deal generator.
+function dealCols(n){let seed=n;const deck=[...Array(52).keys()],cols=[...Array(8)].map(()=>[]);
+  for(let i=0;i<52;i++){const left=52-i;seed=(seed*214013+2531011)%2147483648;const j=(seed>>>16)%left;cols[i%8].push(deck[j]);deck[j]=deck[left-1]}
+  return cols}
+const MS_SUIT=[3,2,1,0];// clubs, diamonds, hearts, spades -> ♣ ♦ ♥ ♠
+function newGame(n){$('overlay').hidden=true;if(!(n>=1))n=1+Math.floor(Math.random()*32000);
+  cards=[];for(let c=0;c<52;c++)cards.push({id:c,s:MS_SUIT[c%4],r:Math.floor(c/4)+1});
+  G={deal:n,cols:dealCols(n),cells:[-1,-1,-1,-1],found:[[],[],[],[]],moves:0,elapsed:0,over:false};undoStack=[];
+  stats.played++;stats.streak=Math.max(0,stats.streak);store.set('parlor-freecell-stats',stats);build();save();autoPlay()}
+function snapshot(){return JSON.stringify({cols:G.cols,cells:G.cells,found:G.found,moves:G.moves})}
+function restore(s){Object.assign(G,JSON.parse(s))}
+function locate(id){for(let i=0;i<8;i++){const k=G.cols[i].indexOf(id);if(k>=0)return{pile:'col',i,k}}
+  const ci=G.cells.indexOf(id);if(ci>=0)return{pile:'cell',i:ci};
+  for(let i=0;i<4;i++){const f=G.found[i];if(f.length&&f[f.length-1]===id)return{pile:'found',i}}return null}
+function runFrom(i,k){const c=G.cols[i];for(let j=k+1;j<c.length;j++){const a=cards[c[j-1]],b=cards[c[j]];if(RED(a.s)===RED(b.s)||b.r!==a.r-1)return null}return c.slice(k)}
+const topOf=a=>a.length?cards[a[a.length-1]]:null;
+const freeCells=()=>G.cells.filter(x=>x<0).length,emptyCols=()=>G.cols.filter(c=>!c.length).length;
+const capacity=toEmpty=>(freeCells()+1)*2**Math.max(0,emptyCols()-(toEmpty?1:0));
+function fitsCol(i,id){const t=topOf(G.cols[i]),c=cards[id];return!t||(RED(t.s)!==RED(c.s)&&t.r===c.r+1)}
+const canFound=id=>{const c=cards[id];return G.found[c.s].length===c.r-1};
+function lift(at){if(at.pile==='col')return G.cols[at.i].splice(at.k);if(at.pile==='cell'){const id=G.cells[at.i];G.cells[at.i]=-1;return[id]}return[G.found[at.i].pop()]}
+function doMove(at,dest,quiet){if(!quiet)undoStack.push(snapshot());const ids=lift(at);
+  if(dest.pile==='found')G.found[cards[ids[0]].s].push(ids[0]);else if(dest.pile==='cell')G.cells[dest.i]=ids[0];else G.cols[dest.i].push(...ids);
+  G.moves++;if(!quiet)after()}
+function after(){autoPlay();render();save();if(G.found.every(f=>f.length===13))win()}
+// A card is safe to send up when nothing could still need it: both foundations of the other color are high enough.
+function safe(id){const c=cards[id];if(!canFound(id))return false;if(c.r<=2)return true;const opp=RED(c.s)?[0,3]:[1,2];return opp.every(s=>G.found[s].length>=c.r-1)}
+function autoPlay(){if(!prefs.auto||!G||G.over)return;let moved=true,any=false;
+  while(moved){moved=false;for(let i=0;i<8;i++){const t=topOf(G.cols[i]);if(t&&safe(t.id)){doMove({pile:'col',i,k:G.cols[i].length-1},{pile:'found'},true);moved=any=true}}
+    for(let i=0;i<4;i++){const id=G.cells[i];if(id>=0&&safe(id)){doMove({pile:'cell',i},{pile:'found'},true);moved=any=true}}}
+  if(any){render();if(G.found.every(f=>f.length===13))win()}}
+function undo(){if(!undoStack.length||G.over)return;restore(undoStack.pop());render();save()}
+
+/* ---------- smart moves & hints ---------- */
+function movesFor(id){const at=locate(id);if(!at)return[];const out=[],c=cards[id];
+  const isTop=at.pile==='cell'||(at.pile==='col'&&at.k===G.cols[at.i].length-1);
+  if(isTop&&canFound(id))out.push({at,dest:{pile:'found'},sc:100});
+  if(at.pile==='found')return out;
+  const run=at.pile==='col'?runFrom(at.i,at.k):[id];if(!run)return out;
+  for(let i=0;i<8;i++){if(at.pile==='col'&&i===at.i)continue;if(!fitsCol(i,id))continue;const empty=!G.cols[i].length;
+    if(run.length>capacity(empty))continue;
+    // moving a whole column into an empty one achieves nothing
+    if(empty&&at.pile==='col'&&at.k===0)continue;
+    out.push({at,dest:{pile:'col',i},sc:empty?20:60+(at.pile==='cell'?10:0)})}
+  if(isTop&&at.pile==='col'){const ci=G.cells.indexOf(-1);if(ci>=0)out.push({at,dest:{pile:'cell',i:ci},sc:10})}
+  return out.sort((a,b)=>b.sc-a.sc)}
+// Hint: prefer sending cards home, then moves that uncover a card that can go home soon, then other column moves.
+function allMoves(){const out=[];const lowNeed=Math.min(...G.found.map(f=>f.length))+1;
+  for(let i=0;i<8;i++){const c=G.cols[i];for(let k=0;k<c.length;k++){if(!runFrom(i,k))continue;for(const m of movesFor(c[k])){let sc=m.sc;
+    const under=c.slice(0,k);const buried=under.findIndex(id=>cards[id].r<=lowNeed+1);if(buried>=0&&m.dest.pile!=='cell')sc+=15;if(m.dest.pile==='cell'&&!under.length)sc-=20;out.push({...m,sc})}}}
+  G.cells.forEach(id=>{if(id>=0)out.push(...movesFor(id).filter(m=>m.dest.pile!=='cell'))});
+  return out.sort((a,b)=>b.sc-a.sc)}
+function hint(){clearHints();const m=allMoves()[0];if(!m){toast('No moves left. Try undo.');return}
+  const ids=m.at.pile==='col'?G.cols[m.at.i].slice(m.at.k):m.at.pile==='cell'?[G.cells[m.at.i]]:[];ids.forEach(id=>els[id].classList.add('hint'));
+  if(m.dest.pile==='col'&&G.cols[m.dest.i].length)els[G.cols[m.dest.i][G.cols[m.dest.i].length-1]].classList.add('hint');
+  const c=cards[ids[0]];toast(`Move ${RANKS[c.r]}${SUITS[c.s]} ${m.dest.pile==='found'?'to its foundation':m.dest.pile==='cell'?'to a free cell':G.cols[m.dest.i].length?'onto '+RANKS[topOf(G.cols[m.dest.i]).r]+SUITS[topOf(G.cols[m.dest.i]).s]:'to the empty column'}`);setTimeout(clearHints,1800)}
+function clearHints(){document.querySelectorAll('.hint').forEach(e=>e.classList.remove('hint'))}
+
+/* ---------- layout & rendering ---------- */
+function build(){const t=$('table');t.innerHTML='';els=[];
+  for(let i=0;i<4;i++){const s=document.createElement('div');s.className='slot cell';s.dataset.cell=i;s.textContent='FREE';t.appendChild(s)}
+  for(let i=0;i<4;i++){const s=document.createElement('div');s.className='slot';s.dataset.f=i;s.textContent=SUITS[i];t.appendChild(s)}
+  for(let i=0;i<8;i++){const s=document.createElement('div');s.className='slot';s.dataset.e=i;t.appendChild(s)}
+  for(let i=0;i<8;i++){const h=document.createElement('div');h.className='colhit';h.dataset.c=i;t.appendChild(h)}
+  cards.forEach(c=>{const e=document.createElement('div');e.className='card '+(RED(c.s)?'r':'k');e.dataset.id=c.id;
+    e.innerHTML=`<span class="ix">${RANKS[c.r]}<i>${SUITS[c.s]}</i></span><span class="cc">${SUITS[c.s]}</span>`;e.setAttribute('aria-label',`${RANKS[c.r]} of ${['spades','hearts','diamonds','clubs'][c.s]}`);t.appendChild(e);els[c.id]=e});
+  L={};measure();render(true);startTimer()}
+function measure(){const t=$('table'),W=t.clientWidth||t.parentElement.clientWidth;
+  const cw=Math.min(W/8,108,Math.max(38,(innerHeight-120)/5.2)),gap=Math.max(3,cw*.07),w=cw-gap,h=w*1.42,ox=(W-8*cw)/2;
+  const row=gap*1.5,topY=row+h+gap*2.2;const avail=Math.max(h*3,(innerHeight-t.getBoundingClientRect().top-12)-topY);
+  Object.assign(L,{W,cw,gap,w,h,top:topY,avail,ox,row});t.style.setProperty('--cw',w+'px');t.style.height=Math.max(topY+avail,topY+h*3)+'px';
+  const X=i=>ox+i*cw+gap/2+'px';
+  for(let i=0;i<4;i++){Object.assign(t.querySelector(`[data-cell="${i}"]`).style,{left:X(i),top:row+'px',width:w+'px',height:h+'px'});Object.assign(t.querySelector(`[data-f="${i}"]`).style,{left:X(4+i),top:row+'px',width:w+'px',height:h+'px'})}
+  for(let i=0;i<8;i++)Object.assign(t.querySelector(`[data-e="${i}"]`).style,{left:X(i),top:topY+'px',width:w+'px',height:h+'px'});
+  t.querySelectorAll('.colhit').forEach(e=>Object.assign(e.style,{left:ox+ +e.dataset.c*cw+'px',top:topY-gap+'px',width:cw+'px',height:avail+gap+'px'}))}
+function render(instant){if(!G)return;const X=i=>L.ox+i*L.cw+L.gap/2;
+  const place=(id,x,y,z)=>{const e=els[id];e.style.width=L.w+'px';e.style.height=L.h+'px';e.style.zIndex=z;e.style.transition=instant?'none':'';e.style.transform=`translate(${x}px,${y}px)`};
+  G.cols.forEach((c,ci)=>{let up=L.h*.27;if(c.length>1&&(c.length-1)*up+L.h>L.avail)up=(L.avail-L.h)/(c.length-1);c.forEach((id,j)=>place(id,X(ci),L.top+j*up,10+j))});
+  G.cells.forEach((id,i)=>{if(id>=0)place(id,X(i),L.row,5)});
+  G.found.forEach((f,i)=>f.forEach((id,j)=>place(id,X(4+i),L.row,1+j)));
+  if(instant)requestAnimationFrame(()=>els.forEach(e=>e.style.transition=''));
+  $('deal').textContent='#'+G.deal;$('moves').textContent=G.moves;$('undo').disabled=!undoStack.length||G.over;$('hint').disabled=G.over;$('autoplay').checked=prefs.auto}
+function startTimer(){clearInterval(timerT);timerT=setInterval(()=>{if(!G||G.over||document.hidden)return;G.elapsed++;showTime();if(G.elapsed%10===0)save()},1000);showTime()}
+function showTime(){const s=G.elapsed;$('time').textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`}
+function toast(t){let e=document.querySelector('.toast');if(!e){e=document.createElement('div');e.className='toast';$('table').appendChild(e)}e.textContent=t;e.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>e.hidden=true,2200)}
+function nudge(e){e.classList.remove('nope');void e.offsetWidth;e.classList.add('nope')}
+
+/* ---------- end of game, saving ---------- */
+function save(){if(!G)return;if(G.over){store.del('parlor-freecell-game');return}store.set('parlor-freecell-game',{deal:G.deal,cols:G.cols,cells:G.cells,found:G.found,moves:G.moves,elapsed:G.elapsed})}
+function load(){const o=store.get('parlor-freecell-game',null);if(!o||!Array.isArray(o.cols)||o.cols.length!==8)return false;
+  cards=[];for(let c=0;c<52;c++)cards.push({id:c,s:MS_SUIT[c%4],r:Math.floor(c/4)+1});
+  G={deal:o.deal,cols:o.cols,cells:o.cells,found:o.found,moves:o.moves,elapsed:o.elapsed||0,over:false};
+  if(G.cols.flat().length+G.cells.filter(x=>x>=0).length+G.found.flat().length!==52)return false;undoStack=[];build();return true}
+function win(){if(G.over)return;G.over=true;stats.won++;stats.streak=Math.max(0,stats.streak)+1;stats.best=Math.max(stats.best,stats.streak);store.set('parlor-freecell-stats',stats);save();render();
+  setTimeout(()=>{$('modal').innerHTML=`<h2>Solved!</h2><p>Deal #${G.deal} cleared.</p>
+    <div class="stats"><div><b>${G.moves}</b><small>moves</small></div><div><b>${$('time').textContent}</b><small>time</small></div><div><b>${stats.streak}</b><small>win streak</small></div></div>
+    <p>${stats.won} solved out of ${stats.played} · best streak ${stats.best}</p><div class="row"><button class="btn primary" id="mnew">Next deal</button></div>`;$('overlay').hidden=false;$('mnew').focus();$('mnew').onclick=()=>newGame()},500)}
+
+/* ---------- input ---------- */
+const table=$('table');
+function cardAt(e){const el=e.target.closest('.card');return el?+el.dataset.id:-1}
+function colAtX(x){const r=table.getBoundingClientRect();return Math.max(0,Math.min(7,Math.floor((x-r.left-L.ox)/L.cw)))}
+const inTopRow=(x,y)=>{const r=table.getBoundingClientRect();return y-r.top<L.top-L.gap};
+const topSlot=x=>{const r=table.getBoundingClientRect();return Math.max(0,Math.min(7,Math.floor((x-r.left-L.ox)/L.cw)))};
+table.addEventListener('pointerdown',e=>{if(!G||G.over)return;const id=cardAt(e);if(id<0)return;const at=locate(id);if(!at||at.pile==='found')return;clearHints();
+  if(at.pile==='col'&&!runFrom(at.i,at.k)){nudge(els[id]);toast('Only a run in alternating colors can move together.');return}
+  const ids=at.pile==='col'?G.cols[at.i].slice(at.k):[id];
+  drag={at,ids,x:e.clientX,y:e.clientY,moved:false,base:ids.map(i=>els[i].style.transform)};table.setPointerCapture(e.pointerId)});
+table.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.moved&&Math.hypot(dx,dy)<6)return;
+  if(!drag.moved){drag.moved=true;drag.ids.forEach((id,i)=>{els[id].classList.add('drag');els[id].style.zIndex=500+i})}
+  drag.ids.forEach((id,i)=>{els[id].style.transform=drag.base[i]+` translate(${dx}px,${dy}px)`});
+  const t=colAtX(e.clientX),top=inTopRow(e.clientX,e.clientY);
+  table.querySelectorAll('.colhit').forEach(h=>h.classList.toggle('ok',!top&&+h.dataset.c===t&&dropCol(drag,t)));
+  table.querySelectorAll('.slot.cell').forEach(s=>s.classList.toggle('ok',top&&drag.ids.length===1&&+s.dataset.cell===topSlot(e.clientX)&&G.cells[+s.dataset.cell]<0))});
+function dropCol(d,t){if(d.at.pile==='col'&&t===d.at.i)return false;if(!fitsCol(t,d.ids[0]))return false;return d.ids.length<=capacity(!G.cols[t].length)}
+table.addEventListener('pointerup',e=>{if(!drag)return;const d=drag;drag=null;table.querySelectorAll('.ok').forEach(h=>h.classList.remove('ok'));d.ids.forEach(id=>els[id].classList.remove('drag'));
+  if(d.moved){if(inTopRow(e.clientX,e.clientY)){const s=topSlot(e.clientX);
+      if(s>=4){if(d.ids.length===1&&canFound(d.ids[0])){doMove(d.at,{pile:'found'});return}}
+      else if(d.ids.length===1&&G.cells[s]<0){doMove(d.at,{pile:'cell',i:s});return}
+      render();return}
+    const t=colAtX(e.clientX);if(dropCol(d,t)){doMove(d.at,{pile:'col',i:t});return}
+    if(d.ids.length>capacity(!G.cols[t].length)&&fitsCol(t,d.ids[0]))toast(`Not enough free space to move ${d.ids.length} cards at once.`);render();return}
+  const best=movesFor(d.ids[0])[0];if(best)doMove(best.at,best.dest);else{nudge(els[d.ids[0]]);toast(d.ids.length>1&&d.ids.length>capacity(false)?`Not enough free space to move ${d.ids.length} cards at once.`:'That card has nowhere to go yet.')}});
+table.addEventListener('pointercancel',()=>{if(drag){drag.ids.forEach(id=>els[id].classList.remove('drag'));drag=null;render()}});
+document.addEventListener('keydown',e=>{if(e.target.closest('input')||!$('overlay').hidden)return;const k=e.key.toLowerCase();
+  if(k==='u'||(k==='z'&&(e.ctrlKey||e.metaKey))){e.preventDefault();undo()}else if(k==='h')hint()});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+const lose=()=>{if(G&&!G.over&&G.moves>0){stats.streak=0;store.set('parlor-freecell-stats',stats)}};
+$('undo').onclick=undo;$('hint').onclick=hint;
+$('newgame').onclick=()=>{if(G&&!G.over&&G.moves>0&&!confirm('Start a new deal? This one will count as a loss.'))return;lose();newGame()};
+$('playNo').onclick=()=>{const n=Math.floor(+$('dealNo').value);if(!(n>=1&&n<=1000000)){toast('Enter a deal number from 1 to 1,000,000.');return}if(G&&!G.over&&G.moves>0&&!confirm(`Play deal #${n}? This one will count as a loss.`))return;lose();newGame(n)};
+$('dealNo').onkeydown=e=>{if(e.key==='Enter')$('playNo').click()};
+$('autoplay').onchange=e=>{prefs.auto=e.target.checked;store.set('parlor-freecell-pref',prefs);if(prefs.auto)autoPlay()};
+addEventListener('resize',()=>{if(G){measure();render(true)}});
+if(!load())newGame();
+</script>
+</body>
+</html>
