@@ -5,6 +5,10 @@ Self-contained HTML files. No install or build step.
 - `index.html` — the game library (search, filters, infinite scroll, grid / table / scroll layouts). Start here.
 - `hexhaven.html` — Hexhaven, a hex-island settling and trading game vs 3 computer players.
 - `chess.html` — Chess, vs the computer (easy / medium / hard / expert) or 2 players on one device.
+- `backgammon.html` — Backgammon with the doubling cube, vs the computer (easy / medium / hard) or 2 players on one device.
+- `reversi.html` — Reversi, vs the computer (easy / medium / hard) or 2 players on one device.
+- `go.html` — Go on 9×9, 13×13 or 19×19, vs the computer (easy / medium / hard) or 2 players, with automatic scoring.
+- `morris.html` — Nine Men's Morris, vs the computer (easy / medium / hard) or 2 players on one device.
 - `checkers.html` — Checkers, vs the computer (easy / medium / hard) or 2 players on one device.
 - `mancala.html` — Mancala (Kalah rules), vs the computer (easy / medium / hard) or 2 players on one device.
 - `four-in-a-row.html` — Four in a Row, vs the computer (easy / medium / hard) or 2 players on one device.
@@ -20,7 +24,7 @@ Open `index.html` in a browser and press **Play now** on a game. Keep all the fi
 
 Everything runs offline except the web fonts (loaded from Google Fonts); without internet the pages fall back to system fonts.
 
-Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress, Spider game, Hangman streaks, Word Tiles game and Sudoku puzzle and best times are saved in your browser's local storage.
+Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress, Spider game, Hangman streaks, Word Tiles game, Sudoku puzzle and best times, Backgammon and Go games in progress are saved in your browser's local storage.
 
 The Word Tiles dictionary is built from [SCOWL](http://wordlist.aspell.net/) (via the `wordlist-english` package); its copyright notice is at the top of `wordtiles-words.js`.
 

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Go</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@700;800&family=Noto+Sans:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a kaya-wood goban (9×9, 13×13 or 19×19). Header with settings; the board with a scorecard (turn, captures, pass / undo / resign, rules) beside it on wide screens and below it on phones. */
+:root{
+  --bg:#f3eee3; --fg:#221c14; --muted:#6b604f; --panel:#fffbf2; --line:#e0d5bf; --chip:#f3ead8;
+  --accent:#6b4a1f; --accent-ink:#ffffff; --wood:#e6c385; --wood-2:#d9b26e; --grid:#3d2c14;
+  --display:"Shippori Mincho", Georgia, serif;
+  --body:"Noto Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13110d; --fg:#ede6d8; --muted:#aa9e8a; --panel:#1d1a14; --line:#363024; --chip:#29241b; --accent:#e2b56a; --accent-ink:#2a1a05; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#13110d; --fg:#ede6d8; --muted:#aa9e8a; --panel:#1d1a14; --line:#363024; --chip:#29241b; --accent:#e2b56a; --accent-ink:#2a1a05; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1100px;margin:0 auto;padding-block:16px 36px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(34px,6vw,52px);line-height:1;margin:4px 0 0}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;justify-content:center}
+.boardbox{width:min(100%,640px,calc(100dvh - 170px));min-width:min(100%,290px)}
+svg{display:block;width:100%;height:auto;border-radius:10px;background:linear-gradient(135deg,var(--wood),var(--wood-2));box-shadow:0 18px 34px -18px rgba(70,45,10,.7),inset 0 2px 0 rgba(255,255,255,.35);touch-action:manipulation;user-select:none;-webkit-user-select:none;outline:none;cursor:pointer}
+svg:focus-visible{box-shadow:0 0 0 4px var(--accent)}
+.gl{stroke:var(--grid);stroke-width:1.1}
+.edge{stroke:var(--grid);stroke-width:2;fill:none}
+.star{fill:var(--grid)}
+.coord{fill:var(--grid);opacity:.55;font:600 11px var(--body);text-anchor:middle;dominant-baseline:central}
+.st.b{fill:url(#gb)} .st.w{fill:url(#gw)}
+.st{filter:drop-shadow(0 1.5px 1px rgba(0,0,0,.35))}
+.st.dead{opacity:.38}
+.st.new{animation:place .18s ease-out}
+@keyframes place{from{opacity:.2}}
+.lastm{fill:none;stroke-width:2.2}
+.lastm.b{stroke:#f2ede0} .lastm.w{stroke:#2a2420}
+.ghost{opacity:.45;pointer-events:none}
+.terr.b{fill:#1b1816} .terr.w{fill:#f8f4ea;stroke:#6f6450;stroke-width:.6}
+.cur{fill:none;stroke:#c0392b;stroke-width:2.2;pointer-events:none}
+.xdead{stroke:#c0392b;stroke-width:2.4;pointer-events:none}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.turn{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:23px;line-height:1.15}
+.dot{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.dot.b{background:#1e1b19} .dot.w{background:#f7f3ea;border:1px solid #b9ad95}
+.turn.think .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.hint{color:var(--muted);font-size:14px;margin:8px 0 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.row .btn{flex:1 1 auto}
+.score{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center}
+.score>div{background:var(--chip);border-radius:10px;padding:8px 4px}
+.score b{display:block;font-family:var(--display);font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.score small{color:var(--muted);font-size:12.5px;display:flex;gap:5px;align-items:center;justify-content:center}
+.score .dot{width:12px;height:12px}
+.meter{height:8px;border-radius:99px;background:#f7f3ea;border:1px solid var(--line);overflow:hidden;margin-top:10px}
+.meter i{display:block;height:100%;background:#1e1b19;transition:width .4s}
+.est{color:var(--muted);font-size:13px;margin:6px 0 0}
+.tally{display:flex;justify-content:space-between;color:var(--muted);font-size:14px;margin-top:10px}
+.tally b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:15;box-shadow:0 8px 20px rgba(0,0,0,.25);max-width:calc(100vw - 32px);text-align:center}
+.overlay{position:fixed;inset:0;background:rgba(20,14,6,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:32px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:8px 16px}
+  .game{display:contents}
+  .stage{grid-column:1;grid-row:1/3;position:sticky;top:8px;align-self:start}
+  header,.side{grid-column:2}
+  .sub{display:none} h1{font-size:28px}
+  .boardbox{width:calc(100dvh - 16px);min-width:0}
+}
+@media (prefers-reduced-motion:reduce){.st.new,.turn.think .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Go</h1>
+      <p class="sub">Take turns placing stones on the intersections. Surround empty areas to claim them, and capture stones you cut off completely.</p>
+    </div>
+    <div class="controls">
+      <select id="size" aria-label="Board size"><option value="9">9×9</option><option value="13">13×13</option><option value="19">19×19</option></select>
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="side" aria-label="Your color"><option value="1">You play black (first)</option><option value="2">You play white</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="stage" aria-label="Board">
+      <div class="boardbox"><svg id="board" tabindex="0" role="application" aria-label="Go board. Arrow keys move, Enter places a stone, P passes."></svg></div>
+    </section>
+
+    <aside class="side">
+      <div class="panel" aria-live="polite">
+        <div class="turn" id="turn"><span class="dot b" id="tdot"></span><span id="turnText">Your turn</span></div>
+        <p class="hint" id="hint"></p>
+        <div class="row" id="playBtns">
+          <button class="btn" id="pass">Pass</button>
+          <button class="btn" id="undo">Undo</button>
+          <button class="btn" id="resign">Resign</button>
+        </div>
+        <div class="row" id="scoreBtns" hidden>
+          <button class="btn" id="resume">Resume play</button>
+          <button class="btn primary" id="accept">Accept score</button>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="label">Captured stones</p>
+        <div class="score">
+          <div><b id="cap1">0</b><small><span class="dot b"></span><span id="n1">You</span></small></div>
+          <div><b id="cap2">0</b><small><span class="dot w"></span><span id="n2">Computer</span></small></div>
+        </div>
+        <div id="estBox" hidden><div class="meter"><i id="meter" style="width:50%"></i></div><p class="est" id="est"></p></div>
+        <div class="tally"><span><span id="tn1">You</span> <b id="t1">0</b></span><span><span id="tn2">Computer</span> <b id="t2">0</b></span></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Black plays first. Place one stone per turn on any empty intersection. Stones never move.</li>
+            <li>Stones of one color that touch along the lines form a group. When a group has no empty points next to it, it is captured and removed.</li>
+            <li>You can't play where your stone would have no liberties, unless it captures. You also can't immediately retake a single stone in a <b>ko</b>: play elsewhere first.</li>
+            <li>When neither side can gain anything, both pass. Then mark any hopeless (dead) stones by tapping them. The computer marks its best guess for you.</li>
+            <li>Score is area: your stones on the board plus the empty points only you surround. White gets 7.5 points of komi for moving second.</li>
+            <li>Keyboard: arrows move, Enter or Space places, P passes, U undoes.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- engine (runs on this page for the rules, and in a Web Worker for the computer's search) ---------- */
+// Points live in a padded array: index (y+1)*(n+2)+(x+1), with a border value of 3 around the edge.
+function goEngine(){
+  const PASS=-1;let N=9,W=11,SZ=121,NB=[],DG=[],mark=null,stamp=0,stack=null;
+  function setup(n){N=n;W=n+2;SZ=W*W;NB=[-W,-1,1,W];DG=[-W-1,-W+1,W-1,W+1];mark=new Int32Array(SZ);stack=new Int32Array(SZ)}
+  const pt=(x,y)=>(y+1)*W+x+1,xy=p=>[p%W-1,Math.floor(p/W)-1];
+  function newBoard(){const a=new Int8Array(SZ).fill(3);for(let y=0;y<N;y++)for(let x=0;x<N;x++)a[pt(x,y)]=0;return{a,ko:-1,caps:[0,0,0]}}
+  const clone=B=>({a:B.a.slice(),ko:B.ko,caps:B.caps.slice()});
+  // Does the group at p have a liberty? (stops at the first one)
+  function hasLib(a,p){const c=a[p];stamp++;let sp=0;stack[sp++]=p;mark[p]=stamp;
+    while(sp){const q=stack[--sp];for(let k=0;k<4;k++){const r=q+NB[k];const v=a[r];if(v===0)return true;if(v===c&&mark[r]!==stamp){mark[r]=stamp;stack[sp++]=r}}}
+    return false}
+  function removeGroup(a,p,out){const c=a[p];let sp=0,n=0;stack[sp++]=p;a[p]=0;
+    while(sp){const q=stack[--sp];n++;if(out)out.push(q);for(let k=0;k<4;k++){const r=q+NB[k];if(a[r]===c){a[r]=0;stack[sp++]=r}}}
+    return n}
+  // Play c at p. Returns captures (0+) or -1 if illegal (occupied, ko, suicide). `out` collects freed points.
+  function play(B,p,c,out){if(p===PASS){B.ko=-1;return 0}
+    const a=B.a;if(a[p]!==0||p===B.ko)return -1;
+    a[p]=c;const o=3-c;let cap=0,capAt=-1;
+    for(let k=0;k<4;k++){const q=p+NB[k];if(a[q]===o&&!hasLib(a,q)){capAt=q;cap+=removeGroup(a,q,out)}}
+    if(!cap&&!hasLib(a,p)){a[p]=0;return -1}
+    B.ko=-1;
+    if(cap===1){let alone=true,libs=0;for(let k=0;k<4;k++){const v=a[p+NB[k]];if(v===c)alone=false;else if(v===0)libs++}if(alone&&libs===1)B.ko=capAt}
+    B.caps[c]+=cap;return cap}
+  // A point every neighbor of which is c (or the edge), with few rival stones on the diagonals.
+  function isEye(a,p,c){for(let k=0;k<4;k++){const v=a[p+NB[k]];if(v!==c&&v!==3)return false}
+    let bad=0,edge=0;for(let k=0;k<4;k++){const v=a[p+DG[k]];if(v===3)edge=1;else if(v===3-c)bad++}
+    return bad+edge<2}
+  // Random game to the end. Returns the black-minus-white area score (before komi) and fills owner[] / amaf[].
+  function playout(B0,c,owner,amaf){const B=clone(B0),a=B.a;const em=[],pos=new Int32Array(SZ).fill(-1);
+    for(let p=0;p<SZ;p++)if(a[p]===0){pos[p]=em.length;em.push(p)}
+    const freed=[];let passes=0,moves=0;const limit=N*N*3;
+    while(passes<2&&moves<limit){let n=em.length,played=-1;
+      if(n){let i=(Math.random()*n)|0;for(let t=0;t<n;t++,i++){if(i>=n)i=0;const p=em[i];if(isEye(a,p,c))continue;freed.length=0;
+        if(play(B,p,c,freed)>=0){played=p;break}}}
+      if(played<0){passes++;B.ko=-1}else{passes=0;
+        const i=pos[played],last=em.pop();if(last!==played){em[i]=last;pos[last]=i}pos[played]=-1;
+        for(const q of freed){pos[q]=em.length;em.push(q)}
+        if(amaf&&!amaf[played])amaf[played]=c}
+      c=3-c;moves++}
+    let s=0;for(let p=0;p<SZ;p++){let v=a[p];if(v===3)continue;
+      if(v===0){let b=0,w=0;for(let k=0;k<4;k++){const u=a[p+NB[k]];if(u===1)b++;else if(u===2)w++}v=b&&!w?1:w&&!b?2:0}
+      if(v===1)s++;else if(v===2)s--;if(owner)owner[p]+=v===1?1:v===2?-1:0}
+    return s}
+  // Monte Carlo tree search with RAVE. Returns {move, winrate, own} where own[p] is +1 (always ours) … -1 (always theirs).
+  function think(B,c,opts){const deadline=Date.now()+(opts.ms||1000),maxIt=opts.playouts||1e9,komi=opts.komi;
+    const root={m:PASS,c:3-c,n:0,w:0,rn:0,rw:0,kids:null};const owner=new Float64Array(SZ);let it=0;
+    const expand=(node,b,col)=>{node.kids=[];for(let p=0;p<SZ;p++){if(b.a[p]!==0||p===b.ko||isEye(b.a,p,col))continue;
+        const [x,y]=xy(p),line=Math.min(x,y,N-1-x,N-1-y);
+        // priors: the first line is usually wrong early on; the third and fourth lines are good shape
+        const pr=N>=13?(line===0?[20,2]:line===1?[10,4]:line===2||line===3?[10,6]:[10,5]):(line===0?[12,3]:[0,0]);
+        node.kids.push({m:p,c:col,n:0,w:0,rn:pr[0],rw:pr[1],kids:null})}};
+    expand(root,B,c);
+    if(!root.kids.length)return{move:PASS,winrate:0,passWr:1,own:[],top:[]};
+    // Passing is a candidate too: if skipping a turn costs nothing, there is nothing left to fight over.
+    const passNode={m:PASS,c,n:0,w:0,rn:0,rw:0,kids:null};root.kids.push(passNode);
+    const amaf=new Int8Array(SZ);
+    while(it<maxIt&&(it%16||Date.now()<deadline)){it++;
+      const b=clone(B);let node=root,col=c;const path=[root];amaf.fill(0);
+      while(node.kids&&node.kids.length){let best=null,bv=-1;const ln=Math.log(node.n+1);
+        for(const k of node.kids){const beta=k.m===PASS?0:k.rn/(k.n+k.rn+k.n*k.rn/2500+1e-9);
+          const q=k.n?k.w/k.n:.5,r=k.rn?k.rw/k.rn:.5;const v=(1-beta)*q+beta*r+Math.sqrt(ln/(k.n+1))*.18;if(v>bv){bv=v;best=k}}
+        if(play(b,best.m,col,null)<0){node.kids.splice(node.kids.indexOf(best),1);if(!node.kids.length)break;continue}
+        if(best.m!==PASS&&!amaf[best.m])amaf[best.m]=col;
+        node=best;path.push(node);col=3-col;
+        if(!node.kids&&node.n>=1){expand(node,b,col);break}}
+      const s=playout(b,col,owner,amaf);
+      // Mostly win/loss, plus a little for the margin so a clear lead isn't thrown away.
+      const m=s-komi,rb=.88*(m>0)+.12*(.5+.5*Math.tanh(m/N)),rw=1-rb;
+      for(const nd of path){nd.n++;nd.w+=nd.c===1?rb:rw;
+        if(nd.kids)for(const k of nd.kids)if(amaf[k.m]===k.c){k.rn++;k.rw+=k.c===1?rb:rw}}}
+    let best=null;for(const k of root.kids)if(k.m!==PASS&&k.n&&(!best||k.n>best.n))best=k;
+    if(!best)return{move:PASS,winrate:passNode.n?passNode.w/passNode.n:0,passWr:1,own:[],top:[],it};
+    const top=root.kids.filter(k=>k.n&&k.m!==PASS).sort((a,b)=>b.n-a.n).slice(0,5).map(k=>({m:k.m,n:k.n,wr:k.w/k.n}));
+    const own=[],sg=c===1?1:-1;for(let p=0;p<SZ;p++)own.push(sg*owner[p]/Math.max(1,root.n));
+    return{move:best.m,winrate:best.n?best.w/best.n:0,passWr:passNode.n>20?passNode.w/passNode.n:0,own,top,it}}
+  // Who owns each point at the end, from many random finishes: +1 black … -1 white.
+  function ownership(B,c,n){const owner=new Float64Array(SZ);for(let i=0;i<n;i++)playout(B,i%2?3-c:c,owner,null);return Array.from(owner,v=>v/n)}
+  return{PASS,setup,pt,xy,newBoard,clone,play,isEye,think,ownership,get N(){return N},get W(){return W},get SZ(){return SZ}}}
+
+const E=goEngine();
+const KOMI=7.5;
+const LEVELS={easy:{ms:500,playouts:700,wander:.35},medium:{ms:1600},hard:{ms:4500}};
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const cfg=Object.assign({size:9,mode:'cpu',level:'medium',side:1},store.get('parlor-go',{}));
+const wins={1:0,2:0};
+let S=null,cursor=-1,kb=false,hover=-1,toastT=0;
+
+/* ---------- computer worker ---------- */
+let worker=null,reqId=0;const pending={};
+try{const src=`const E=(${goEngine.toString()})();onmessage=e=>{const d=e.data;E.setup(d.n);const B=E.newBoard();let c=1;for(const m of d.moves){E.play(B,m,c,null);c=3-c}
+  if(d.type==='own'){postMessage({id:d.id,own:E.ownership(B,c,d.n===19?160:300)});return}
+  const r=E.think(B,c,d.opts);postMessage({id:d.id,move:r.move,winrate:r.winrate,passWr:r.passWr,own:r.own,top:r.top})};`;
+  worker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+  worker.onmessage=e=>{const f=pending[e.data.id];delete pending[e.data.id];if(f)f(e.data)};
+  worker.onerror=()=>{worker=null}}catch(e){worker=null}
+// Same request, answered by the worker if there is one, otherwise on this page (with a smaller budget).
+function ask(msg){return new Promise(res=>{const id=++reqId;msg.id=id;
+  if(worker){pending[id]=res;worker.postMessage(msg);return}
+  setTimeout(()=>{const F=goEngine();F.setup(msg.n);const B=F.newBoard();let c=1;for(const m of msg.moves){F.play(B,m,c,null);c=3-c}
+    if(msg.type==='own')res({own:F.ownership(B,c,120)});else{const o=Object.assign({},msg.opts,{ms:Math.min(msg.opts.ms,800)});const r=F.think(B,c,o);res(r)}},30)})}
+
+/* ---------- game flow ---------- */
+const isCpu=p=>cfg.mode==='cpu'&&p===S.cpu;
+const colorName=p=>p===1?'Black':'White';
+const nameOf=p=>cfg.mode==='cpu'?(p===S.cpu?'Computer':'You'):colorName(p);
+function toast(t,ms=2000){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function fresh(n){E.setup(n);return{n,B:E.newBoard(),turn:1,moves:[],cpu:cfg.mode==='cpu'?3-(+cfg.side):0,phase:'play',dead:new Set(),over:null,busy:false,lastNew:-1,winrate:null,gen:(S?S.gen:0)+1}}
+function newGame(){$('overlay').hidden=true;$('toast').hidden=true;store.del('parlor-go-game');S=fresh(cfg.size);build();render();next()}
+function save(){if(!S||S.over)return;store.set('parlor-go-game',{n:S.n,moves:S.moves,mode:cfg.mode,cpu:S.cpu,phase:S.phase==='score'?'play':S.phase})}
+function replay(n,moves){const T=fresh(n);let c=1;for(const m of moves){E.play(T.B,m,c,null);c=3-c}T.turn=c;T.moves=moves.slice();return T}
+function load(){const o=store.get('parlor-go-game',null);if(!o||![9,13,19].includes(o.n)||!Array.isArray(o.moves)||o.mode!==cfg.mode)return false;
+  cfg.size=o.n;const gen=S?S.gen:0;S=replay(o.n,o.moves);S.cpu=o.cpu;S.gen=gen+1;build();render();
+  const L=S.moves.length;if(L>=2&&S.moves[L-1]===E.PASS&&S.moves[L-2]===E.PASS)startScoring();else next();return true}
+function next(){save();render();
+  if(S.phase!=='play'||S.over||!isCpu(S.turn))return;
+  S.busy=true;render();const g=S.gen,L=LEVELS[cfg.level];
+  ask({type:'think',n:S.n,moves:S.moves,opts:{ms:L.ms,playouts:L.playouts||1e9,komi:KOMI}}).then(r=>{if(g!==S.gen)return;S.busy=false;
+    let m=r.move;S.winrate=r.winrate;
+    if(L.wander&&r.top&&r.top.length>1&&Math.random()<L.wander)m=r.top[1+Math.floor(Math.random()*Math.min(2,r.top.length-1))].m;
+    const lastPass=S.moves.length&&S.moves[S.moves.length-1]===E.PASS,late=S.moves.length>S.n*S.n*.35;
+    if(m===E.PASS){doPass();return}
+    // After your pass, passing back ends the game: do it when the count (from the search's ownership) favors the computer.
+    if(lastPass&&r.own&&late){let s=0;for(let p=0;p<E.SZ;p++){const o=r.own[p];if(o>.3)s++;else if(o<-.3)s--}s+=S.cpu===2?KOMI:-KOMI;if(s>0){doPass();return}}
+    // Pass once almost nothing on the board is still undecided.
+    if(late&&r.own&&r.own.length){let open=0;for(let y=0;y<S.n;y++)for(let x=0;x<S.n;x++)if(Math.abs(r.own[E.pt(x,y)])<.7)open++;
+      if(open<=Math.max(1,Math.round(S.n*S.n*.02))&&r.passWr>=r.winrate-.05){doPass();return}}
+    if(r.winrate<.03&&r.passWr<.03&&S.moves.length>S.n*S.n*.5){S.over={w:3-S.cpu,why:'The computer resigns.'};wins[3-S.cpu]++;store.del('parlor-go-game');finishModal();return}
+    doPlay(m)})}
+function doPlay(p){if(S.phase!=='play'||S.over)return false;const c=S.turn;
+  if(E.play(S.B,p,c,null)<0){if(!isCpu(c)){const why=S.B.a[p]?'That point is taken.':p===S.B.ko?'Ko: you can\'t retake right away. Play somewhere else first.':'That stone would have no liberties.';toast(why)}return false}
+  S.moves.push(p);S.lastNew=p;S.turn=3-c;next();return true}
+function doPass(){if(S.phase!=='play'||S.over)return;const c=S.turn;E.play(S.B,E.PASS,c,null);S.moves.push(E.PASS);S.lastNew=-1;S.turn=3-c;
+  const L=S.moves.length;toast(`${nameOf(c)} ${nameOf(c)==='You'?'pass':'passes'}.`);
+  if(L>=2&&S.moves[L-2]===E.PASS){save();startScoring();return}
+  next()}
+// Both passed: guess which stones are dead from random finishes, then let the players adjust.
+function startScoring(){S.phase='score';S.dead=new Set();S.busy=true;render();const g=S.gen;
+  ask({type:'own',n:S.n,moves:S.moves}).then(r=>{if(g!==S.gen)return;S.busy=false;const a=S.B.a;
+    for(let p=0;p<E.SZ;p++){const v=a[p];if(v===1&&r.own[p]<-.45||v===2&&r.own[p]>.45)S.dead.add(p)}
+    // a group is dead or alive as a whole
+    const seen=new Set();for(let p=0;p<E.SZ;p++){const v=a[p];if((v!==1&&v!==2)||seen.has(p))continue;const g2=group(p);g2.forEach(q=>seen.add(q));
+      const d=g2.filter(q=>S.dead.has(q)).length*2>g2.length;g2.forEach(q=>d?S.dead.add(q):S.dead.delete(q))}
+    render();if(cfg.mode==='cpu')toast('Dead stones are marked. Tap a group to change it, then accept.',3200)})}
+function group(p){const a=S.B.a,c=a[p],out=[p],seen=new Set([p]);for(let i=0;i<out.length;i++)for(const d of [-E.W,-1,1,E.W]){const q=out[i]+d;if(a[q]===c&&!seen.has(q)){seen.add(q);out.push(q)}}return out}
+// Area score: live stones plus empty regions that touch only one color (dead stones count as empty).
+function areaScore(){const a=S.B.a,v=new Int8Array(E.SZ);for(let p=0;p<E.SZ;p++)v[p]=a[p]===3?3:S.dead.has(p)?0:a[p];
+  const own=new Int8Array(E.SZ),seen=new Uint8Array(E.SZ);let b=0,w=0;
+  for(let p=0;p<E.SZ;p++){if(v[p]===3)continue;if(v[p]===1){b++;own[p]=1;continue}if(v[p]===2){w++;own[p]=2;continue}if(seen[p])continue;
+    const reg=[p];seen[p]=1;let tb=false,tw=false;
+    for(let i=0;i<reg.length;i++)for(const d of [-E.W,-1,1,E.W]){const q=reg[i]+d;if(v[q]===1)tb=true;else if(v[q]===2)tw=true;else if(v[q]===0&&!seen[q]){seen[q]=1;reg.push(q)}}
+    const o=tb&&!tw?1:tw&&!tb?2:0;if(o===1)b+=reg.length;else if(o===2)w+=reg.length;reg.forEach(q=>own[q]=o)}
+  return{b,w:w+KOMI,own}}
+function accept(){const s=areaScore(),w=s.b>s.w?1:2;S.over={w,why:`Black ${s.b} · White ${s.w} (with ${KOMI} komi).`,score:s};wins[w]++;store.del('parlor-go-game');render();finishModal()}
+function finishModal(){const w=S.over.w;render();
+  const title=cfg.mode==='cpu'?(w===S.cpu?'Computer wins':'You win!'):`${colorName(w)} wins`;
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><p>${S.over.why}</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+    $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame},400)}
+function undo(){if(S.busy||!S.moves.length||S.over)return;
+  let moves=S.moves.slice();moves.pop();
+  if(cfg.mode==='cpu')while(moves.length&&((moves.length%2===0?1:2)===S.cpu))moves.pop();
+  const gen=S.gen,cpu=S.cpu;S=replay(S.n,moves);S.cpu=cpu;S.gen=gen+1;render();next()}
+function resign(){if(S.over||S.phase!=='play')return;if(!confirm('Resign this game?'))return;
+  const loser=cfg.mode==='cpu'?3-S.cpu:S.turn;S.over={w:3-loser,why:`${nameOf(loser)} resigned.`};wins[3-loser]++;store.del('parlor-go-game');finishModal()}
+
+/* ---------- drawing ---------- */
+const CELL=40,PAD=46;let VB=0;
+const cx=x=>PAD+x*CELL;
+function stars(n){const s=n===9?[2,6]:n===13?[3,9]:[3,9,15];const out=[];for(const x of s)for(const y of s)out.push([x,y]);if(n%2)out.push([(n-1)/2,(n-1)/2]);return out}
+function build(){const n=S.n;VB=PAD*2+(n-1)*CELL;let h=`<defs><radialGradient id="gb" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#5b5754"/><stop offset=".55" stop-color="#1e1b19"/><stop offset="1" stop-color="#0c0a09"/></radialGradient><radialGradient id="gw" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#ece7dc"/><stop offset="1" stop-color="#c9c0ae"/></radialGradient></defs>`;
+  for(let i=0;i<n;i++){h+=`<line class="gl" x1="${cx(0)}" y1="${cx(i)}" x2="${cx(n-1)}" y2="${cx(i)}"/><line class="gl" x1="${cx(i)}" y1="${cx(0)}" x2="${cx(i)}" y2="${cx(n-1)}"/>`}
+  h+=`<rect class="edge" x="${cx(0)}" y="${cx(0)}" width="${(n-1)*CELL}" height="${(n-1)*CELL}"/>`;
+  for(const [x,y] of stars(n))h+=`<circle class="star" cx="${cx(x)}" cy="${cx(y)}" r="${n===19?3.6:4.2}"/>`;
+  const L='ABCDEFGHJKLMNOPQRST';for(let i=0;i<n;i++){h+=`<text class="coord" x="${cx(i)}" y="12">${L[i]}</text><text class="coord" x="12" y="${cx(i)}">${n-i}</text>`}
+  h+='<g id="terr"></g><g id="stones"></g><g id="marks"></g>';
+  const b=$('board');b.setAttribute('viewBox',`0 0 ${VB} ${VB}`);b.innerHTML=h}
+function render(){if(!S)return;const n=S.n,a=S.B.a,R=CELL*.47;let h='',mk='',tr='';
+  const scoring=S.phase==='score',sc=scoring?areaScore():S.over&&S.over.score?S.over.score:null;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const p=E.pt(x,y),v=a[p];
+    if(v===1||v===2){const dead=S.dead.has(p)&&(scoring||S.over);h+=`<circle class="st ${v===1?'b':'w'}${dead?' dead':''}${p===S.lastNew?' new':''}" cx="${cx(x)}" cy="${cx(y)}" r="${R}"/>`;
+      if(dead)mk+=`<path class="xdead" d="M${cx(x)-7} ${cx(y)-7}L${cx(x)+7} ${cx(y)+7}M${cx(x)+7} ${cx(y)-7}L${cx(x)-7} ${cx(y)+7}"/>`;
+      if(p===S.moves[S.moves.length-1]&&!scoring)mk+=`<circle class="lastm ${v===1?'b':'w'}" cx="${cx(x)}" cy="${cx(y)}" r="${R*.45}"/>`}
+    if(sc&&(!v||S.dead.has(p))&&sc.own[p])tr+=`<rect class="terr ${sc.own[p]===1?'b':'w'}" x="${cx(x)-6}" y="${cx(y)-6}" width="12" height="12"/>`}
+  const me=S.phase==='play'&&!S.over&&!S.busy&&!isCpu(S.turn);
+  if(me&&hover>=0&&!a[hover]){const [x,y]=E.xy(hover);h+=`<circle class="st ghost ${S.turn===1?'b':'w'}" cx="${cx(x)}" cy="${cx(y)}" r="${R}"/>`}
+  if(kb&&cursor>=0){const [x,y]=E.xy(cursor);mk+=`<circle class="cur" cx="${cx(x)}" cy="${cx(y)}" r="${R+2}"/>`}
+  $('stones').innerHTML=h;$('marks').innerHTML=mk;$('terr').innerHTML=tr;
+  for(const q of [1,2]){$('cap'+q).textContent=S.B.caps[q];$('n'+q).textContent=nameOf(q);$('tn'+q).textContent=nameOf(q);$('t'+q).textContent=wins[q]}
+  const p=S.turn;$('tdot').className='dot '+((S.over?S.over.w:p)===1?'b':'w');
+  $('turn').classList.toggle('think',S.busy);
+  $('turnText').textContent=S.over?(cfg.mode==='cpu'?(S.over.w===S.cpu?'Computer wins':'You win'):`${colorName(S.over.w)} wins`):scoring?'Counting':isCpu(p)?'Computer is thinking…':cfg.mode==='cpu'?'Your turn':`${colorName(p)} to play`;
+  const lastPass=S.moves.length&&S.moves[S.moves.length-1]===E.PASS;
+  $('hint').textContent=S.over?S.over.why:scoring?(S.busy?'Working out which stones are dead…':`Black ${sc.b} · White ${sc.w}. Tap a group to mark it dead or alive, then accept.`):
+    isCpu(p)?`Computer plays ${colorName(p).toLowerCase()} on ${cfg.level}.`:lastPass?`${nameOf(3-p)} passed. Pass too to finish and count, or keep playing.`:`${cfg.mode==='cpu'?'You play':colorName(p)+' plays'} ${colorName(p).toLowerCase()}. Tap an intersection.`;
+  $('playBtns').hidden=scoring||!!S.over;$('scoreBtns').hidden=!scoring||!!S.over;
+  $('pass').disabled=!me;$('resign').disabled=S.over||S.busy||(cfg.mode==='cpu'&&isCpu(p));
+  $('undo').disabled=S.busy||!S.moves.length||(cfg.mode==='cpu'&&S.moves.length<(S.cpu===1?2:1));
+  $('accept').disabled=S.busy;
+  const showEst=cfg.mode==='cpu'&&S.winrate!=null&&!S.over;$('estBox').hidden=!showEst;
+  if(showEst){const pb=S.cpu===1?S.winrate:1-S.winrate;$('meter').style.width=Math.round(pb*100)+'%';const yours=Math.round((1-S.winrate)*100);$('est').textContent=`Computer's estimate of your chances: ${yours}%`}}
+
+/* ---------- input & settings ---------- */
+function pointAt(e){const b=$('board'),r=b.getBoundingClientRect(),k=VB/r.width;const x=Math.round(((e.clientX-r.left)*k-PAD)/CELL),y=Math.round(((e.clientY-r.top)*k-PAD)/CELL);
+  if(x<0||y<0||x>=S.n||y>=S.n)return -1;return E.pt(x,y)}
+$('board').addEventListener('click',e=>{const p=pointAt(e);if(p<0)return;kb=false;
+  if(S.phase==='score'&&!S.busy&&!S.over){const v=S.B.a[p];if(v===1||v===2){const g=group(p),d=!S.dead.has(p);g.forEach(q=>d?S.dead.add(q):S.dead.delete(q));render()}return}
+  if(S.busy||S.over||isCpu(S.turn))return;doPlay(p)});
+$('board').addEventListener('pointermove',e=>{if(e.pointerType!=='mouse')return;const p=pointAt(e);if(p!==hover){hover=p;render()}});
+$('board').addEventListener('pointerleave',()=>{hover=-1;render()});
+$('board').addEventListener('keydown',e=>{const n=S.n;if(cursor<0)cursor=E.pt((n-1)>>1,(n-1)>>1);const [x,y]=E.xy(cursor);
+  const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];
+  if(d){e.preventDefault();kb=true;const nx=Math.max(0,Math.min(n-1,x+d[0])),ny=Math.max(0,Math.min(n-1,y+d[1]));cursor=E.pt(nx,ny);render();return}
+  if(e.key==='Enter'||e.key===' '){e.preventDefault();kbPlace()}});
+function kbPlace(){if(cursor<0)return;if(S.phase==='score'){const v=S.B.a[cursor];if(v===1||v===2){const g=group(cursor),d=!S.dead.has(cursor);g.forEach(q=>d?S.dead.add(q):S.dead.delete(q));render()}return}
+  if(!S.busy&&!S.over&&!isCpu(S.turn))doPlay(cursor)}
+$('board').addEventListener('focus',()=>{kb=true;if(cursor<0)cursor=E.pt((S.n-1)>>1,(S.n-1)>>1);render()});$('board').addEventListener('blur',()=>{kb=false;render()});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;
+  if(e.key==='Escape'&&!$('overlay').hidden){$('overlay').hidden=true;return}
+  if((e.key==='p'||e.key==='P')&&!$('pass').disabled&&!$('playBtns').hidden)doPass();
+  else if((e.key==='u'||e.key==='U')&&!$('undo').disabled&&!$('playBtns').hidden)undo()});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+$('pass').onclick=doPass;$('undo').onclick=undo;$('resign').onclick=resign;
+$('accept').onclick=accept;$('resume').onclick=()=>{S.phase='play';S.dead=new Set();
+  // drop the two passes so play continues with the same player to move
+  const gen=S.gen,cpu=S.cpu;let moves=S.moves.slice();while(moves.length&&moves[moves.length-1]===E.PASS)moves.pop();S=replay(S.n,moves);S.cpu=cpu;S.gen=gen+1;render();next()};
+function sync(){$('size').value=cfg.size;$('mode').value=cfg.mode;$('level').value=cfg.level;$('side').value=cfg.side;$('level').hidden=$('side').hidden=cfg.mode!=='cpu'}
+const started=()=>S&&!S.over&&S.moves.length>1;
+function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-go',cfg);sync();if(restart)newGame();else render()}
+$('size').onchange=e=>setCfg('size',+e.target.value,true);
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('side').onchange=e=>setCfg('side',+e.target.value,true);
+$('newgame').onclick=()=>{if(started()&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+if(![9,13,19].includes(cfg.size))cfg.size=9;if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(![1,2].includes(cfg.side))cfg.side=1;
+sync();if(!load())newGame();
+</script>
+</body>
+</html>

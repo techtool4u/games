@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reversi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a green felt 8×8 board in a wooden frame. Header with settings; the board with a scorecard (turn, disc counts, wins, rules) beside it on wide screens and below it on phones. */
+:root{
+  --bg:#eef0e8; --fg:#18231c; --muted:#5b6a60; --panel:#ffffff; --line:#d6ddd3; --chip:#eef2ec;
+  --accent:#1e6b45; --accent-ink:#ffffff; --felt:#1f7a4c; --felt-2:#18653e; --frame:#6b4426; --frame-2:#4d2f18;
+  --black:#1b1d1f; --white:#f7f6f0;
+  --display:"Fraunces", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1512; --fg:#e4ece6; --muted:#9db0a3; --panel:#17201b; --line:#2a3a30; --chip:#1f2b24; --accent:#5fcf93; --accent-ink:#06210f; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0f1512; --fg:#e4ece6; --muted:#9db0a3; --panel:#17201b; --line:#2a3a30; --chip:#1f2b24; --accent:#5fcf93; --accent-ink:#06210f; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1060px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,5.5vw,48px);line-height:1;margin:4px 0 0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;justify-content:center}
+.boardbox{width:min(100%,600px,calc(100dvh - 170px));min-width:min(100%,290px)}
+.board{background:linear-gradient(160deg,var(--frame),var(--frame-2));border-radius:16px;padding:3.2%;box-shadow:0 18px 34px -18px rgba(20,30,10,.7),inset 0 2px 0 rgba(255,255,255,.15);outline:none}
+.board:focus-visible{box-shadow:0 0 0 4px var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));aspect-ratio:1;background:var(--felt);border-radius:6px;overflow:hidden;gap:1px;background:rgba(0,0,0,.35);touch-action:manipulation}
+.sq{position:relative;border:0;padding:0;background:radial-gradient(circle at 50% 40%,var(--felt),var(--felt-2));cursor:default;display:grid;place-items:center;min-width:0;min-height:0}
+.sq.legal{cursor:pointer}
+.sq.legal::after{content:"";width:24%;aspect-ratio:1;border-radius:50%;background:rgba(0,0,0,.28)}
+.sq.legal:hover::after{width:30%;background:rgba(255,255,255,.35)}
+.sq.cur{box-shadow:inset 0 0 0 3px #ffe27a}
+.disc{width:82%;aspect-ratio:1;border-radius:50%;position:relative;transition:background .18s}
+.disc.b{background:radial-gradient(circle at 35% 30%,#4a4d52,var(--black) 60%);box-shadow:0 3px 4px rgba(0,0,0,.45)}
+.disc.w{background:radial-gradient(circle at 35% 30%,#ffffff,#dedbd0 70%);box-shadow:0 3px 4px rgba(0,0,0,.35)}
+.disc.flip{animation:flip .36s ease-in-out}
+@keyframes flip{50%{transform:scaleX(.05)}}
+.disc.drop{animation:pop .2s ease-out}
+@keyframes pop{from{transform:scale(.4);opacity:.3}}
+.disc.last::after{content:"";position:absolute;inset:40%;border-radius:50%;background:#e2483a}
+.dots{position:absolute;inset:-4px;pointer-events:none}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.turn{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:23px;line-height:1.15}
+.dot{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.dot.b{background:var(--black)} .dot.w{background:var(--white);border:1px solid #bdb9ac}
+.turn.think .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.hint{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.row label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13.5px}
+.score{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center}
+.score>div{background:var(--chip);border-radius:10px;padding:8px 4px}
+.score b{display:block;font-family:var(--display);font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.score small{color:var(--muted);font-size:12px;display:flex;gap:5px;align-items:center;justify-content:center}
+.score .dot{width:12px;height:12px}
+.bar{height:8px;border-radius:99px;background:var(--white);border:1px solid var(--line);overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;background:var(--black);transition:width .3s}
+.tally{display:flex;justify-content:space-between;color:var(--muted);font-size:13.5px}
+.tally b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:15;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+.overlay{position:fixed;inset:0;background:rgba(8,20,12,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:34px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+
+@media (max-height:500px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:8px 16px}
+  .game{display:contents}
+  .stage{grid-column:1;grid-row:1/3;position:sticky;top:8px;align-self:start}
+  header,.side{grid-column:2}
+  .sub{display:none} h1{font-size:28px}
+  .boardbox{width:calc(100dvh - 16px);min-width:0}
+}
+@media (prefers-reduced-motion:reduce){.disc.flip,.disc.drop,.turn.think .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Reversi</h1>
+      <p class="sub">Place a disc so it traps a line of your rival's discs, and they all flip to your color. Most discs at the end wins.</p>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="side" aria-label="Your color"><option value="b">You play black (first)</option><option value="w">You play white</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="stage" aria-label="Board">
+      <div class="boardbox">
+        <div class="board" id="board" tabindex="0" aria-label="Board. Arrow keys move, Enter places a disc.">
+          <div class="grid" id="grid" role="grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="panel" aria-live="polite">
+        <div class="turn" id="turn"><span class="dot b" id="tdot"></span><span id="turnText">Your turn</span></div>
+        <p class="hint" id="hint"></p>
+        <div class="row"><button class="btn" id="undo">Undo</button><label><input type="checkbox" id="showMoves" checked> Show moves</label></div>
+      </div>
+      <div class="panel">
+        <p class="label">Discs on the board</p>
+        <div class="score">
+          <div><b id="cb">2</b><small><span class="dot b"></span><span id="nb">You</span></small></div>
+          <div><b id="cw">2</b><small><span class="dot w"></span><span id="nw">Computer</span></small></div>
+        </div>
+        <div class="bar"><i id="barB" style="width:50%"></i></div>
+      </div>
+      <div class="panel">
+        <p class="label">Wins this session</p>
+        <div class="tally"><span>You <b id="t0">0</b></span><span>Draws <b id="td">0</b></span><span id="t1l">Computer <b id="t1">0</b></span></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Black moves first. Place a disc next to an opposing disc so that one or more straight lines of opposing discs end in one of yours. Every trapped disc flips.</li>
+            <li>Lines can run across, up and down, or diagonally, and one move can flip several lines at once.</li>
+            <li>If you have no legal move you must pass. When neither player can move, the player with more discs wins.</li>
+            <li>Corners can never be flipped, so they are worth a lot. The squares next to an empty corner are risky because they can hand it to your rival.</li>
+            <li>Keyboard: arrows move, Enter or Space places, U undoes.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+// Squares are 0-63 (row * 8 + column). 1 = black (moves first), 2 = white, 0 = empty.
+const DIRS=[-9,-8,-7,-1,1,7,8,9];
+// Classic square weights: corners are gold, the squares touching an empty corner are poison.
+const WEIGHTS=[
+ 120,-20, 20,  5,  5, 20,-20,120,
+ -20,-40, -5, -5, -5, -5,-40,-20,
+  20, -5, 15,  3,  3, 15, -5, 20,
+   5, -5,  3,  3,  3,  3, -5,  5,
+   5, -5,  3,  3,  3,  3, -5,  5,
+  20, -5, 15,  3,  3, 15, -5, 20,
+ -20,-40, -5, -5, -5, -5,-40,-20,
+ 120,-20, 20,  5,  5, 20,-20,120];
+const CORNERS=[[0,1,8,9],[7,6,15,14],[56,57,48,49],[63,62,55,54]];
+const LEVELS={easy:{depth:1,noise:40},medium:{depth:3,noise:4},hard:{depth:20,ms:900,noise:0,exact:14}};
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',level:'medium',side:'b',show:true},store.get('parlor-reversi',{}));
+const wins={you:0,cpu:0,d:0,1:0,2:0};
+let S=null,cursor=19,kb=false,toastT=0;
+
+/* ---------- rules ---------- */
+// Walking off the board: a step of ±1/±7/±9 must not wrap around a row edge.
+const step=(i,d)=>{const j=i+d;if(j<0||j>63)return -1;const dc=(j%8)-(i%8);if(dc>1||dc<-1)return -1;return j};
+function flipsFor(b,i,p){if(b[i])return null;const o=3-p,out=[];
+  for(const d of DIRS){let j=step(i,d);const run=[];while(j>=0&&b[j]===o){run.push(j);j=step(j,d)}if(j>=0&&b[j]===p&&run.length)out.push(...run)}
+  return out.length?out:null}
+function moves(b,p){const m=[];for(let i=0;i<64;i++){if(b[i])continue;const f=flipsFor(b,i,p);if(f)m.push({i,f})}return m}
+function play(b,mv,p){b[mv.i]=p;for(const j of mv.f)b[j]=p}
+function undoPlay(b,mv,p){b[mv.i]=0;for(const j of mv.f)b[j]=3-p}
+const count=(b,p)=>b.reduce((n,v)=>n+(v===p),0);
+
+/* ---------- computer ---------- */
+function evaluate(b,p){const o=3-p;let s=0,mine=0,theirs=0;
+  for(let i=0;i<64;i++){if(b[i]===p){s+=WEIGHTS[i];mine++}else if(b[i]===o){s-=WEIGHTS[i];theirs++}}
+  // Once a corner is taken, the squares beside it stop being dangerous.
+  for(const [c,...near] of CORNERS)if(b[c])for(const n of near){if(b[n]===p)s-=WEIGHTS[n];else if(b[n]===o)s+=WEIGHTS[n]}
+  const mp=moves(b,p).length,mo=moves(b,o).length;
+  s+=(mp+mo)?Math.round(60*(mp-mo)/(mp+mo+2)):0;
+  if(mine+theirs>54)s+=(mine-theirs)*4;
+  return s}
+function search(b,p,depth,alpha,beta,passed,ctx){
+  if(++ctx.nodes%2048===0&&ctx.deadline&&Date.now()>ctx.deadline)throw ctx;
+  const ms=moves(b,p);
+  if(!ms.length){if(passed){const d=count(b,p)-count(b,3-p);return d>0?10000+d:d<0?-10000+d:0}
+    return -search(b,3-p,depth,-beta,-alpha,true,ctx)}
+  if(depth===0)return evaluate(b,p);
+  ms.sort((x,y)=>WEIGHTS[y.i]-WEIGHTS[x.i]);
+  let best=-Infinity;
+  for(const mv of ms){play(b,mv,p);const v=-search(b,3-p,depth-1,-beta,-alpha,false,ctx);undoPlay(b,mv,p);
+    if(v>best)best=v;if(v>alpha)alpha=v;if(alpha>=beta)break}
+  return best}
+function chooseMove(b,p){const L=LEVELS[cfg.level],ms=moves(b,p);if(ms.length===1)return ms[0];
+  const empties=count(b,0),ctx={nodes:0,deadline:L.ms?Date.now()+L.ms:0};let scored=null;
+  const maxD=L.exact&&empties<=L.exact?empties:L.depth;
+  try{for(let d=L.ms?1:maxD;d<=maxD;d++){
+    const cur=ms.map(mv=>{play(b,mv,p);const v=-search(b,3-p,d-1,-Infinity,Infinity,false,ctx);undoPlay(b,mv,p);return{mv,v:v+(L.noise?(Math.random()*2-1)*L.noise:0)}});
+    scored=cur;if(!L.ms)break}}
+  catch(e){if(e!==ctx)throw e;if(!scored){/* not even depth 1 finished: fall back to weights */}}
+  if(!scored)scored=ms.map(mv=>({mv,v:WEIGHTS[mv.i]}));
+  const top=Math.max(...scored.map(x=>x.v));const best=scored.filter(x=>x.v>=top);return best[rand(best.length)].mv}
+
+/* ---------- game flow ---------- */
+const isCpu=p=>cfg.mode==='cpu'&&p===S.cpu;
+const colorName=p=>p===1?'Black':'White';
+const nameOf=p=>cfg.mode==='cpu'?(p===S.cpu?'Computer':'You'):colorName(p);
+function newGame(){$('overlay').hidden=true;
+  const b=new Array(64).fill(0);b[27]=b[36]=2;b[28]=b[35]=1;
+  S={b,turn:1,cpu:cfg.mode==='cpu'?(cfg.side==='b'?2:1):0,hist:[],over:false,busy:false,last:-1,flipped:[],placed:-1,gen:(S?S.gen:0)+1};
+  render();next()}
+function toast(t){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,1800)}
+function next(){const ms=moves(S.b,S.turn);
+  if(!ms.length){const other=moves(S.b,3-S.turn);
+    if(!other.length){finish();return}
+    toast(`${nameOf(S.turn)} ${cfg.mode==='cpu'&&!isCpu(S.turn)?'have':'has'} no move and must pass.`);S.hist.push({b:S.b.slice(),turn:S.turn,last:S.last,pass:true});S.turn=3-S.turn}
+  render();
+  if(isCpu(S.turn)){S.busy=true;render();const g=S.gen;
+    setTimeout(()=>{if(g!==S.gen)return;const mv=chooseMove(S.b.slice(),S.turn);S.busy=false;if(g===S.gen)place(mv.i)},cfg.level==='hard'?120:480)}}
+function place(i){if(S.over)return;const f=flipsFor(S.b,i,S.turn);if(!f)return;
+  S.hist.push({b:S.b.slice(),turn:S.turn,last:S.last});
+  play(S.b,{i,f},S.turn);S.last=i;S.placed=i;S.flipped=f;S.turn=3-S.turn;next();S.placed=-1;S.flipped=[]}
+function finish(){S.over=true;const nb=count(S.b,1),nw=count(S.b,2),w=nb>nw?1:nw>nb?2:0;
+  if(!w)wins.d++;else if(cfg.mode==='cpu')wins[w===S.cpu?'cpu':'you']++;else wins[w]++;
+  render();
+  const title=!w?'Draw':cfg.mode==='cpu'?(w===S.cpu?'Computer wins':'You win!'):`${colorName(w)} wins`;
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><p>Black ${nb} · White ${nw}</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+    $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame},700)}
+// Undo goes back to the last position where a person was to move (in 2-player mode, one move).
+function undo(){if(!S.hist.length||S.busy)return;
+  if(S.over){const nb=count(S.b,1),nw=count(S.b,2),w=nb>nw?1:nw>nb?2:0;if(!w)wins.d--;else if(cfg.mode==='cpu')wins[w===S.cpu?'cpu':'you']--;else wins[w]--;S.over=false;$('overlay').hidden=true}
+  const pop=()=>{const h=S.hist.pop();S.b=h.b;S.turn=h.turn;S.last=h.last;return h};
+  if(cfg.mode==='two'){let h=pop();while(h.pass&&S.hist.length)h=pop()}
+  else{let h;do h=pop();while(S.hist.length&&(isCpu(S.turn)||h.pass))}
+  S.gen++;render();if(isCpu(S.turn))next()}
+
+/* ---------- render ---------- */
+function build(){$('grid').innerHTML=[...Array(64)].map((_,i)=>`<button class="sq" data-i="${i}" role="gridcell" aria-label="${'abcdefgh'[i%8]}${8-Math.floor(i/8)}"></button>`).join('')}
+function render(){if(!S)return;const me=!S.over&&!S.busy&&!isCpu(S.turn),legal=me?new Set(moves(S.b,S.turn).map(m=>m.i)):new Set();
+  const cells=$('grid').children;
+  for(let i=0;i<64;i++){const c=cells[i],v=S.b[i];
+    c.className=`sq${legal.has(i)&&cfg.show?' legal':''}${kb&&i===cursor?' cur':''}`;
+    const want=v?`disc ${v===1?'b':'w'}${i===S.last?' last':''}`:'';
+    let d=c.firstChild;
+    if(!v){if(d)d.remove();continue}
+    if(!d){d=document.createElement('div');c.appendChild(d)}
+    d.className=want+(i===S.placed?' drop':S.flipped.includes(i)?' flip':'');
+    c.setAttribute('aria-label',`${'abcdefgh'[i%8]}${8-Math.floor(i/8)}: ${v===1?'black':'white'}`)}
+  const nb=count(S.b,1),nw=count(S.b,2);$('cb').textContent=nb;$('cw').textContent=nw;$('barB').style.width=(100*nb/(nb+nw))+'%';
+  $('nb').textContent=cfg.mode==='cpu'?(S.cpu===1?'Computer':'You'):'Black';$('nw').textContent=cfg.mode==='cpu'?(S.cpu===2?'Computer':'You'):'White';
+  $('tdot').className='dot '+((S.over?(nw>nb?2:1):S.turn)===1?'b':'w');
+  $('turn').classList.toggle('think',!S.over&&isCpu(S.turn));
+  const res=()=>{const w=nb>nw?1:nw>nb?2:0;return!w?'Draw':cfg.mode==='cpu'?(w===S.cpu?'Computer wins':'You win'):`${colorName(w)} wins`};
+  $('turnText').textContent=S.over?res():isCpu(S.turn)?'Computer is thinking…':cfg.mode==='cpu'?'Your turn':`${colorName(S.turn)} to move`;
+  $('hint').textContent=S.over?'Press New game or Play again for another round.':isCpu(S.turn)?`Computer plays ${colorName(S.turn).toLowerCase()} on ${cfg.level}.`:`${cfg.mode==='cpu'?'You are':colorName(S.turn)+' is'} ${cfg.mode==='cpu'?colorName(S.turn).toLowerCase():'to play'}. ${legal.size} legal move${legal.size===1?'':'s'}.`;
+  if(cfg.mode==='cpu'){$('t0').textContent=wins.you;$('t1').textContent=wins.cpu;$('t0').previousSibling.textContent='You ';$('t1l').firstChild.textContent='Computer '}
+  else{$('t0').textContent=wins[1];$('t1').textContent=wins[2];$('t0').previousSibling.textContent='Black ';$('t1l').firstChild.textContent='White '}
+  $('td').textContent=wins.d;
+  $('undo').disabled=S.busy||!S.hist.length||(cfg.mode==='cpu'&&!S.hist.some(h=>!h.pass&&!isCpu(h.turn)))}
+
+/* ---------- input & settings ---------- */
+$('grid').addEventListener('click',e=>{const c=e.target.closest('.sq');if(!c||S.over||S.busy||isCpu(S.turn))return;kb=false;place(+c.dataset.i)});
+$('board').addEventListener('keydown',e=>{const mv={ArrowUp:-8,ArrowDown:8,ArrowLeft:-1,ArrowRight:1}[e.key];
+  if(mv){e.preventDefault();kb=true;const n=cursor+mv;if(n>=0&&n<64&&!(Math.abs(mv)===1&&Math.floor(n/8)!==Math.floor(cursor/8)))cursor=n;render();return}
+  if((e.key==='Enter'||e.key===' ')&&!S.over&&!S.busy&&!isCpu(S.turn)){e.preventDefault();place(cursor)}});
+$('board').addEventListener('focus',()=>{kb=true;render()});$('board').addEventListener('blur',()=>{kb=false;render()});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true;else if((e.key==='u'||e.key==='U')&&!$('undo').disabled)undo()});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('side').value=cfg.side;$('showMoves').checked=cfg.show;$('level').hidden=$('side').hidden=cfg.mode!=='cpu'}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-reversi',cfg);sync();if(restart)newGame();else render()}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('side').onchange=e=>setCfg('side',e.target.value,true);
+$('showMoves').onchange=e=>setCfg('show',e.target.checked,false);
+$('newgame').onclick=newGame;$('undo').onclick=undo;
+if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['b','w'].includes(cfg.side))cfg.side='b';
+build();sync();newGame();
+</script>
+</body>
+</html>

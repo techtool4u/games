@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nine Men's Morris</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Lora:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a carved wooden board with three nested squares. Header with settings; the board with a scorecard (turn, pieces in hand and on the board, rules) beside it on wide screens and below it on phones. */
+:root{
+  --bg:#f4ecdc; --fg:#2b1d12; --muted:#6e5a47; --panel:#fffaf0; --line:#e2d3b8; --chip:#f2e7d2;
+  --accent:#b23a2a; --accent-ink:#ffffff; --wood:#e6d2a8; --wood-2:#d4b880; --groove:#5b3b22;
+  --white:#f8f3e6; --black:#2a2320;
+  --display:"Cinzel", Georgia, serif;
+  --body:"Lora", Georgia, serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17120d; --fg:#efe4d2; --muted:#b5a289; --panel:#211a13; --line:#3a2e22; --chip:#2b2219; --accent:#ff7a5c; --accent-ink:#2a0c05; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#17120d; --fg:#efe4d2; --muted:#b5a289; --panel:#211a13; --line:#3a2e22; --chip:#2b2219; --accent:#ff7a5c; --accent-ink:#2a0c05; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1060px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,5vw,44px);line-height:1.05;margin:4px 0 0}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;flex-direction:column;align-items:center;gap:8px}
+.boardbox{width:min(100%,580px,calc(100dvh - 230px));min-width:min(100%,290px)}
+.hand{display:flex;gap:4px;justify-content:center;min-height:22px;flex-wrap:wrap}
+.hand i{width:18px;height:18px;border-radius:50%;box-shadow:inset 0 -2px 0 rgba(0,0,0,.25)}
+.hand i.w{background:var(--white);border:1px solid #b8a78a} .hand i.b{background:var(--black)}
+.hand span{font-size:12.5px;color:var(--muted);margin-right:6px;align-self:center}
+svg{display:block;width:100%;height:auto;border-radius:18px;background:radial-gradient(circle at 40% 30%,var(--wood),var(--wood-2));box-shadow:0 18px 34px -18px rgba(60,35,10,.7),inset 0 2px 0 rgba(255,255,255,.4);touch-action:manipulation;user-select:none;-webkit-user-select:none;outline:none}
+svg:focus-visible{box-shadow:0 0 0 4px var(--accent)}
+.groove{fill:none;stroke:var(--groove);stroke-width:7;stroke-linecap:round}
+.spot{fill:var(--groove)}
+.hit{fill:transparent;cursor:pointer}
+.target{fill:var(--accent);opacity:.75;pointer-events:none}
+.piece{transition:transform .28s ease}
+.piece circle{stroke-width:2}
+.piece.w circle{fill:var(--white);stroke:#a8957a}
+.piece.b circle{fill:var(--black);stroke:#000}
+.piece .ring{fill:none;stroke:rgba(0,0,0,.18)}
+.piece.b .ring{stroke:rgba(255,255,255,.18)}
+.piece.sel circle:first-child{stroke:var(--accent);stroke-width:6}
+.piece.rm circle:first-child{stroke:var(--accent);stroke-width:6;stroke-dasharray:8 6;animation:spin 3s linear infinite}
+@keyframes spin{to{stroke-dashoffset:-56}}
+.piece.mill circle:first-child{stroke:#e7b53a;stroke-width:6}
+.piece.last .dotm{fill:var(--accent)}
+.cur{fill:none;stroke:#e7b53a;stroke-width:5;pointer-events:none}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-family:var(--display)}
+.turn{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:21px;line-height:1.15}
+.dot{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25)}
+.dot.w{background:var(--white);border:1px solid #b8a78a} .dot.b{background:var(--black)}
+.turn.think .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.hint{color:var(--muted);font-size:14px;margin:8px 0 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.score{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center}
+.score>div{background:var(--chip);border-radius:10px;padding:8px 4px}
+.score b{display:block;font-family:var(--display);font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.score small{color:var(--muted);font-size:12.5px;display:flex;gap:5px;align-items:center;justify-content:center}
+.score .dot{width:12px;height:12px}
+.tally{display:flex;justify-content:space-between;color:var(--muted);font-size:14px;margin-top:10px}
+.tally b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.opt{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px;margin-top:10px}
+
+.overlay{position:fixed;inset:0;background:rgba(30,18,8,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:30px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+
+@media (max-height:500px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:8px 16px}
+  .game{display:contents}
+  .stage{grid-column:1;grid-row:1/3;position:sticky;top:8px;align-self:start;flex-direction:row}
+  .hand{flex-direction:column;flex-wrap:nowrap;min-height:0;min-width:22px}.hand span{display:none}
+  header,.side{grid-column:2}
+  .sub{display:none} h1{font-size:26px}
+  .boardbox{width:calc(100dvh - 16px);min-width:0}
+}
+@media (prefers-reduced-motion:reduce){.piece{transition:none}.piece.rm circle:first-child,.turn.think .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Nine Men's Morris</h1>
+      <p class="sub">Place your nine pieces, then slide them along the lines. Line up three in a row to form a mill and take one of your rival's pieces.</p>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="side" aria-label="Your color"><option value="1">You play white (first)</option><option value="2">You play black</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="stage" aria-label="Board">
+      <div class="hand" id="hand2"></div>
+      <div class="boardbox"><svg id="board" viewBox="0 0 700 700" tabindex="0" role="application" aria-label="Board. Arrow keys move between points, Enter selects."></svg></div>
+      <div class="hand" id="hand1"></div>
+    </section>
+
+    <aside class="side">
+      <div class="panel" aria-live="polite">
+        <div class="turn" id="turn"><span class="dot w" id="tdot"></span><span id="turnText">Your turn</span></div>
+        <p class="hint" id="hint"></p>
+        <div class="row"><button class="btn" id="undo">Undo</button></div>
+      </div>
+      <div class="panel">
+        <p class="label">Pieces left</p>
+        <div class="score">
+          <div><b id="c1">9</b><small><span class="dot w"></span><span id="n1">You</span></small></div>
+          <div><b id="c2">9</b><small><span class="dot b"></span><span id="n2">Computer</span></small></div>
+        </div>
+        <div class="tally"><span><span id="tn1">You</span> <b id="t1">0</b></span><span>Draws <b id="td">0</b></span><span><span id="tn2">Computer</span> <b id="t2">0</b></span></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li><b>Placing:</b> take turns putting your nine pieces on any empty point. White starts.</li>
+            <li><b>Moving:</b> once every piece is placed, slide one of yours along a line to a neighboring empty point.</li>
+            <li><b>Mills:</b> three of your pieces in a straight line form a mill. Each new mill lets you remove one rival piece, but not one that is in a mill unless every rival piece is.</li>
+            <li><b>Flying:</b> with only three pieces left you may jump to any empty point.</li>
+            <li>You lose with fewer than three pieces, or when you cannot move. A position repeated three times, or 50 moves each without a capture, is a draw.</li>
+            <li>Keyboard: arrows move between points, Enter or Space selects, U undoes.</li>
+          </ul>
+        </details>
+        <label class="opt"><input type="checkbox" id="fly" checked> Allow flying with three pieces</label>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- board geometry ---------- */
+// 24 points on three rings of 8, numbered clockwise from each ring's top-left corner. 1 = white, 2 = black.
+const XY=[];for(let k=0;k<3;k++){const a=k,b=3,c=6-k;[[a,a],[b,a],[c,a],[c,b],[c,c],[b,c],[a,c],[a,b]].forEach(p=>XY.push(p))}
+const ADJ=[...Array(24)].map(()=>[]);const link=(a,b)=>{ADJ[a].push(b);ADJ[b].push(a)};
+for(let k=0;k<3;k++)for(let i=0;i<8;i++)link(8*k+i,8*k+(i+1)%8);
+for(const m of [1,3,5,7]){link(m,m+8);link(m+8,m+16)}
+const MILLS=[];for(let k=0;k<3;k++)for(const s of [0,2,4,6])MILLS.push([8*k+s,8*k+s+1,8*k+(s+2)%8]);
+for(const m of [1,3,5,7])MILLS.push([m,m+8,m+16]);
+const MILLS_AT=[...Array(24)].map((_,i)=>MILLS.filter(m=>m.includes(i)));
+const PX=i=>70+XY[i][0]*93.33,PY=i=>70+XY[i][1]*93.33;
+
+const LEVELS={easy:{depth:1,noise:60},medium:{depth:3,noise:5},hard:{depth:30,ms:900,noise:0}};
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',level:'medium',side:1,fly:true},store.get('parlor-morris',{}));
+const wins={1:0,2:0,d:0};
+let S=null,cursor=0,kb=false;
+
+/* ---------- rules ---------- */
+// A position: b (24 points), hand[p] pieces still to place, on[p] pieces on the board.
+const inMill=(b,i)=>{const p=b[i];return p&&MILLS_AT[i].some(m=>m.every(j=>b[j]===p))};
+const canFly=(P,p)=>cfg.fly&&P.hand[p]===0&&P.on[p]===3;
+function removable(b,o){const all=[],free=[];for(let i=0;i<24;i++)if(b[i]===o){all.push(i);if(!inMill(b,i))free.push(i)}return free.length?free:all}
+// Every legal move for p: {from (-1 when placing), to, rm (-1 when no mill)}.
+function genMoves(P,p){const b=P.b,o=3-p,base=[];
+  if(P.hand[p]>0){for(let i=0;i<24;i++)if(!b[i])base.push([-1,i])}
+  else{const fly=canFly(P,p);for(let i=0;i<24;i++)if(b[i]===p){const ts=fly?[...Array(24).keys()].filter(j=>!b[j]):ADJ[i].filter(j=>!b[j]);for(const j of ts)base.push([i,j])}}
+  const out=[];
+  for(const [f,t] of base){if(f>=0)b[f]=0;b[t]=p;
+    if(inMill(b,t))for(const r of removable(b,o))out.push({from:f,to:t,rm:r});else out.push({from:f,to:t,rm:-1});
+    b[t]=0;if(f>=0)b[f]=p}
+  return out}
+function apply(P,m,p){const o=3-p;if(m.from>=0)P.b[m.from]=0;else{P.hand[p]--;P.on[p]++}P.b[m.to]=p;if(m.rm>=0){P.b[m.rm]=0;P.on[o]--}}
+function unapply(P,m,p){const o=3-p;if(m.rm>=0){P.b[m.rm]=o;P.on[o]++}P.b[m.to]=0;if(m.from>=0)P.b[m.from]=p;else{P.hand[p]++;P.on[p]--}}
+const lost=(P,p)=>P.hand[p]===0&&P.on[p]<3;
+const clone=P=>({b:P.b.slice(),hand:P.hand.slice(),on:P.on.slice()});
+
+/* ---------- computer ---------- */
+function evaluate(P,p){const o=3-p,b=P.b;
+  let s=((P.hand[p]+P.on[p])-(P.hand[o]+P.on[o]))*120;
+  // open twos (two in a line with the third point empty) are mills waiting to happen
+  for(const m of MILLS){let mine=0,theirs=0,empty=0;for(const j of m){if(b[j]===p)mine++;else if(b[j]===o)theirs++;else empty++}
+    if(mine===3)s+=18;else if(theirs===3)s-=18;else if(mine===2&&empty===1)s+=10;else if(theirs===2&&empty===1)s-=12}
+  if(!P.hand[p]&&!P.hand[o]){const mob=q=>{if(canFly(P,q))return 8;let n=0;for(let i=0;i<24;i++)if(b[i]===q)for(const j of ADJ[i])if(!b[j])n++;return n};
+    s+=(mob(p)-mob(o))*6}
+  for(let i of [4,10,12,14,1+8,3+8,5+8,7+8])if(b[i]===p)s+=2;else if(b[i]===o)s-=2;
+  return s}
+function search(P,p,depth,alpha,beta,ctx){
+  if(++ctx.nodes%2048===0&&ctx.deadline&&Date.now()>ctx.deadline)throw ctx;
+  if(lost(P,p))return -10000-depth;
+  const ms=genMoves(P,p);if(!ms.length)return -10000-depth;
+  if(depth===0)return evaluate(P,p);
+  ms.sort((a,b)=>(b.rm>=0)-(a.rm>=0));
+  let best=-Infinity;
+  for(const m of ms){apply(P,m,p);const v=-search(P,3-p,depth-1,-beta,-alpha,ctx);unapply(P,m,p);
+    if(v>best)best=v;if(v>alpha)alpha=v;if(alpha>=beta)break}
+  return best}
+function chooseMove(P0,p){const L=LEVELS[cfg.level],P=clone(P0),ms=genMoves(P,p);if(ms.length===1)return ms[0];
+  const ctx={nodes:0,deadline:L.ms?Date.now()+L.ms:0};let scored=null;
+  // avoid walking into a third repetition when anything else is about as good
+  const repeats=m=>{apply(P,m,p);const k=key(P,3-p);unapply(P,m,p);return (S.seen[k]||0)>=2};
+  try{for(let d=L.ms?1:L.depth;d<=L.depth;d++){
+    const cur=ms.map(m=>{apply(P,m,p);const v=-search(P,3-p,d-1,-Infinity,Infinity,ctx);unapply(P,m,p);return{m,v:v+(L.noise?(Math.random()*2-1)*L.noise:0)-(repeats(m)?40:0)}});
+    scored=cur;if(!L.ms||cur.some(x=>x.v>9000))break}}
+  catch(e){if(e!==ctx)throw e}
+  if(!scored)return ms[rand(ms.length)];
+  const top=Math.max(...scored.map(x=>x.v)),best=scored.filter(x=>x.v>=top);return best[rand(best.length)].m}
+
+/* ---------- game flow ---------- */
+const key=(P,turn)=>P.b.join('')+turn;
+const isCpu=p=>cfg.mode==='cpu'&&p===S.cpu;
+const colorName=p=>p===1?'White':'Black';
+const nameOf=p=>cfg.mode==='cpu'?(p===S.cpu?'Computer':'You'):colorName(p);
+function newGame(){$('overlay').hidden=true;
+  S={P:{b:new Array(24).fill(0),hand:[0,9,9],on:[0,0,0]},turn:1,cpu:cfg.mode==='cpu'?3-(+cfg.side):0,hist:[],over:null,busy:false,
+     sel:-1,pending:null,last:null,quiet:0,seen:{},gen:(S?S.gen:0)+1};
+  render();next()}
+function next(){const P=S.P,p=S.turn;
+  if(lost(P,p)){end(3-p,`${nameOf(p)} ${nameOf(p)==='You'?'are':'is'} down to two pieces.`);return}
+  if(!genMoves(P,p).length){end(3-p,`${nameOf(p)} ${nameOf(p)==='You'?'have':'has'} no legal move.`);return}
+  if(!P.hand[1]&&!P.hand[2]){const k=key(P,p);S.seen[k]=(S.seen[k]||0)+1;
+    if(S.seen[k]>=3){end(0,'The same position came up three times.');return}
+    if(S.quiet>=100){end(0,'Fifty moves each without a capture.');return}}
+  render();
+  if(isCpu(p)){S.busy=true;render();const g=S.gen;
+    setTimeout(()=>{if(g!==S.gen)return;const m=chooseMove(S.P,p);S.busy=false;commit(m)},cfg.level==='hard'?150:520)}}
+function commit(m){const p=S.turn;S.hist.push({P:clone(S.P),turn:p,last:S.last,quiet:S.quiet,seen:Object.assign({},S.seen)});
+  apply(S.P,m,p);S.last=m;S.sel=-1;S.pending=null;
+  S.quiet=m.rm>=0||S.P.hand[1]||S.P.hand[2]?0:S.quiet+1;
+  S.turn=3-p;next()}
+function end(w,why){S.over={w,why};wins[w||'d']++;render();
+  const title=!w?'Draw':cfg.mode==='cpu'?(w===S.cpu?'Computer wins':'You win!'):`${colorName(w)} wins`;
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><p>${why}</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+    $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame},600)}
+function undo(){if(!S.hist.length||S.busy)return;
+  if(S.pending){S.pending=null;S.sel=-1;render();return}
+  if(S.over){wins[S.over.w||'d']--;S.over=null;$('overlay').hidden=true}
+  const pop=()=>{const h=S.hist.pop();S.P=h.P;S.turn=h.turn;S.last=h.last;S.quiet=h.quiet;S.seen=h.seen};
+  if(cfg.mode==='two')pop();else do pop();while(S.hist.length&&isCpu(S.turn));
+  S.sel=-1;S.pending=null;S.gen++;render();if(isCpu(S.turn))next()}
+
+/* ---------- human input ---------- */
+// Tapping goes: (pick a piece →) pick a point → (if that made a mill) pick a rival piece to remove.
+function humanOptions(){if(!S||S.over||S.busy||isCpu(S.turn))return null;return genMoves(clone(S.P),S.turn)}
+function tap(i){const ms=humanOptions();if(!ms)return;const p=S.turn,P=S.P;
+  if(S.pending){const m=ms.find(m=>m.from===S.pending.from&&m.to===S.pending.to&&m.rm===i);if(m)commit(m);return}
+  if(P.hand[p]>0){const cands=ms.filter(m=>m.to===i);if(!cands.length)return;
+    if(cands[0].rm<0)commit(cands[0]);else{S.pending={from:-1,to:i};render()}return}
+  if(P.b[i]===p){S.sel=S.sel===i?-1:i;render();return}
+  if(S.sel>=0){const cands=ms.filter(m=>m.from===S.sel&&m.to===i);if(!cands.length)return;
+    if(cands[0].rm<0)commit(cands[0]);else{S.pending={from:S.sel,to:i};render()}}}
+
+/* ---------- render ---------- */
+function build(){let h='';
+  for(let k=0;k<3;k++){const a=70+k*93.33,w=560-2*k*93.33;h+=`<rect class="groove" x="${a}" y="${a}" width="${w}" height="${w}" rx="3"/>`}
+  for(const [x1,y1,x2,y2] of [[350,70,350,256.66],[350,443.33,350,630],[70,350,256.66,350],[443.33,350,630,350]])h+=`<line class="groove" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+  for(let i=0;i<24;i++)h+=`<circle class="spot" cx="${PX(i)}" cy="${PY(i)}" r="11"/>`;
+  h+='<g id="targets"></g><g id="pieces"></g><circle class="cur" id="cur" r="40" hidden/>';
+  for(let i=0;i<24;i++)h+=`<circle class="hit" data-i="${i}" cx="${PX(i)}" cy="${PY(i)}" r="44"/>`;
+  $('board').innerHTML=h}
+function render(){if(!S)return;const P=S.P,b=P.b,p=S.turn,ms=humanOptions()||[];
+  // Pieces as they will look after a pending (not yet finished) move.
+  const view=b.slice();if(S.pending){if(S.pending.from>=0)view[S.pending.from]=0;view[S.pending.to]=p}
+  const rmSet=new Set(S.pending?ms.filter(m=>m.from===S.pending.from&&m.to===S.pending.to).map(m=>m.rm):[]);
+  let tg='';const targets=new Set();
+  if(!S.pending){if(P.hand[p]>0&&ms.length)ms.forEach(m=>targets.add(m.to));else if(S.sel>=0)ms.filter(m=>m.from===S.sel).forEach(m=>targets.add(m.to))}
+  targets.forEach(i=>tg+=`<circle class="target" cx="${PX(i)}" cy="${PY(i)}" r="${P.hand[p]>0?9:14}"/>`);
+  $('targets').innerHTML=tg;
+  let pc='';const millPts=new Set();if(S.over||S.last)MILLS.forEach(m=>{const q=view[m[0]];if(q&&m.every(j=>view[j]===q)&&S.last&&m.includes(S.last.to))m.forEach(j=>millPts.add(j))});
+  if(S.pending)MILLS_AT[S.pending.to].forEach(m=>{if(m.every(j=>view[j]===p))m.forEach(j=>millPts.add(j))});
+  for(let i=0;i<24;i++){const v=view[i];if(!v)continue;
+    const cls=`piece ${v===1?'w':'b'}${i===S.sel&&!S.pending?' sel':''}${rmSet.has(i)?' rm':''}${millPts.has(i)?' mill':''}${S.last&&S.last.to===i?' last':''}`;
+    pc+=`<g class="${cls}" transform="translate(${PX(i)} ${PY(i)})"><circle r="31"/><circle class="ring" r="20"/><circle class="dotm" r="6" fill="none"/></g>`}
+  $('pieces').innerHTML=pc;
+  const cur=$('cur');cur.hidden=!kb;if(kb){cur.setAttribute('cx',PX(cursor));cur.setAttribute('cy',PY(cursor))}
+  for(const q of [1,2])$('hand'+q).innerHTML=(P.hand[q]?`<span>${nameOf(q)}:</span>`:'')+`<i class="${q===1?'w':'b'}"></i>`.repeat(P.hand[q]);
+  $('c1').textContent=P.hand[1]+P.on[1];$('c2').textContent=P.hand[2]+P.on[2];
+  for(const q of [1,2]){$('n'+q).textContent=nameOf(q);$('tn'+q).textContent=nameOf(q);$('t'+q).textContent=wins[q]}$('td').textContent=wins.d;
+  $('tdot').className='dot '+((S.over&&S.over.w?S.over.w:p)===1?'w':'b');
+  $('turn').classList.toggle('think',!S.over&&isCpu(p));
+  const title=S.over?(!S.over.w?'Draw':cfg.mode==='cpu'?(S.over.w===S.cpu?'Computer wins':'You win'):`${colorName(S.over.w)} wins`):isCpu(p)?'Computer is thinking…':cfg.mode==='cpu'?'Your turn':`${colorName(p)} to move`;
+  $('turnText').textContent=title;
+  const phase=P.hand[p]>0?`Place a piece (${P.hand[p]} left in hand).`:canFly(P,p)?'You are down to three: fly a piece to any empty point.':'Pick a piece, then a neighboring empty point.';
+  $('hint').textContent=S.over?S.over.why:isCpu(p)?`Computer plays ${colorName(p).toLowerCase()} on ${cfg.level}.`:S.pending?'Mill! Tap one of the highlighted pieces to remove it.':(cfg.mode==='two'?`${colorName(p)}: `:'')+phase;
+  $('undo').disabled=S.busy||(!S.hist.length&&!S.pending)||(cfg.mode==='cpu'&&!S.pending&&!S.hist.some(h=>!isCpu(h.turn)))}
+
+/* ---------- input & settings ---------- */
+$('board').addEventListener('click',e=>{const h=e.target.closest('.hit');if(!h)return;kb=false;tap(+h.dataset.i)});
+// Arrow keys jump to the nearest point in that direction.
+$('board').addEventListener('keydown',e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];
+  if(d){e.preventDefault();kb=true;const [x,y]=XY[cursor];let best=-1,bd=1e9;
+    for(let j=0;j<24;j++){const dx=XY[j][0]-x,dy=XY[j][1]-y;const along=dx*d[0]+dy*d[1],off=Math.abs(dx*d[1])+Math.abs(dy*d[0]);if(along<=0)continue;const s=along+off*3;if(s<bd){bd=s;best=j}}
+    if(best>=0)cursor=best;render();return}
+  if(e.key==='Enter'||e.key===' '){e.preventDefault();tap(cursor)}});
+$('board').addEventListener('focus',()=>{kb=true;render()});$('board').addEventListener('blur',()=>{kb=false;render()});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;if(e.key==='Escape'){if(!$('overlay').hidden)$('overlay').hidden=true;else if(S.pending||S.sel>=0){S.pending=null;S.sel=-1;render()}}else if((e.key==='u'||e.key==='U')&&!$('undo').disabled)undo()});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}if(S&&(S.pending||S.sel>=0)){S.pending=null;S.sel=-1;render();return true}return false};
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('side').value=cfg.side;$('fly').checked=cfg.fly;$('level').hidden=$('side').hidden=cfg.mode!=='cpu'}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-morris',cfg);sync();if(restart)newGame();else render()}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('side').onchange=e=>setCfg('side',+e.target.value,true);
+$('fly').onchange=e=>setCfg('fly',e.target.checked,false);
+$('newgame').onclick=newGame;$('undo').onclick=undo;
+if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(![1,2].includes(cfg.side))cfg.side=1;
+build();sync();newGame();
+</script>
+</body>
+</html>
