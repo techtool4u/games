@@ -9,6 +9,8 @@ Self-contained HTML files. No install or build step.
 - `reversi.html` — Reversi, vs the computer (easy / medium / hard) or 2 players on one device.
 - `go.html` — Go on 9×9, 13×13 or 19×19, vs the computer (easy / medium / hard) or 2 players, with automatic scoring.
 - `morris.html` — Nine Men's Morris, vs the computer (easy / medium / hard) or 2 players on one device.
+- `dots-and-boxes.html` — Dots and Boxes for 2 to 4 players, or against 1 or 3 computer players.
+- `fleet-hunt.html` — Fleet Hunt, a hide-and-seek naval battle vs the computer or 2 players with a hand-over screen.
 - `checkers.html` — Checkers, vs the computer (easy / medium / hard) or 2 players on one device.
 - `mancala.html` — Mancala (Kalah rules), vs the computer (easy / medium / hard) or 2 players on one device.
 - `four-in-a-row.html` — Four in a Row, vs the computer (easy / medium / hard) or 2 players on one device.

@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fleet Hunt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: two 10×10 sea charts. Header with settings; the enemy chart (where you fire) large, your own fleet chart beside it on wide screens or below it smaller on phones, and a panel with turn, fleet status and rules. */
+:root{
+  --bg:#e8eef3; --fg:#14222f; --muted:#56687a; --panel:#ffffff; --line:#d2dce5; --chip:#eef3f7;
+  --accent:#1c4f7a; --accent-ink:#ffffff; --sea:#7fb6dd; --sea-2:#5f9ccb; --grid:rgba(255,255,255,.35);
+  --ship:#5b6773; --ship-2:#3c4650; --hit:#e2362f; --miss:#ffffff; --sunk:#2b1d1a;
+  --display:"Black Ops One", Impact, system-ui, sans-serif;
+  --body:"Barlow", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1620; --fg:#e3ecf4; --muted:#93a6b8; --panel:#15212d; --line:#243546; --chip:#1c2a38; --accent:#7fb6dd; --accent-ink:#06192a;
+  --sea:#1f4e74; --sea-2:#173d5c; --grid:rgba(255,255,255,.12); --ship:#8b98a5; --ship-2:#64707c; --miss:#cfe3f2; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0d1620; --fg:#e3ecf4; --muted:#93a6b8; --panel:#15212d; --line:#243546; --chip:#1c2a38; --accent:#7fb6dd; --accent-ink:#06192a;
+  --sea:#1f4e74; --sea-2:#173d5c; --grid:rgba(255,255,255,.12); --ship:#8b98a5; --ship-2:#64707c; --miss:#cfe3f2; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15.5px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-block:16px 36px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,6vw,52px);line-height:1;margin:4px 0 0;letter-spacing:.02em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:48ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) 270px;gap:18px;align-items:start}
+@media (max-width:1000px){.game{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}.side{grid-column:1/-1}}
+@media (max-width:640px){.game{grid-template-columns:minmax(0,1fr)}}
+.chart{display:flex;flex-direction:column;gap:6px;min-width:0}
+.chart h2{margin:0;font-family:var(--display);font-weight:400;font-size:19px;letter-spacing:.04em;display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.chart h2 small{font-family:var(--body);font-size:13px;color:var(--muted);letter-spacing:0}
+.chart.mine{max-width:100%}
+@media (max-width:640px){.chart.mine{max-width:62%;justify-self:center}}
+.grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));aspect-ratio:1;background:linear-gradient(160deg,var(--sea),var(--sea-2));border-radius:10px;overflow:hidden;box-shadow:0 12px 24px -16px rgba(10,40,70,.7);touch-action:manipulation;user-select:none;-webkit-user-select:none;outline:none}
+.grid:focus-visible{box-shadow:0 0 0 4px var(--accent)}
+.cell{position:relative;border:0;padding:0;background:transparent;box-shadow:inset -1px -1px 0 var(--grid);min-width:0;min-height:0;display:grid;place-items:center}
+.target .cell{cursor:crosshair}
+.target .cell:hover:not(.shot){background:rgba(255,255,255,.18)}
+.cell.cur{box-shadow:inset 0 0 0 3px #ffd84a}
+.cell.ship{background:linear-gradient(180deg,var(--ship),var(--ship-2))}
+.cell.ship.h{margin:14% 0} .cell.ship.v{margin:0 14%}
+.cell.ship.h.s0{margin-left:8%;border-radius:40% 0 0 40%} .cell.ship.h.s1{margin-right:8%;border-radius:0 40% 40% 0}
+.cell.ship.v.s0{margin-top:8%;border-radius:40% 40% 0 0} .cell.ship.v.s1{margin-bottom:8%;border-radius:0 0 40% 40%}
+.cell.ship.sel{outline:3px solid #ffd84a;outline-offset:-3px}
+.cell.ship.bad{background:linear-gradient(180deg,#d9534f,#a83a37)}
+.cell.sunk{background:linear-gradient(180deg,#3b2a26,var(--sunk))}
+.cell i{width:34%;aspect-ratio:1;border-radius:50%;pointer-events:none}
+.cell.miss i{background:var(--miss);opacity:.85}
+.cell.hit i{width:56%;background:radial-gradient(circle,#ffd84a 0 25%,var(--hit) 30% 70%,transparent 72%)}
+.cell.new i{animation:splash .45s ease-out}
+@keyframes splash{from{transform:scale(2.2);opacity:0}}
+.cell.last{box-shadow:inset 0 0 0 2px #ffd84a}
+.handover{display:grid;place-items:center;aspect-ratio:1;border-radius:10px;background:var(--chip);color:var(--muted);text-align:center;padding:16px;font-weight:600}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.turn{font-family:var(--display);font-weight:400;font-size:24px;line-height:1.1}
+.turn.think{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.45}}
+.hint{color:var(--muted);font-size:14.5px;margin:8px 0 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.row .btn{flex:1 1 auto}
+.fleets{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fleet{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fleet b{font-size:13px;color:var(--muted)}
+.sh{display:flex;gap:2px;align-items:center}
+.sh i{width:12px;height:10px;border-radius:2px;background:var(--ship)}
+.sh.down i{background:var(--hit);opacity:.5}
+.sh span{font-size:12.5px;color:var(--muted);margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sh.down span{text-decoration:line-through}
+.stats{display:flex;justify-content:space-between;color:var(--muted);font-size:14px;margin-top:10px}
+.stats b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.opt{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px;margin-top:10px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:15px;z-index:15;box-shadow:0 8px 20px rgba(0,0,0,.25);max-width:calc(100vw - 32px);text-align:center}
+.overlay{position:fixed;inset:0;background:rgba(5,20,35,.6);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:34px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{padding-block:8px 16px}
+  .sub{display:none} h1{font-size:28px}
+  .game{grid-template-columns:minmax(0,calc(100dvh - 60px)) minmax(0,calc((100dvh - 60px)*.62)) minmax(0,1fr);gap:12px}
+  .sh i{width:9px}.sh span{font-size:12px}
+  .side{grid-column:auto}
+}
+@media (prefers-reduced-motion:reduce){.cell.new i,.turn.think{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Fleet Hunt</h1>
+      <p class="sub">Hide five ships on your chart, then take turns calling shots at the enemy's. Sink every ship in their fleet before they sink yours.</p>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="chart" id="leftChart">
+      <h2><span id="tTitle">Enemy waters</span><small id="tSub"></small></h2>
+      <div class="grid target" id="target" tabindex="0" role="grid" aria-label="Enemy chart. Arrow keys aim, Enter fires."></div>
+      <div class="handover" id="cover" hidden></div>
+    </section>
+    <section class="chart mine" id="rightChart">
+      <h2><span id="mTitle">Your fleet</span><small id="mSub"></small></h2>
+      <div class="grid" id="mine" role="grid" aria-label="Your chart"></div>
+    </section>
+    <aside class="side">
+      <div class="panel" aria-live="polite">
+        <div class="turn" id="turn">Place your fleet</div>
+        <p class="hint" id="hint"></p>
+        <div class="row" id="setupBtns">
+          <button class="btn" id="shuffle">Shuffle</button>
+          <button class="btn" id="rotate">Rotate</button>
+          <button class="btn primary" id="ready">Ready</button>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="label">Fleets</p>
+        <div class="fleets"><div class="fleet" id="f0"></div><div class="fleet" id="f1"></div></div>
+        <div class="stats"><span>Shots <b id="shots">0</b></span><span>Hits <b id="acc">0%</b></span><span>Wins <b id="wins">0–0</b></span></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Each side hides five ships: a carrier (5 squares), battleship (4), cruiser (3), submarine (3) and destroyer (2). Ships sit in straight lines and don't overlap.</li>
+            <li>To arrange yours, tap a ship to pick it, then tap a square to move it there. Tap the picked ship again (or press Rotate) to turn it. Shuffle places them at random.</li>
+            <li>Take turns firing at a square on the enemy chart. A red burst is a hit, a white dot is a miss. When every square of a ship is hit, it sinks and is revealed.</li>
+            <li>First to sink the whole enemy fleet wins.</li>
+            <li>Keyboard: arrows aim, Enter or Space fires.</li>
+          </ul>
+        </details>
+        <label class="opt"><input type="checkbox" id="bonus"> Hits earn another shot</label>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- model ---------- */
+// Squares are 0-99 (row * 10 + column). A ship is {name, len, at (bow square), dir 'h'|'v'}.
+const N=10,FLEET=[['Carrier',5],['Battleship',4],['Cruiser',3],['Submarine',3],['Destroyer',2]];
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',level:'medium',bonus:false},store.get('parlor-fleet',{}));
+const wins={0:0,1:0};
+let S=null,cursor=44,kb=false,toastT=0;
+
+const cells=s=>[...Array(s.len)].map((_,k)=>s.dir==='h'?s.at+k:s.at+k*N);
+const fits=s=>{const r=Math.floor(s.at/N),c=s.at%N;return s.dir==='h'?c+s.len<=N:r+s.len<=N};
+function overlaps(ships,skip){const used=new Map();ships.forEach((s,i)=>{if(i===skip)return;cells(s).forEach(c=>used.set(c,i))});return used}
+// Random fleet with no two ships touching, even diagonally.
+function randomFleet(){for(;;){const ships=[];let ok=true;
+  for(const [name,len] of FLEET){let placed=false;
+    for(let t=0;t<300&&!placed;t++){const s={name,len,dir:Math.random()<.5?'h':'v',at:rand(N*N)};if(!fits(s))continue;
+      const near=new Set();ships.forEach(o=>cells(o).forEach(c=>{const r=Math.floor(c/N),k=c%N;for(let dr=-1;dr<=1;dr++)for(let dk=-1;dk<=1;dk++){const rr=r+dr,kk=k+dk;if(rr>=0&&rr<N&&kk>=0&&kk<N)near.add(rr*N+kk)}}));
+      if(cells(s).some(c=>near.has(c)))continue;ships.push(s);placed=true}
+    if(!placed){ok=false;break}}
+  if(ok)return ships}}
+const valid=ships=>ships.every(fits)&&new Set(ships.flatMap(cells)).size===ships.reduce((n,s)=>n+s.len,0);
+function side(){return{ships:randomFleet(),shots:new Array(N*N).fill(0),sunk:[]}}   // shots: 0 none, 1 miss, 2 hit
+const shipAt=(sd,c)=>sd.ships.findIndex(s=>cells(s).includes(c));
+const isSunk=(sd,i)=>cells(sd.ships[i]).every(c=>sd.shots[c]===2);
+const allSunk=sd=>sd.ships.every((_,i)=>isSunk(sd,i));
+
+/* ---------- computer targeting ---------- */
+// Easy: random. Medium: hunt on a checkerboard, then chase hits along a line. Hard: count every way the
+// remaining ships could still fit and fire where the most of them overlap (weighting squares next to hits).
+function aiShot(sd){const L=cfg.level,open=[...Array(N*N).keys()].filter(c=>!sd.shots[c]);
+  if(L==='easy')return open[rand(open.length)];
+  const liveHits=open.length?[...Array(N*N).keys()].filter(c=>sd.shots[c]===2&&!sd.sunk.includes(shipAt(sd,c))):[];
+  const remaining=sd.ships.map((s,i)=>i).filter(i=>!sd.sunk.includes(i)).map(i=>sd.ships[i].len);
+  if(L==='medium'){
+    if(liveHits.length){const cand=[];
+      // extend a line of two or more hits first
+      for(const h of liveHits)for(const d of [1,-1,N,-N]){const n=h+d;if(liveHits.includes(n)){let e=h-d;while(liveHits.includes(e))e-=d;if(okStep(e+d,-d)&&!sd.shots[e])cand.push(e);let f=n+d;while(liveHits.includes(f))f+=d;if(okStep(f-d,d)&&!sd.shots[f])cand.push(f)}}
+      if(cand.length)return cand[rand(cand.length)];
+      for(const h of liveHits)for(const d of [1,-1,N,-N]){const n=h+d;if(okStep(h,d)&&!sd.shots[n])cand.push(n)}
+      if(cand.length)return cand[rand(cand.length)]}
+    const minLen=Math.min(...remaining);const par=open.filter(c=>(Math.floor(c/N)+c%N)%minLen===0);const pool=par.length?par:open;return pool[rand(pool.length)]}
+  const score=new Array(N*N).fill(0);
+  for(const len of remaining)for(const dir of ['h','v'])for(let at=0;at<N*N;at++){const s={len,dir,at};if(!fits(s))continue;const cs=cells(s);
+    if(cs.some(c=>sd.shots[c]===1||(sd.shots[c]===2&&sd.sunk.includes(shipAt(sd,c)))))continue;
+    const through=cs.filter(c=>sd.shots[c]===2).length;
+    if(liveHits.length&&!through)continue;   // while chasing, only placements through the known hits count
+    const w=through?Math.pow(20,through):1;for(const c of cs)if(!sd.shots[c])score[c]+=w}
+  let best=[],bv=-1;for(const c of open){if(score[c]>bv){bv=score[c];best=[c]}else if(score[c]===bv)best.push(c)}
+  return best[rand(best.length)]}
+const okStep=(c,d)=>{const n=c+d;if(n<0||n>=N*N)return false;if(Math.abs(d)===1&&Math.floor(n/N)!==Math.floor(c/N))return false;return true};
+
+/* ---------- game flow ---------- */
+// sides[0] belongs to player 0 (you), sides[1] to player 1 (computer or second person).
+const isCpu=p=>cfg.mode==='cpu'&&p===1;
+const nameOf=p=>cfg.mode==='cpu'?(p===0?'You':'Computer'):`Player ${p+1}`;
+function toast(t,ms=1600){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function newGame(){$('overlay').hidden=true;S={sides:[side(),side()],phase:'setup',setupP:0,turn:0,sel:-1,cover:null,last:[-1,-1],stats:[{shots:0,hits:0},{shots:0,hits:0}],busy:false,gen:(S?S.gen:0)+1};render()}
+function ready(){if(!valid(S.sides[S.setupP].ships))return;S.sel=-1;
+  if(cfg.mode==='two'&&S.setupP===0){S.setupP=1;S.cover=`Pass the device to Player 2 to place their fleet.`;render();return}
+  S.phase='play';S.turn=0;if(cfg.mode==='two')S.cover=`Player 1's turn to fire. Player 2, look away!`;render()}
+function fire(c){if(S.phase!=='play'||S.busy||S.cover)return;const p=S.turn,foe=S.sides[1-p];if(foe.shots[c])return;
+  const i=shipAt(foe,c);foe.shots[c]=i>=0?2:1;S.last[p]=c;S.stats[p].shots++;let msg='';
+  if(i>=0){S.stats[p].hits++;msg='Hit!';if(isSunk(foe,i)){foe.sunk.push(i);msg=`${p===0&&cfg.mode==='cpu'?'You sank':isCpu(p)?'Computer sank':nameOf(p)+' sank'} the ${foe.ships[i].name.toLowerCase()}!`}}
+  else msg='Miss.';
+  S.fresh=c;render();S.fresh=-1;
+  if(allSunk(foe)){S.phase='over';wins[p]++;render();setTimeout(()=>finish(p),800);return}
+  if(i>=0&&msg!=='Hit!')toast(msg,1800);
+  const again=cfg.bonus&&i>=0;
+  if(isCpu(p)){if(again){S.busy=true;const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;fire(aiShot(S.sides[0]))},650)}else{S.turn=0;render()}return}
+  if(again){render();return}
+  S.turn=1-p;
+  if(isCpu(S.turn)){S.busy=true;render();const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;fire(aiShot(S.sides[0]))},750)}
+  else{setTimeout(()=>{S.cover=`${msg} Pass the device to ${nameOf(S.turn)}.`;render()},900)}}
+function finish(p){const title=cfg.mode==='cpu'?(p===0?'You win!':'Computer wins'):`${nameOf(p)} wins`;
+  const st=S.stats[p];
+  $('modal').innerHTML=`<h2>${title}</h2><p>The whole fleet is sunk in ${st.shots} shots (${Math.round(100*st.hits/st.shots)}% hits).</p><div class="row"><button class="btn" id="mview">View charts</button><button class="btn primary" id="magain">Play again</button></div>`;
+  $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame}
+
+/* ---------- setup moves ---------- */
+function setupTap(c){const sd=S.sides[S.setupP],i=shipAt(sd,c);
+  if(S.sel>=0&&i===S.sel){rotateSel();return}
+  if(i>=0&&S.sel<0){S.sel=i;render();return}
+  if(S.sel>=0){const s=sd.ships[S.sel],moved=Object.assign({},s,{at:c});
+    if(!fits(moved)){// slide it back so it stays on the chart
+      const r=Math.floor(c/N),k=c%N;moved.at=s.dir==='h'?r*N+Math.min(k,N-s.len):Math.min(r,N-s.len)*N+k}
+    const others=overlaps(sd.ships,S.sel);if(cells(moved).some(x=>others.has(x))){if(i>=0){S.sel=i;render()}else toast('Ships can\'t overlap.');return}
+    sd.ships[S.sel]=moved;S.sel=-1;render();return}}
+function rotateSel(){if(S.sel<0){toast('Tap a ship first.');return}const sd=S.sides[S.setupP],s=sd.ships[S.sel];
+  const t=Object.assign({},s,{dir:s.dir==='h'?'v':'h'});if(!fits(t)){const r=Math.floor(s.at/N),k=s.at%N;t.at=t.dir==='h'?r*N+Math.min(k,N-s.len):Math.min(r,N-s.len)*N+k}
+  const others=overlaps(sd.ships,S.sel);if(cells(t).some(x=>others.has(x))){toast('No room to turn it there.');return}sd.ships[S.sel]=t;render()}
+
+/* ---------- drawing ---------- */
+function drawGrid(el,sd,opts){let h='';const shipCells=new Map();
+  sd.ships.forEach((s,i)=>cells(s).forEach((c,k)=>shipCells.set(c,{i,dir:s.dir,end:k===0?' s0':k===s.len-1?' s1':''})));
+  for(let c=0;c<N*N;c++){const sh=shipCells.get(c),shot=sd.shots[c];let cls='cell';
+    const showShip=sh&&(opts.reveal||sd.sunk.includes(sh.i));
+    if(showShip)cls+=` ship ${sh.dir}${sh.end}${sd.sunk.includes(sh.i)?' sunk':''}${opts.sel===sh.i?' sel':''}`;
+    if(shot)cls+=` shot ${shot===2?'hit':'miss'}`;
+    if(c===opts.fresh)cls+=' new';if(c===opts.last)cls+=' last';if(opts.cur===c)cls+=' cur';
+    h+=`<button class="${cls}" data-c="${c}" tabindex="-1" aria-label="${'ABCDEFGHIJ'[Math.floor(c/N)]}${c%N+1}${shot?shot===2?': hit':': miss':''}">${shot?'<i></i>':''}</button>`}
+  el.innerHTML=h}
+function fleetList(el,sd,title){el.innerHTML=`<b>${title}</b>`+sd.ships.map((s,i)=>`<div class="sh${sd.sunk.includes(i)?' down':''}">${'<i></i>'.repeat(s.len)}<span>${s.name}</span></div>`).join('')}
+function render(){if(!S)return;const setup=S.phase==='setup',two=cfg.mode==='two';
+  // Which side is "me" on screen: the player placing ships, or the player whose turn it is (in 2-player mode).
+  const me=setup?S.setupP:two?S.turn:0,foe=1-me;
+  const covered=!!S.cover;
+  $('cover').hidden=!covered;$('target').hidden=covered;$('rightChart').hidden=covered||setup;
+  if(covered){$('cover').innerHTML=`<div><p>${S.cover}</p><button class="btn primary" id="coverOk">I'm ${setup?nameOf(S.setupP):nameOf(S.turn)}: show my charts</button></div>`;$('coverOk').onclick=()=>{S.cover=null;render()}}
+  $('tTitle').textContent=setup?'Your fleet':two?`${nameOf(foe)}'s waters`:'Enemy waters';
+  // during setup the big chart is your own fleet
+  const tgt=$('target'),mine=$('mine');
+  if(setup&&!covered){tgt.classList.remove('target');drawGrid(tgt,S.sides[me],{reveal:true,sel:S.sel,cur:kb?cursor:-1})}
+  else if(!covered){tgt.classList.add('target');drawGrid(tgt,S.sides[foe],{reveal:S.phase==='over',fresh:S.turn===me||S.phase==='over'?S.fresh:-1,last:S.last[me],cur:kb?cursor:-1})}
+  if(!setup)drawGrid(mine,S.sides[me],{reveal:true,fresh:S.fresh,last:S.last[foe]});
+  $('mTitle').textContent=two?`${nameOf(me)}'s fleet`:'Your fleet';
+  $('tSub').textContent=setup?'':`${S.sides[foe].sunk.length} of 5 sunk`;$('mSub').textContent=setup?'':`${S.sides[me].sunk.length} of 5 lost`;
+  fleetList($('f0'),S.sides[foe],two?nameOf(foe):'Enemy');fleetList($('f1'),S.sides[me],two?nameOf(me):'Yours');
+  $('setupBtns').hidden=!setup||covered;
+  $('ready').disabled=!valid(S.sides[S.setupP].ships);
+  $('turn').classList.toggle('think',S.busy);
+  $('turn').textContent=setup?(two?`${nameOf(S.setupP)}: place your fleet`:'Place your fleet'):S.phase==='over'?'Game over':S.busy?'Computer is aiming…':two?`${nameOf(S.turn)} to fire`:'Your shot';
+  $('hint').textContent=setup?'Tap a ship, then tap where it should go. Tap it again to turn it. Press Ready when you\'re happy.':
+    S.phase==='over'?'Press New game for another battle.':S.busy?'':covered?'':'Tap a square on the enemy chart to fire.'+(cfg.bonus?' A hit gives you another shot.':'');
+  const st=S.stats[me];$('shots').textContent=st.shots;$('acc').textContent=st.shots?Math.round(100*st.hits/st.shots)+'%':'0%';$('wins').textContent=`${wins[0]}–${wins[1]}`}
+
+/* ---------- input & settings ---------- */
+$('target').addEventListener('click',e=>{const b=e.target.closest('.cell');if(!b)return;kb=false;const c=+b.dataset.c;if(S.phase==='setup')setupTap(c);else fire(c)});
+$('target').addEventListener('keydown',e=>{const mv={ArrowUp:-N,ArrowDown:N,ArrowLeft:-1,ArrowRight:1}[e.key];
+  if(mv){e.preventDefault();kb=true;if(okStep(cursor,mv))cursor+=mv;render();return}
+  if(e.key==='Enter'||e.key===' '){e.preventDefault();if(S.phase==='setup')setupTap(cursor);else fire(cursor)}
+  if((e.key==='r'||e.key==='R')&&S.phase==='setup')rotateSel()});
+$('target').addEventListener('focus',()=>{kb=true;render()});$('target').addEventListener('blur',()=>{kb=false;render()});
+$('shuffle').onclick=()=>{S.sides[S.setupP].ships=randomFleet();S.sel=-1;render()};
+$('rotate').onclick=rotateSel;$('ready').onclick=ready;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('overlay').hidden)$('overlay').hidden=true;else if(S.sel>=0){S.sel=-1;render()}}});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}if(S&&S.sel>=0){S.sel=-1;render();return true}return false};
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('bonus').checked=cfg.bonus;$('level').hidden=cfg.mode!=='cpu'}
+const started=()=>S&&S.phase==='play'&&S.stats[0].shots>0;
+function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-fleet',cfg);sync();if(restart)newGame();else render()}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('bonus').onchange=e=>setCfg('bonus',e.target.checked,false);
+$('newgame').onclick=()=>{if(started()&&!confirm('Abandon this battle and start a new one?'))return;newGame()};
+if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';
+sync();newGame();
+</script>
+</body>
+</html>
