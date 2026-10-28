@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Snap</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with opponents, speed and new game; a row of player stacks (card counts); the center pile where cards land; a huge SNAP button; rules below. */
+:root{
+  --bg:#fff6e0; --fg:#2b1f10; --muted:#7a6447; --panel:#ffffff; --line:#f0dcb3; --chip:#fff0cc;
+  --accent:#e2362f; --accent-ink:#ffffff; --table:#2f6fd6; --table-2:#1f4fa3; --card:#fffdf8; --red:#c62b2b; --black:#1d1d22; --back-1:#e2362f; --back-2:#b92a24;
+  --display:"Bangers", Impact, system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17120a; --fg:#f6ead2; --muted:#c3ab86; --panel:#221b10; --line:#3d3120; --chip:#2e2516; --accent:#ff6a5c; --accent-ink:#2a0805; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#17120a; --fg:#f6ead2; --muted:#c3ab86; --panel:#221b10; --line:#3d3120; --chip:#2e2516; --accent:#ff6a5c; --accent-ink:#2a0805; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:620px;margin:0 auto;padding-block:14px 28px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(44px,9vw,64px);line-height:1;margin:4px 0 0;letter-spacing:.04em;color:var(--accent)}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.players{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.pl{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:8px;display:flex;align-items:center;gap:8px}
+.pl.cur{border-color:var(--table)}
+.pl.out{opacity:.4}
+.pl.flash{animation:flash .6s}
+@keyframes flash{30%{background:#ffe58a}}
+.pl .stack{width:26px;height:36px;border-radius:4px;background:repeating-linear-gradient(45deg,var(--back-1) 0 3px,var(--back-2) 3px 6px);box-shadow:0 0 0 2px #fff,2px 2px 0 2px rgba(0,0,0,.15);flex:none}
+.pl b{display:block;font-size:14px}.pl small{color:var(--muted);font-size:13px}
+.table{background:radial-gradient(circle at 50% 40%,var(--table),var(--table-2));border-radius:22px;min-height:250px;display:grid;place-items:center;position:relative;box-shadow:inset 0 0 0 6px rgba(0,0,0,.1);--cw:clamp(96px,26vw,140px);overflow:hidden}
+.pile{position:relative;width:var(--cw);height:calc(var(--cw)*1.42)}
+.pile .card{position:absolute;inset:0}
+.pile .prev{transform:translate(-26%,-4%) rotate(-10deg);filter:brightness(.92)}
+.pile .top{animation:land .22s ease-out}
+@keyframes land{from{transform:translateY(-60%) scale(1.15);opacity:.3}}
+.pile .empty{position:absolute;inset:0;border:3px dashed rgba(255,255,255,.4);border-radius:10px}
+.count{position:absolute;bottom:10px;right:14px;color:rgba(255,255,255,.85);font-weight:800;font-size:14px}
+.who{position:absolute;top:10px;left:14px;color:rgba(255,255,255,.85);font-weight:800;font-size:14px}
+.card{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.08);background:var(--card);box-shadow:0 3px 8px rgba(0,0,0,.35);overflow:hidden;display:block}
+.card .ix{position:absolute;left:8%;top:4%;font-weight:800;font-size:calc(var(--cw)*.24);line-height:1;display:flex;flex-direction:column;align-items:center}
+.card .ix i{font-style:normal}
+.card .cc{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--cw)*.5)}
+.card.r{color:var(--red)} .card.k{color:var(--black)}
+.bang{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-family:var(--display);font-size:clamp(48px,14vw,88px);color:#ffe14d;-webkit-text-stroke:3px #2b1f10;letter-spacing:.04em;animation:bang .8s ease-out forwards}
+@keyframes bang{0%{transform:scale(.3) rotate(-12deg);opacity:0}25%{transform:scale(1.1) rotate(-6deg);opacity:1}100%{transform:scale(1) rotate(-6deg);opacity:0}}
+.snap{border:0;border-radius:24px;background:var(--accent);color:#fff;font-family:var(--display);font-size:clamp(44px,12vw,64px);letter-spacing:.06em;min-height:110px;cursor:pointer;box-shadow:0 8px 0 #9c211b;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.snap:active{transform:translateY(6px);box-shadow:0 2px 0 #9c211b}
+.snap:disabled{opacity:.5}
+.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center}
+.msg{text-align:center;font-weight:800;min-height:24px}
+.msg.good{color:#2b8a3e}.msg.bad{color:var(--accent)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.overlay{position:fixed;inset:0;background:rgba(30,20,5,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:44px;margin:0;letter-spacing:.04em}
+.modal p{margin:0;color:var(--muted)}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:900px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 16px;padding-block:8px 12px}.table{grid-row:2/5;min-height:0;height:calc(100dvh - 100px)}h1{font-size:40px}.snap{min-height:90px}}
+@media (prefers-reduced-motion:reduce){.pile .top,.bang,.pl.flash{animation:none}.bang{opacity:0}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Snap!</h1>
+    </div>
+    <div class="controls">
+      <select id="rivals" aria-label="Opponents"><option value="1">You vs 1</option><option value="2">You vs 2</option><option value="3">You vs 3</option></select>
+      <select id="level" aria-label="Computer reflexes"><option value="easy">Sleepy rivals</option><option value="medium">Quick rivals</option><option value="hard">Lightning rivals</option></select>
+      <select id="speed" aria-label="Flip speed"><option value="1400">Relaxed flips</option><option value="1000">Brisk flips</option><option value="700">Frantic flips</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="players" id="players" aria-live="polite"></div>
+  <div class="table" id="table"><span class="who" id="who"></span><div class="pile" id="pile"><div class="empty"></div></div><span class="count" id="count"></span></div>
+  <div class="msg" id="msg" aria-live="assertive"></div>
+  <button class="snap" id="snap">SNAP!</button>
+  <div class="row"><button class="btn" id="pause">Pause</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>All the cards are dealt out face down. Players take turns flipping their top card onto the middle pile.</li>
+        <li>When the top two cards on the pile have the <b>same rank</b> (two 7s, two kings…), be the first to hit <b>SNAP!</b> and you win the whole pile.</li>
+        <li>Snap at the wrong moment and you pay a card to the pile.</li>
+        <li>Run out of cards and you're out. Win every card to win the game, or have the most when the 3-minute timer ends.</li>
+        <li>Keyboard: Space or S snaps, P pauses.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+const SUITS=['♠','♥','♦','♣'],RK=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const NAMES=['Pip','Dot','Ziggy'];
+const REACT={easy:[950,1500],medium:[600,1000],hard:[360,650]};
+const LIMIT=180;
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({rivals:1,level:'medium',speed:1000},store.get('parlor-snap',{}));
+const tally=store.get('parlor-snap-tally',{won:0,played:0});
+let S=null,flipT=0,cpuT=[],clockT=0;
+
+function newGame(){stopAll();$('overlay').hidden=true;const n=1+(+cfg.rivals),deck=[...Array(52).keys()];for(let i=51;i>0;i--){const j=rand(i+1);[deck[i],deck[j]]=[deck[j],deck[i]]}
+  S={players:[{name:'You'},...[...Array(n-1)].map((_,i)=>({name:NAMES[i],cpu:true}))],pile:[],turn:0,state:'ready',elapsed:0,snapOpen:false,gen:(S?S.gen:0)+1,msg:'',fresh:false};
+  S.players.forEach(p=>p.cards=[]);deck.forEach((c,i)=>S.players[i%n].cards.push(c));render();say('Tap SNAP or press Space to start.','')}
+const alive=()=>S.players.filter(p=>p.cards.length);
+const match=()=>S.pile.length>=2&&S.pile[S.pile.length-1]%13===S.pile[S.pile.length-2]%13;
+function start(){if(S.state==='over')newGame();S.state='run';say('','');schedule();clearInterval(clockT);clockT=setInterval(()=>{if(S.state!=='run'||document.hidden)return;S.elapsed++;render();if(S.elapsed>=LIMIT)timeUp()},1000)}
+function stopAll(){clearTimeout(flipT);cpuT.forEach(clearTimeout);cpuT=[];clearInterval(clockT)}
+function schedule(){clearTimeout(flipT);if(S.state!=='run')return;flipT=setTimeout(flip,+cfg.speed)}
+function flip(){if(S.state!=='run'||checkEnd())return;let guard=0;while(!S.players[S.turn].cards.length&&guard++<5)S.turn=(S.turn+1)%S.players.length;
+  const p=S.players[S.turn];const c=p.cards.shift();S.pile.push(c);S.fresh=true;S.turn=(S.turn+1)%S.players.length;
+  cpuT.forEach(clearTimeout);cpuT=[];S.snapOpen=match();
+  if(S.snapOpen){const [lo,hi]=REACT[cfg.level];S.players.forEach((q,i)=>{if(!q.cpu)return;cpuT.push(setTimeout(()=>snap(i),lo+Math.random()*(hi-lo)))})}
+  // a sleepy rival now and then snaps by mistake
+  else if(cfg.level==='easy'&&Math.random()<.04){const i=1+rand(S.players.length-1);if(S.players[i].cards.length)cpuT.push(setTimeout(()=>snap(i),500))}
+  render();S.fresh=false;schedule()}
+function snap(i){if(S.state==='ready'){if(i===0)start();return}if(S.state!=='run')return;const p=S.players[i];
+  if(S.snapOpen&&S.pile.length){const n=S.pile.length;p.cards.push(...S.pile);S.pile=[];S.snapOpen=false;cpuT.forEach(clearTimeout);cpuT=[];
+    bang(i===0?'SNAP!':`${p.name}!`);say(i===0?`You win ${n} cards!`:`${p.name} snapped first and takes ${n} cards.`,i===0?'good':'bad');flash(i);S.turn=i;clearTimeout(flipT);render();flipT=setTimeout(flip,+cfg.speed+500);return}
+  // a false snap costs a card
+  if(p.cards.length){S.pile.unshift(p.cards.shift());say(i===0?'No match! You pay a card to the pile.':`${p.name} snapped too soon and pays a card.`,i===0?'bad':'good');render()}}
+// Checked before each flip, so a player who has just played their last card still gets a chance to snap.
+function checkEnd(){const live=alive();if(!S.players[0].cards.length){finish(live.length===1?live[0]:null);return true}if(live.length===1){finish(live[0]);return true}return false}
+function timeUp(){const top=Math.max(...S.players.map(p=>p.cards.length));finish(S.players.find(p=>p.cards.length===top),true)}
+function finish(w,time){if(S.state==='over')return;S.state='over';stopAll();const youWin=w===S.players[0];tally.played++;if(youWin)tally.won++;store.set('parlor-snap-tally',tally);render();
+  const title=youWin?'You win!':w?`${w.name} wins`:'You\'re out';
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><p>${time?'Time\'s up. ':''}${S.players.map(p=>`${p.name} ${p.cards.length}`).join(' · ')}</p><p>You've won ${tally.won} of ${tally.played}.</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`;
+    $('overlay').hidden=false;$('mnew').focus();$('mnew').onclick=newGame},700)}
+function pause(){if(S.state==='run'){S.state='paused';stopAll();$('pause').textContent='Resume';say('Paused.','')}else if(S.state==='paused'){$('pause').textContent='Pause';start()}}
+function say(t,cls){$('msg').textContent=t;$('msg').className='msg'+(cls?' '+cls:'')}
+function bang(t){const e=document.createElement('div');e.className='bang';e.textContent=t;$('table').appendChild(e);setTimeout(()=>e.remove(),800)}
+function flash(i){const e=$('players').children[i];if(e){e.classList.remove('flash');void e.offsetWidth;e.classList.add('flash')}}
+
+const cardHTML=(c,cls)=>`<span class="card ${Math.floor(c/13)===1||Math.floor(c/13)===2?'r':'k'} ${cls}" aria-label="${RK[c%13]} of ${['spades','hearts','diamonds','clubs'][Math.floor(c/13)]}"><span class="ix">${RK[c%13]}<i>${SUITS[Math.floor(c/13)]}</i></span><span class="cc">${SUITS[Math.floor(c/13)]}</span></span>`;
+function render(){if(!S)return;const n=S.pile.length;
+  $('players').innerHTML=S.players.map((p,i)=>`<div class="pl${i===S.turn&&S.state==='run'?' cur':''}${p.cards.length?'':' out'}"><span class="stack"></span><div><b>${p.name}</b><small>${p.cards.length} card${p.cards.length===1?'':'s'}</small></div></div>`).join('');
+  $('pile').innerHTML=n?(n>1?cardHTML(S.pile[n-2],'prev'):'')+cardHTML(S.pile[n-1],S.fresh?'top':''):'<div class="empty"></div>';
+  $('count').textContent=n?`${n} in the pile`:'';const left=LIMIT-S.elapsed;$('who').textContent=S.state==='run'||S.state==='paused'?`${Math.floor(left/60)}:${String(left%60).padStart(2,'0')} left`:'';
+  $('snap').disabled=S.state==='over'||S.state==='paused'||(S.state==='run'&&!S.players[0].cards.length&&!S.snapOpen)}
+
+$('snap').addEventListener('pointerdown',e=>{e.preventDefault();snap(0)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;if(e.key===' '||e.key==='s'||e.key==='S'){e.preventDefault();if(!e.repeat)snap(0)}else if(e.key==='p'||e.key==='P')pause()});
+$('pause').onclick=pause;$('newgame').onclick=newGame;
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S&&S.state==='run')pause()});
+window.onAppBack=()=>{if(S&&S.state==='run'){pause();return true}if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function sync(){$('rivals').value=cfg.rivals;$('level').value=cfg.level;$('speed').value=cfg.speed}
+const setCfg=(k,v)=>{cfg[k]=v;store.set('parlor-snap',cfg);sync();newGame()};
+$('rivals').onchange=e=>setCfg('rivals',+e.target.value);$('level').onchange=e=>setCfg('level',e.target.value);$('speed').onchange=e=>setCfg('speed',+e.target.value);
+if(!(cfg.rivals>=1&&cfg.rivals<=3))cfg.rivals=1;if(!REACT[cfg.level])cfg.level='medium';if(![700,1000,1400].includes(+cfg.speed))cfg.speed=1000;
+sync();newGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Twenty Questions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a game-show card. Header with the mode; a big question card with answer buttons and a ring of twenty question lights,
+   and beside it (below on phones) the question history, a session tally and the rules. */
+:root{
+  --bg:#1b1d3a; --fg:#f3f1ea; --muted:#b4b6d6; --panel:#252851; --line:#373b6e; --chip:#2e3262;
+  --accent:#ffcf3f; --accent-ink:#1b1d3a; --card:#ffffff; --card-ink:#1b1d3a; --card-muted:#5b5e80;
+  --yes:#2fb36d; --no:#e5484d; --maybe:#8b8fc4;
+  --display:"Fraunces", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#f5f1e6; --fg:#1b1d3a; --muted:#5b5e80; --panel:#ffffff; --line:#e3ddcd; --chip:#f1ece0; --accent:#1b1d3a; --accent-ink:#ffcf3f; color-scheme:light }}
+:root[data-theme="light"]{--bg:#f5f1e6; --fg:#1b1d3a; --muted:#5b5e80; --panel:#ffffff; --line:#e3ddcd; --chip:#f1ece0; --accent:#1b1d3a; --accent-ink:#ffcf3f; color-scheme:light}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1040px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--fg)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,5.5vw,48px);line-height:1;margin:4px 0 0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:48ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select,input[type=text]{border:1px solid var(--line);background:var(--panel);padding:8px 12px;border-radius:999px;min-height:40px;box-sizing:border-box}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);color:var(--card-ink);border-radius:24px;padding:22px;box-shadow:0 20px 40px -20px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:16px;min-height:340px}
+.lights{display:grid;grid-template-columns:repeat(20,1fr);gap:4px}
+.lights i{height:10px;border-radius:99px;background:#e7e6ef}
+.lights i.y{background:var(--yes)}.lights i.n{background:var(--no)}.lights i.m{background:var(--maybe)}.lights i.g{background:#f0a020}
+.lights i.now{background:#ffcf3f;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.45}}
+.qnum{font-size:12.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--card-muted)}
+.q{font-family:var(--display);font-weight:800;font-size:clamp(26px,4.6vw,40px);line-height:1.12;margin:0;min-height:2.2em}
+.q em{font-style:normal;background:linear-gradient(transparent 62%,#ffe27a 62%)}
+.cardhint{color:var(--card-muted);font-size:14px;margin:-6px 0 0}
+.answers{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.ans{border:0;border-radius:16px;padding:14px 10px;font-weight:800;font-size:17px;cursor:pointer;color:#fff;min-height:54px;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)}
+.ans:active{transform:translateY(2px);box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}
+.ans.y{background:var(--yes)}.ans.n{background:var(--no)}.ans.m{background:var(--maybe)}.ans.u{background:#c9c8d8;color:#1b1d3a}
+.ans:disabled{opacity:.45;cursor:not-allowed}
+.ask{display:flex;gap:8px;flex-wrap:wrap}
+.ask select,.ask input{flex:1 1 220px;min-width:0;background:#f4f3f9;color:var(--card-ink);border-color:#dcdbe8}
+.ask .btn{background:#1b1d3a;color:#ffcf3f;border-color:#1b1d3a}
+.ask .btn.alt{background:#fff;color:#1b1d3a;border-color:#dcdbe8}
+.cands{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
+.cands span{background:#f1f0f7;border-radius:99px;padding:3px 10px;color:var(--card-muted)}
+.big{font-family:var(--display);font-size:64px;font-weight:800;line-height:1;text-align:center;font-variant-numeric:tabular-nums}
+.center{text-align:center;color:var(--card-muted)}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13.5px;max-height:320px;overflow:auto}
+.hist li{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:baseline}
+.hist .k{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px;text-align:right}
+.hist .a{font-weight:800;font-size:12px;padding:1px 8px;border-radius:99px;color:#fff}
+.hist .a.y{background:var(--yes)}.hist .a.n{background:var(--no)}.hist .a.m{background:var(--maybe)}.hist .a.u{background:#8a8aa0}.hist .a.g{background:#f0a020}
+.empty{color:var(--muted);font-size:13.5px;margin:0}
+.tally{display:flex;justify-content:space-between;color:var(--muted);font-size:13.5px}
+.tally b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:15;box-shadow:0 8px 20px rgba(0,0,0,.25);max-width:calc(100vw - 32px);text-align:center}
+
+@media (max-height:520px) and (orientation:landscape){
+  .sub{display:none} h1{font-size:28px}
+  .card{min-height:0;padding:14px;gap:10px}
+  .q{font-size:24px;min-height:0}
+  .ans{min-height:42px;padding:8px}
+}
+@media (prefers-reduced-motion:reduce){.lights i.now{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Twenty Questions</h1>
+      <p class="sub">Think of an animal, a food or an everyday thing, and the computer will try to guess it. Or turn the tables and question the computer.</p>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Mode"><option value="cpu">Computer guesses yours</option><option value="solo">You guess the computer's</option><option value="group">Party tracker (2 or more)</option></select>
+      <button class="btn primary" id="newgame">New round</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="card" id="card" aria-live="polite"></section>
+    <aside class="side">
+      <div class="panel">
+        <p class="label">Questions so far</p>
+        <ol class="hist" id="hist"></ol>
+        <p class="empty" id="histEmpty">None yet.</p>
+      </div>
+      <div class="panel">
+        <p class="label">This session</p>
+        <div class="tally" id="tally"></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li><b>Computer guesses yours:</b> think of an animal, a food, a plant or an everyday object. Answer each question honestly. If you're not sure, say Not sure. The computer gets twenty questions (its guesses count too).</li>
+            <li>If you stump it, tell it what you were thinking of and it will remember it next time, on this device.</li>
+            <li><b>You guess the computer's:</b> the computer secretly picks something. Choose questions from the list, then type your guess whenever you're ready. Twenty tries in all.</li>
+            <li><b>Party tracker:</b> one person thinks of anything at all and the others ask questions out loud. Tap the answer each time to count down the twenty.</li>
+            <li>Keyboard: Y, N, M (maybe) and U (not sure) answer the computer's questions.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ---------- what the computer knows ---------- */
+const Q={al:'Is it alive?',an:'Is it an animal?',ma:'Is it a mammal (with fur or hair)?',bi:'Is it a bird?',aq:'Does it live in or go on water?',in:'Is it an insect, spider or other bug?',
+  re:'Is it a reptile or amphibian (like a lizard or frog)?',pe:'Do people keep it as a pet?',fa:'Would you find it on a farm?',dg:'Can it be dangerous to people?',
+  bg:'Is it bigger than a grown-up person?',sm:'Could you hold it in one hand?',l4:'Does it have four legs?',fl:'Can it fly?',mt:'Does it eat meat?',ta:'Does it have a tail?',
+  sp:'Does it have stripes or spots?',hot:'Is it found in hot places?',fd:'Can you eat or drink it?',sw:'Is it sweet?',fv:'Is it a fruit or a vegetable?',co:'Is it usually cooked before eating?',
+  rd:'Is it usually red?',gr:'Is it usually green?',yl:'Is it usually yellow or orange?',wh:'Is it usually white?',bk:'Is it usually black or very dark?',ro:'Is it round?',so:'Is it soft?',
+  mo:'Is it made by people?',me:'Is it made mostly of metal?',el:'Does it use electricity or batteries?',wl:'Does it have wheels?',ri:'Can you ride in it or on it?',
+  ou:'Is it mostly found or used outdoors?',ho:'Is it found in most homes?',ki:'Would you find it in a kitchen?',fun:'Is it used for fun, sport or games?',sc:'Does it have a screen?',
+  no:'Does it make a noise or sound?',we:'Do you wear it?',sh:'Is it sharp, or does it have a sharp part?',sch:'Is it used at school or for reading and writing?',pl:'Is it a plant, or does it grow on one?',
+  wk:'Do people take it for walks?',cl:'Can it climb trees?',hn:'Does it have horns or antlers?',st:'Do you sit or lie on it?'};
+// Each thing lists what is true of it; "?" marks "sometimes / partly". Anything not listed is false.
+const KB=`dog|al an ma pe l4 ta mt no so
+cat|al an ma pe l4 ta mt no so cl
+horse|al an ma fa bg l4 ta ri no ou st?
+cow|al an ma fa bg l4 ta sp? no ou hn?
+pig|al an ma fa l4 ta no ou
+sheep|al an ma fa l4 ta? so wh no ou hn?
+goat|al an ma fa l4 ta no ou hn
+chicken|al an bi fa fl? ta? no ou
+duck|al an bi fl aq fa? no ou
+owl|al an bi fl mt no ou
+eagle|al an bi fl mt ou dg?
+penguin|al an bi aq mt bk wh ou
+parrot|al an bi fl pe no hot gr? rd?
+elephant|al an ma bg l4 ta hot no ou
+lion|al an ma bg? l4 ta mt dg hot no yl ou
+tiger|al an ma bg? l4 ta mt dg sp hot yl no ou
+giraffe|al an ma bg l4 ta sp hot ou hn?
+zebra|al an ma bg? l4 ta sp hot ou bk? wh?
+bear|al an ma bg l4 mt dg no ou so? cl?
+monkey|al an ma ta hot no ou cl
+kangaroo|al an ma ta hot ou
+rabbit|al an ma pe l4 so ou? ta? wh?
+mouse|al an ma sm l4 ta so? no?
+hamster|al an ma pe sm l4 so
+squirrel|al an ma ta so ou cl
+deer|al an ma l4 ta ou sp? hn
+bat|al an ma fl bk ou
+whale|al an ma aq bg ta no?
+dolphin|al an ma aq bg? ta mt no
+shark|al an aq bg? ta mt dg
+goldfish|al an aq pe sm ta yl
+octopus|al an aq mt
+crab|al an aq sm? sh? rd? mt?
+frog|al an re aq? sm gr l4 no
+snake|al an re ta mt dg? ou cl?
+turtle|al an re aq? l4 ta pe? gr?
+crocodile|al an re aq bg l4 ta mt dg hot gr ou
+butterfly|al an in fl sm sp? ou
+bee|al an in fl sm sp yl no sh? dg? ou
+ant|al an in sm bk? ou cl?
+spider|al an in sm mt dg? bk? cl?
+ladybug|al an in fl sm rd sp ro? ou
+snail|al an sm ou
+apple|fd sw fv ro rd? gr? pl
+banana|fd sw fv yl pl hot?
+orange|fd sw fv yl ro pl
+strawberry|fd sw fv rd sm pl
+watermelon|fd sw fv gr ro? pl
+grapes|fd sw fv sm pl gr?
+lemon|fd fv yl pl ro?
+carrot|fd fv yl pl co?
+potato|fd fv co pl
+tomato|fd fv rd ro pl co?
+broccoli|fd fv gr co? pl
+corn|fd fv yl co pl
+pizza|fd co ro ki?
+bread|fd co so ki
+cheese|fd yl ki?
+egg|fd co wh sm ki ro?
+ice cream|fd sw so? ki?
+chocolate|fd sw bk sm
+cake|fd sw co so
+rice|fd co wh ki
+spaghetti|fd co ki?
+hamburger|fd co ro?
+cookie|fd sw co ro sm
+honey|fd sw yl ki?
+milk|fd wh ki
+popcorn|fd co wh fun? sm?
+car|mo me wl ri ou bg el? no? st?
+bicycle|mo me wl ri ou fun? st
+bus|mo me wl ri ou bg no? yl? st?
+airplane|mo me fl ri bg no ou el? st?
+boat|mo ri aq ou bg? st?
+train|mo me wl ri bg no ou el? st?
+phone|mo el sc sm no ho
+television|mo el sc ho no fun
+computer|mo el sc ho sch? fun? no?
+refrigerator|mo el bg? ho ki wh? me?
+toaster|mo el ki ho me
+spoon|mo me ki ho sm
+fork|mo me ki ho sm sh?
+knife|mo me ki ho sh sm?
+cup|mo ki ho sm
+chair|mo ho st
+table|mo ho
+bed|mo ho so bg? st
+book|mo ho sch
+pencil|mo sch sm sh?
+scissors|mo sch sm sh me ho?
+umbrella|mo ou
+clock|mo ho el? ro? no?
+shoe|mo we
+hat|mo we so?
+glasses|mo we sm
+ball|mo ro fun ou?
+guitar|mo no fun
+piano|mo no fun bg? ho?
+kite|mo fl fun ou
+camera|mo el sm? fun?
+lamp|mo el ho
+key|mo me sm ho?
+toothbrush|mo sm ho
+pillow|mo so ho wh? st?
+balloon|mo ro fun fl? so?
+sock|mo we so sm
+drum|mo no fun ro
+skateboard|mo wl ri fun ou st?
+tree|al pl ou bg gr
+flower|al pl ou sm?
+cactus|al pl ou hot gr sh
+mushroom|al? pl? fd? ou sm
+sun|ou ro yl hot bg
+moon|ou ro wh bg
+rock|ou sm?
+snowman|mo? ou wh ro? fun`;
+const KEYS=Object.keys(Q);
+function parseKB(){return KB.split('\n').map(line=>{const[name,attrs]=line.split('|');const v={};for(const k of KEYS)v[k]=0;
+  for(const a of attrs.trim().split(/\s+/)){if(!a)continue;const half=a.endsWith('?'),k=half?a.slice(0,-1):a;if(k in v)v[k]=half?.5:1}
+  if(v.ma||v.bi||v.in||v.re)v.an=Math.max(v.an,1);if(v.an)v.al=1;return{name,v}})}
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',helper:false},store.get('parlor-twenty',{}));
+const tally={cpu:{won:0,lost:0},solo:{won:0,lost:0},group:{won:0,lost:0}};
+let ITEMS=[],S=null,toastT=0;
+// Things you taught it, stored as {name: {attr: value}} and blended into the built-in list.
+function loadItems(){ITEMS=parseKB();const learned=store.get('parlor-twenty-learned',{});
+  for(const name in learned){const L=learned[name];let it=ITEMS.find(x=>x.name.toLowerCase()===name.toLowerCase());
+    if(!it){it={name,v:Object.fromEntries(KEYS.map(k=>[k,.5])),learned:true};ITEMS.push(it)}
+    for(const k in L)if(k in it.v)it.v[k]=L[k]}}
+function toast(t,ms=2200){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+const ANS={y:['Yes',1],n:['No',0],m:['Probably',.75],p:['Probably not',.25],u:['Not sure',null]};
+
+/* ---------- computer guesses ---------- */
+function weights(){return ITEMS.map((it,i)=>{if(S.wrong.has(i))return 0;let pen=0;for(const h of S.hist){if(h.k&&h.val!=null)pen+=Math.abs(h.val-it.v[h.k])}return Math.exp(-2.4*pen)})}
+function pickQuestion(w){const tot=w.reduce((a,b)=>a+b,0);let best=null,bv=-1;
+  for(const k of KEYS){if(S.hist.some(h=>h.k===k))continue;let p=0;for(let i=0;i<ITEMS.length;i++)p+=w[i]*ITEMS[i].v[k];p/=tot;
+    const H=p<=0||p>=1?0:-(p*Math.log2(p)+(1-p)*Math.log2(1-p));const v=H+Math.random()*.02;if(v>bv){bv=v;best=k}}
+  return bv<.08?null:best}
+function cpuNext(){const w=weights(),tot=w.reduce((a,b)=>a+b,0),left=20-S.hist.length;
+  const order=w.map((x,i)=>[x,i]).sort((a,b)=>b[0]-a[0]),top=order[0];
+  if(left<=0||tot<=1e-9){S.phase='stumped';render();return}
+  const share=top[0]/tot;const q=pickQuestion(w);
+  // Guess when one thing clearly stands out, when there's nothing useful left to ask, or on the last question.
+  if(share>.62&&S.hist.length>=4||!q||left===1||share>.4&&left<=3){S.cur={guess:top[1]};render();return}
+  S.cur={k:q};render()}
+function answer(code){if(!S.cur||S.phase!=='ask')return;const[label,val]=ANS[code];
+  if(S.cur.guess!==undefined){if(code==='y'||code==='m'){S.hist.push({guess:S.cur.guess,a:'y'});S.phase='won';tally.cpu.lost++;render();return}
+    S.wrong.add(S.cur.guess);S.hist.push({guess:S.cur.guess,a:'n'});S.cur=null;cpuNext();return}
+  S.hist.push({k:S.cur.k,a:code,val});S.cur=null;cpuNext()}
+function teach(name){name=name.trim();if(!name)return;const learned=store.get('parlor-twenty-learned',{});const key=Object.keys(learned).find(n=>n.toLowerCase()===name.toLowerCase())||name;
+  const rec=learned[key]||{};for(const h of S.hist)if(h.k&&h.val!=null)rec[h.k]=h.val;learned[key]=rec;store.set('parlor-twenty-learned',learned);loadItems();
+  S.phase='taught';S.taught=name;tally.cpu.won++;render()}
+
+/* ---------- you guess ---------- */
+function soloAsk(k){if(S.phase!=='ask'||!k||S.hist.some(h=>h.k===k))return;const v=ITEMS[S.secret].v[k];const a=v>=1?'y':v<=0?'n':'s';
+  S.hist.push({k,a,val:v});if(S.hist.length>=20){S.phase='lost';tally.solo.lost++}render()}
+function soloGuess(txt){if(S.phase!=='ask')return;const t=txt.trim().toLowerCase().replace(/^(a|an|the)\s+/,'');if(!t)return;
+  const ok=ITEMS[S.secret].name.toLowerCase()===t||ITEMS[S.secret].name.toLowerCase()+'s'===t||ITEMS[S.secret].name.toLowerCase()===t+'s';
+  S.hist.push({guessText:txt.trim(),a:ok?'y':'n'});
+  if(ok){S.phase='won';tally.solo.won++}else if(S.hist.length>=20){S.phase='lost';tally.solo.lost++}else toast(`No, it's not ${txt.trim()}.`);render()}
+function consistent(){return ITEMS.filter((it,i)=>!it.learned&&S.hist.every(h=>h.k?it.v[h.k]===h.val:h.guessText?it.name.toLowerCase()!==h.guessText.toLowerCase():true)).map(x=>x.name)}
+
+/* ---------- party tracker ---------- */
+function partyAnswer(code){if(S.phase!=='ask')return;S.hist.push({a:code,party:true});if(S.hist.length>=20){S.phase='lost';tally.group.lost++}render()}
+
+/* ---------- round flow and drawing ---------- */
+function newRound(){const m=cfg.mode;S={mode:m,hist:[],wrong:new Set(),phase:m==='cpu'?'intro':'ask',cur:null,secret:m==='solo'?pickSecret():-1};render()}
+function pickSecret(){const pool=ITEMS.map((it,i)=>it.learned?-1:i).filter(i=>i>=0);return pool[rand(pool.length)]}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function lights(){const L=[...Array(20)].map((_,i)=>{const h=S.hist[i];if(!h)return i===S.hist.length&&S.phase==='ask'?'<i class="now"></i>':'<i></i>';
+  const c=h.guess!==undefined||h.guessText?'g':h.a==='y'?'y':h.a==='n'?'n':'m';return `<i class="${c}"></i>`});return `<div class="lights" aria-label="${S.hist.length} of 20 questions used">${L.join('')}</div>`}
+function render(){if(!S)return;const c=$('card'),n=S.hist.length;let h='';
+  if(S.mode==='cpu'){
+    if(S.phase==='intro')h=`${lights()}<p class="qnum">Get ready</p><p class="q">Think of an <em>animal</em>, a <em>food</em>, a <em>plant</em> or an <em>everyday thing</em>.</p><p class="cardhint">Keep it in your head. The computer gets twenty questions to work it out.</p><div class="answers"><button class="ans y" id="ready">I've got one!</button></div>`;
+    else if(S.phase==='ask'&&S.cur){const q=S.cur.guess!==undefined?`Is it ${/^[aeiou]/i.test(ITEMS[S.cur.guess].name)?'an':'a'} <em>${esc(ITEMS[S.cur.guess].name)}</em>?`:esc(Q[S.cur.k]);
+      h=`${lights()}<p class="qnum">${S.cur.guess!==undefined?'My guess · ':''}Question ${n+1} of 20</p><p class="q">${q}</p>
+        <div class="answers">${S.cur.guess!==undefined?`<button class="ans y" data-a="y">Yes, that's it!</button><button class="ans n" data-a="n">No</button>`:`<button class="ans y" data-a="y">Yes</button><button class="ans n" data-a="n">No</button><button class="ans m" data-a="m">Probably</button><button class="ans m" data-a="p">Probably not</button><button class="ans u" data-a="u">Not sure</button>`}</div>`}
+    else if(S.phase==='won'){const it=ITEMS[S.hist[S.hist.length-1].guess];h=`${lights()}<p class="qnum">Got it in ${n}</p><p class="q">I knew it! You were thinking of ${/^[aeiou]/i.test(it.name)?'an':'a'} <em>${esc(it.name)}</em>.</p><div class="answers"><button class="ans y" id="again">Play again</button></div>`}
+    else if(S.phase==='stumped')h=`${lights()}<p class="qnum">You win!</p><p class="q">You stumped me. What were you thinking of?</p><p class="cardhint">Tell me and I'll remember it for next time.</p>
+      <div class="ask"><input type="text" id="teachIn" list="names" placeholder="e.g. penguin, toaster…" autocomplete="off" maxlength="40"><button class="btn" id="teachBtn">Teach me</button><button class="btn alt" id="skipTeach">Skip</button></div>${datalist()}`;
+    else if(S.phase==='taught')h=`${lights()}<p class="qnum">Thanks!</p><p class="q">Got it: <em>${esc(S.taught)}</em>. I'll be ready for that one next time.</p><div class="answers"><button class="ans y" id="again">Play again</button></div>`;
+    else if(S.phase==='skipped')h=`${lights()}<p class="qnum">You win!</p><p class="q">Fair enough, keep your secret. Want another round?</p><div class="answers"><button class="ans y" id="again">Play again</button></div>`}
+  else if(S.mode==='solo'){const asked=new Set(S.hist.filter(x=>x.k).map(x=>x.k)),last=S.hist[n-1];
+    const lastTxt=!last?'':last.k?`${Q[last.k]} <b>${last.a==='y'?'Yes':last.a==='n'?'No':'Sometimes'}</b>`:`Is it ${esc(last.guessText)}? <b>${last.a==='y'?'Yes!':'No'}</b>`;
+    if(S.phase==='ask'){h=`${lights()}<p class="qnum">I'm thinking of something · ${20-n} question${20-n===1?'':'s'} left</p><p class="q">${n?lastTxt:'Ask me anything from the list, or make a guess.'}</p>
+      <div class="ask"><select id="qsel" aria-label="Pick a question"><option value="">Pick a question…</option>${KEYS.filter(k=>!asked.has(k)).map(k=>`<option value="${k}">${esc(Q[k])}</option>`).join('')}</select><button class="btn" id="askBtn">Ask</button></div>
+      <div class="ask"><input type="text" id="guessIn" list="names" placeholder="Your guess: a dog? a pizza?" autocomplete="off" maxlength="40"><button class="btn alt" id="guessBtn">Guess</button></div>${datalist()}
+      <label style="display:flex;gap:6px;align-items:center;color:var(--card-muted);font-size:13.5px"><input type="checkbox" id="helper"${cfg.helper?' checked':''}> Show what it could still be</label>
+      ${cfg.helper?`<div class="cands">${consistent().slice(0,60).map(x=>`<span>${esc(x)}</span>`).join('')||'<span>Hmm, nothing fits all the answers.</span>'}</div>`:''}`}
+    else h=`${lights()}<p class="qnum">${S.phase==='won'?`Solved in ${n}`:'Out of questions'}</p><p class="q">${S.phase==='won'?`Yes! It was ${/^[aeiou]/i.test(ITEMS[S.secret].name)?'an':'a'} <em>${esc(ITEMS[S.secret].name)}</em>.`:`I was thinking of ${/^[aeiou]/i.test(ITEMS[S.secret].name)?'an':'a'} <em>${esc(ITEMS[S.secret].name)}</em>.`}</p><div class="answers"><button class="ans y" id="again">Play again</button></div>`}
+  else{if(S.phase==='ask')h=`${lights()}<p class="qnum">Party tracker</p><div class="big">${20-n}</div><p class="center">questions left. One person thinks of something; everyone else asks out loud.<br>Tap the answer after each question.</p>
+      <div class="answers"><button class="ans y" data-p="y">Yes</button><button class="ans n" data-p="n">No</button><button class="ans m" data-p="m">Maybe / sort of</button></div>
+      <div class="answers"><button class="ans u" id="gotIt">They guessed it!</button></div>`;
+    else h=`${lights()}<p class="qnum">${S.phase==='won'?'Guessed!':'Stumped!'}</p><p class="q">${S.phase==='won'?`The askers got it with ${n} question${n===1?'':'s'}.`:'Twenty questions and no one got it. The thinker wins!'}</p><div class="answers"><button class="ans y" id="again">Next round</button></div>`}
+  c.innerHTML=h;
+  // history
+  $('hist').innerHTML=S.hist.map((x,i)=>{let q,a,cls;
+    if(x.party){q=`Question ${i+1}`;a=x.a==='y'?'Yes':x.a==='n'?'No':'Maybe';cls=x.a==='y'?'y':x.a==='n'?'n':'m'}
+    else if(x.guess!==undefined){q=`Guess: ${ITEMS[x.guess]?ITEMS[x.guess].name:'?'}`;a=x.a==='y'?'Right':'No';cls='g'}
+    else if(x.guessText){q=`Guess: ${x.guessText}`;a=x.a==='y'?'Right':'No';cls='g'}
+    else{q=Q[x.k];a=S.mode==='solo'?(x.a==='y'?'Yes':x.a==='n'?'No':'Sometimes'):ANS[x.a][0];cls=x.a==='y'?'y':x.a==='n'?'n':x.a==='u'?'u':'m'}
+    return `<li><span class="k">${i+1}</span><span>${esc(q)}</span><span class="a ${cls}">${a}</span></li>`}).join('');
+  $('histEmpty').hidden=S.hist.length>0;$('hist').scrollTop=1e5;
+  const t=tally[S.mode],labels=S.mode==='cpu'?['You stumped it','It guessed']:S.mode==='solo'?['You solved','Out of questions']:['Guessed','Stumped'];
+  $('tally').innerHTML=`<span>${labels[0]} <b>${t.won}</b></span><span>${labels[1]} <b>${t.lost}</b></span>`;
+  wire()}
+function datalist(){return `<datalist id="names">${ITEMS.map(x=>`<option value="${esc(x.name)}">`).join('')}</datalist>`}
+function wire(){const on=(id,f)=>{const el=$(id);if(el)el.onclick=f};
+  on('ready',()=>{S.phase='ask';cpuNext()});on('again',newRound);
+  document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>answer(b.dataset.a));
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>partyAnswer(b.dataset.p));
+  on('gotIt',()=>{S.phase='won';tally.group.won++;render()});
+  on('teachBtn',()=>teach($('teachIn').value));on('skipTeach',()=>{S.phase='skipped';tally.cpu.won++;render()});
+  const ti=$('teachIn');if(ti){ti.focus();ti.onkeydown=e=>{if(e.key==='Enter')teach(ti.value)}}
+  on('askBtn',()=>soloAsk($('qsel').value));const qs=$('qsel');if(qs)qs.onchange=()=>{};
+  on('guessBtn',()=>soloGuess($('guessIn').value));const gi=$('guessIn');if(gi)gi.onkeydown=e=>{if(e.key==='Enter')soloGuess(gi.value)};
+  const hp=$('helper');if(hp)hp.onchange=()=>{cfg.helper=hp.checked;store.set('parlor-twenty',cfg);render()}}
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!S)return;const k=e.key.toLowerCase();
+  if(S.mode==='cpu'&&S.phase==='ask'&&S.cur){const map={y:'y',n:'n',m:'m',u:'u',p:'p'};if(map[k]&&(S.cur.guess===undefined||k==='y'||k==='n')){e.preventDefault();answer(map[k])}}
+  else if(S.mode==='cpu'&&S.phase==='intro'&&(k==='enter'||k===' ')&&!e.target.closest('button')){e.preventDefault();S.phase='ask';cpuNext()}
+  else if(S.mode==='group'&&S.phase==='ask'&&['y','n','m'].includes(k)){partyAnswer(k)}});
+$('mode').onchange=e=>{cfg.mode=e.target.value;store.set('parlor-twenty',cfg);newRound()};
+$('newgame').onclick=newRound;
+if(!['cpu','solo','group'].includes(cfg.mode))cfg.mode='cpu';$('mode').value=cfg.mode;
+loadItems();newRound();
+</script>
+</body>
+</html>

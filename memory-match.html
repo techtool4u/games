@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Memory Match</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with players, board size and theme; a strip of player scores; the grid of face-down cards; rules below. */
+:root{
+  --bg:#fff3ef; --fg:#3a1f18; --muted:#80594f; --panel:#ffffff; --line:#f3d6cd; --chip:#ffe9e2;
+  --accent:#e2563a; --accent-ink:#ffffff; --back:#e2563a; --back-2:#c9432a; --face:#ffffff; --match:#7ccf96;
+  --p0:#e2563a; --p1:#2f6fd6; --p2:#2b8a3e; --p3:#8d4bd6;
+  --display:"Baloo 2", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1a0f0c; --fg:#fbe9e3; --muted:#c9a196; --panel:#261713; --line:#41271f; --chip:#33201a; --accent:#ff8a70; --accent-ink:#2a0c05; --face:#f7efe9; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#1a0f0c; --fg:#fbe9e3; --muted:#c9a196; --panel:#261713; --line:#41271f; --chip:#33201a; --accent:#ff8a70; --accent-ink:#2a0c05; --face:#f7efe9; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding-block:16px 30px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,7vw,48px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.players{display:flex;gap:8px;flex-wrap:wrap}
+.pl{flex:1 1 110px;display:flex;align-items:center;gap:8px;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 10px}
+.pl.cur{border-color:var(--c)}
+.pl i{width:12px;height:12px;border-radius:50%;background:var(--c);flex:none}
+.pl span{flex:1;font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl b{font-family:var(--display);font-size:24px;line-height:1}
+.strip{display:flex;gap:14px;color:var(--muted);font-size:14.5px;flex-wrap:wrap}
+.strip b{color:var(--fg)}
+.board{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:clamp(5px,1.4vw,10px);width:min(100%,calc((100dvh - 250px) * var(--cols) / var(--rows)));min-width:min(100%,280px);align-self:center;perspective:900px;user-select:none;-webkit-user-select:none}
+.card{aspect-ratio:3/4;border:0;padding:0;background:none;cursor:pointer;position:relative;transform-style:preserve-3d;transition:transform .35s}
+.card .f,.card .b{position:absolute;inset:0;border-radius:12%/9%;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:grid;place-items:center}
+.card .b{background:repeating-linear-gradient(45deg,var(--back) 0 8px,var(--back-2) 8px 16px);box-shadow:0 3px 0 rgba(0,0,0,.15),inset 0 0 0 4px rgba(255,255,255,.85)}
+.card .f{background:var(--face);transform:rotateY(180deg);box-shadow:0 3px 0 rgba(0,0,0,.12),0 0 0 1px var(--line);font-size:calc(min(100vw,760px)*.42/var(--cols));line-height:1}
+.card.up{transform:rotateY(180deg)}
+.card.done .f{box-shadow:0 0 0 3px var(--c,var(--match));opacity:.85}
+.card.kb .b,.card.kb .f{outline:3px solid #2f6fd6;outline-offset:2px}
+.card.nope{animation:nope .4s}
+@keyframes nope{30%{transform:rotateY(180deg) translateX(-5px)}70%{transform:rotateY(180deg) translateX(5px)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.overlay{position:fixed;inset:0;background:rgba(40,10,5,.5);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:none;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:10px 16px;padding-block:8px 14px}.board{grid-column:1;grid-row:1/6;width:min(100%,calc((100dvh - 20px) * var(--cols) / var(--rows)))}h1{font-size:28px}}
+@media (prefers-reduced-motion:reduce){.card{transition:none}.card.nope{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Memory Match</h1>
+    </div>
+    <div class="controls">
+      <select id="players" aria-label="Players"><option value="s">Solo</option><option value="cpu">You vs computer</option><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option></select>
+      <select id="level" aria-label="Computer memory"><option value="easy">Forgetful</option><option value="medium">Sharp</option><option value="hard">Perfect memory</option></select>
+      <select id="size" aria-label="Board size"><option value="12">12 cards</option><option value="16">16 cards</option><option value="24">24 cards</option><option value="36">36 cards</option></select>
+      <select id="theme" aria-label="Pictures"><option value="animals">Animals</option><option value="food">Food</option><option value="sea">Sea life</option><option value="things">Things</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="players" id="plist"></div>
+  <div class="strip" aria-live="polite"><span>Pairs <b id="pairs">0</b></span><span>Turns <b id="turns">0</b></span><span>Time <b id="time">0:00</b></span><span id="best"></span></div>
+  <div class="board" id="board" role="grid" aria-label="Cards. Arrow keys move, Enter flips."></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>All cards start face down. Flip two per turn.</li>
+        <li>If they match, they stay face up, you score a pair and go again. If not, they flip back and the next player goes.</li>
+        <li>When every pair is found, the most pairs wins. Playing solo, try to finish in as few turns as possible.</li>
+        <li>The computer remembers cards it has seen, sometimes. On Perfect memory it never forgets.</li>
+        <li>Keyboard: arrows move, Enter or Space flips.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+const THEMES={animals:'🐶🐱🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🦉🐢🦋🐙',food:'🍎🍌🍇🍓🍒🍍🥝🍉🥕🌽🧀🍩🍪🍕🍔🌮🍦🥨',sea:'🐳🐬🐟🐠🐡🦈🐙🦑🦀🦞🦐🐚🐧🐢🦭🌴⚓🌊',things:'⚽🏀🎈🎁🎸🎺🚲🚀⛵🚂🎩👑💡📷⏰🔑🧸🎲'};
+const COLORS=['--p0','--p1','--p2','--p3'];
+const LAYOUT={12:[4,3],16:[4,4],24:[6,4],36:[6,6]};
+const RECALL={easy:.45,medium:.8,hard:1};
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({players:'s',level:'medium',size:16,theme:'animals'},store.get('parlor-memory',{}));
+const best=store.get('parlor-memory-best',{});
+let G=null,kb=-1,timer=0;
+
+function setup(){const m=cfg.players;if(m==='s')return[{name:'You'}];if(m==='cpu')return[{name:'You'},{name:'Computer',cpu:true}];return[...Array(+m)].map((_,i)=>({name:`Player ${i+1}`}))}
+// Spreading the emoji string splits it by code point, so each picture stays whole.
+function newGame(){$('overlay').hidden=true;clearInterval(timer);const n=+cfg.size,pics=[...THEMES[cfg.theme]].slice(0,n/2);
+  const deck=[...pics,...pics].map((p,i)=>({p,id:i}));for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}
+  G={cards:deck.map(c=>({p:c.p,up:false,done:false,owner:-1})),players:setup(),turn:0,picks:[],busy:false,turns:0,elapsed:0,started:false,seen:new Map(),over:false,gen:(G?G.gen:0)+1};
+  G.players.forEach(p=>p.pairs=0);const [c,r]=LAYOUT[n];$('board').style.setProperty('--cols',c);$('board').style.setProperty('--rows',r);build();render()}
+const cur=()=>G.players[G.turn];
+function flip(i){const c=G.cards[i];if(G.over||G.busy||c.up||c.done||G.picks.length>=2)return;
+  if(!G.started){G.started=true;const t0=Date.now();timer=setInterval(()=>{if(!G.over&&!document.hidden){G.elapsed=Math.floor((Date.now()-t0)/1000);$('time').textContent=fmt(G.elapsed)}},500)}
+  c.up=true;G.picks.push(i);G.seen.set(i,{p:c.p,at:G.turns});render();
+  if(G.picks.length===2){G.turns++;const [a,b]=G.picks;G.busy=true;
+    if(G.cards[a].p===G.cards[b].p){setTimeout(()=>{[a,b].forEach(k=>{G.cards[k].done=true;G.cards[k].owner=G.turn;G.seen.delete(k)});cur().pairs++;G.picks=[];G.busy=false;render();
+        if(G.cards.every(x=>x.done))finish();else if(cur().cpu)cpuTurn()},450)}
+    else{setTimeout(()=>{[a,b].forEach(k=>G.cards[k].up=false);G.picks=[];G.busy=false;G.turn=(G.turn+1)%G.players.length;render();if(cur().cpu)cpuTurn()},cur().cpu?900:1100)}}}
+// The computer knows the cards it has seen, but may forget each one (more often on easier levels).
+function cpuTurn(){const g=G.gen,recall=RECALL[cfg.level];
+  const known=[...G.seen].filter(([i])=>!G.cards[i].done&&Math.random()<recall);
+  const byPic=new Map();for(const [i,v] of known){if(!byPic.has(v.p))byPic.set(v.p,[]);byPic.get(v.p).push(i)}
+  const hidden=G.cards.map((c,i)=>i).filter(i=>!G.cards[i].done&&!G.cards[i].up);
+  const pair=[...byPic.values()].find(a=>a.length>=2);
+  const unknown=hidden.filter(i=>!known.some(([k])=>k===i));
+  let first=pair?pair[0]:(unknown.length?unknown[Math.floor(Math.random()*unknown.length)]:hidden[0]);
+  setTimeout(()=>{if(g!==G.gen)return;flip(first);
+    let second;if(pair)second=pair[1];else{const mate=known.find(([k,v])=>k!==first&&v.p===G.cards[first].p);
+      if(mate)second=mate[0];else{const rest=unknown.filter(i=>i!==first);second=rest.length?rest[Math.floor(Math.random()*rest.length)]:hidden.find(i=>i!==first)}}
+    setTimeout(()=>{if(g!==G.gen)return;flip(second)},650)},700)}
+function finish(){G.over=true;clearInterval(timer);const ps=G.players,top=Math.max(...ps.map(p=>p.pairs)),win=ps.filter(p=>p.pairs===top);
+  let title,msg;
+  if(ps.length===1){const k=`${cfg.size}`,b=best[k]=best[k]||{turns:0,time:0,games:0};b.games++;const nb=!b.turns||G.turns<b.turns;if(nb)b.turns=G.turns;if(!b.time||G.elapsed<b.time)b.time=G.elapsed;store.set('parlor-memory-best',best);
+    title='All matched!';msg=`${cfg.size} cards in ${G.turns} turns and ${fmt(G.elapsed)}.${nb?' A new best!':''} Best: ${b.turns} turns.`}
+  else{title=win.length>1?'A tie!':win[0].name==='You'?'You win!':`${win[0].name} wins`;msg=ps.map(p=>`${p.name} ${p.pairs}`).join(' · ')}
+  render();setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><p>${msg}</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`;$('overlay').hidden=false;$('mnew').focus();$('mnew').onclick=newGame},600)}
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+
+function build(){$('board').innerHTML=G.cards.map((c,i)=>`<button class="card" data-i="${i}" aria-label="Card ${i+1}"><span class="b"></span><span class="f">${c.p}</span></button>`).join('')}
+function render(){const els=$('board').children;G.cards.forEach((c,i)=>{const e=els[i];e.className=`card${c.up||c.done?' up':''}${c.done?' done':''}${kb===i?' kb':''}`;
+    e.style.setProperty('--c',c.owner>=0&&G.players.length>1?`var(${COLORS[c.owner]})`:'');e.setAttribute('aria-label',c.up||c.done?`Card ${i+1}: ${c.p}`:`Card ${i+1}: face down`)});
+  $('plist').innerHTML=G.players.map((p,i)=>`<div class="pl${i===G.turn&&G.players.length>1&&!G.over?' cur':''}" style="--c:var(${COLORS[i]})"><i></i><span>${p.name}${p.cpu&&i===G.turn&&!G.over?' · thinking':''}</span><b>${p.pairs}</b></div>`).join('');
+  $('pairs').textContent=`${G.cards.filter(c=>c.done).length/2}/${G.cards.length/2}`;$('turns').textContent=G.turns;$('time').textContent=fmt(G.elapsed);
+  const b=best[cfg.size];$('best').innerHTML=G.players.length===1&&b?`Best <b>${b.turns}</b> turns`:'';
+  $('level').hidden=cfg.players!=='cpu'}
+
+$('board').addEventListener('click',e=>{const c=e.target.closest('.card');if(!c||cur().cpu)return;kb=-1;flip(+c.dataset.i)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select')||!$('overlay').hidden||!G)return;const cols=LAYOUT[cfg.size][0],n=G.cards.length;
+  const mv={ArrowUp:-cols,ArrowDown:cols,ArrowLeft:-1,ArrowRight:1}[e.key];
+  if(mv){e.preventDefault();if(kb<0)kb=0;else{const k=kb+mv;if(k>=0&&k<n)kb=k}render();return}
+  if((e.key==='Enter'||e.key===' ')&&kb>=0&&!cur().cpu){e.preventDefault();flip(kb)}});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function sync(){$('players').value=cfg.players;$('level').value=cfg.level;$('size').value=cfg.size;$('theme').value=cfg.theme}
+const started=()=>G&&G.started&&!G.over;
+function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-memory',cfg);sync();if(restart)newGame();else render()}
+$('players').onchange=e=>setCfg('players',e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('size').onchange=e=>setCfg('size',+e.target.value,true);
+$('theme').onchange=e=>setCfg('theme',e.target.value,true);
+$('newgame').onclick=newGame;
+if(!['s','cpu','2','3','4'].includes(cfg.players))cfg.players='s';if(!LAYOUT[cfg.size])cfg.size=16;if(!THEMES[cfg.theme])cfg.theme='animals';if(!RECALL[cfg.level])cfg.level='medium';
+sync();newGame();
+</script>
+</body>
+</html>

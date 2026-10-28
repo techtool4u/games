@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Ladder</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="ladder-words.js"></script>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with difficulty and new puzzle; the ladder (start word on top, your steps, the goal word at the bottom), an entry row with on-screen keyboard, and a small panel with steps, par and rules. */
+:root{
+  --bg:#f1f4ee; --fg:#1e2a22; --muted:#5f6d63; --panel:#ffffff; --line:#d9e0d6; --chip:#eef3eb;
+  --accent:#2f7d4f; --accent-ink:#ffffff; --tile:#ffffff; --start:#ffe08a; --goal:#9fd8b2; --bad:#d8453b; --chg:#ffd2a1;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101612; --fg:#e4ede6; --muted:#9cb0a3; --panel:#18211b; --line:#2a3a2f; --chip:#1f2b23; --accent:#6fd39a; --accent-ink:#082414; --tile:#223027; --start:#6b5a1d; --goal:#215c3a; --chg:#6b4320; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101612; --fg:#e4ede6; --muted:#9cb0a3; --panel:#18211b; --line:#2a3a2f; --chip:#1f2b23; --accent:#6fd39a; --accent-ink:#082414; --tile:#223027; --start:#6b5a1d; --goal:#215c3a; --chg:#6b4320; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15.5px;line-height:1.45}
+.wrap{max-width:560px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,7vw,46px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.strip{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:14.5px}
+.strip b{color:var(--fg)}
+.ladder{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative}
+.rung{display:flex;gap:6px;position:relative}
+.rung .t{width:clamp(44px,13vw,58px);aspect-ratio:1;border-radius:12px;background:var(--tile);border:2px solid var(--line);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:clamp(22px,6vw,30px);text-transform:uppercase}
+.rung.start .t{background:var(--start);border-color:transparent}
+.rung.goal .t{background:var(--goal);border-color:transparent}
+.rung .t.chg{background:var(--chg);border-color:transparent}
+.rung.new{animation:drop .3s ease-out}
+@keyframes drop{from{transform:translateY(-8px);opacity:0}}
+.rung.entry .t{border-style:dashed}
+.rung.entry .t.on{border-color:var(--accent);border-style:solid}
+.rung.entry.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.gapmark{color:var(--muted);font-size:13.5px}
+.rung.hint .t{border-style:dotted;color:var(--muted)}
+.msg{text-align:center;min-height:22px;font-weight:700;color:var(--muted)}
+.msg.bad{color:var(--bad)} .msg.good{color:var(--accent)}
+.kbd{display:flex;flex-direction:column;gap:6px;user-select:none;-webkit-user-select:none}
+.kbd .r{display:flex;gap:5px;justify-content:center}
+.kbd button{flex:1;max-width:44px;min-height:48px;border-radius:8px;border:0;background:var(--panel);box-shadow:0 0 0 1px var(--line),0 2px 0 var(--line);font-weight:800;font-size:16px;cursor:pointer;text-transform:uppercase;padding:0}
+.kbd button.wide{max-width:72px;flex:1.6;font-size:13px}
+.kbd button:active{background:var(--line)}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.overlay{position:fixed;inset:0;background:rgba(10,30,15,.5);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:34px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .path{font-family:var(--display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--fg)}
+@media (prefers-reduced-motion:reduce){.rung.new,.rung.entry.shake{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Word Ladder</h1>
+    </div>
+    <div class="controls">
+      <select id="level" aria-label="Difficulty"><option value="3">Easy · 3 letters</option><option value="4">Medium · 4 letters</option><option value="5">Hard · 5 letters</option></select>
+      <button class="btn primary" id="newgame">New puzzle</button>
+    </div>
+  </header>
+  <div class="strip" aria-live="polite"><span>Steps <b id="steps">0</b></span><span>Par <b id="par">0</b></span><span>Hints <b id="hints">0</b></span><span id="streak"></span></div>
+  <div class="ladder" id="ladder" aria-live="polite"></div>
+  <div class="msg" id="msg"></div>
+  <div class="kbd" id="kbd" aria-label="Keyboard"></div>
+  <div class="row"><button class="btn" id="undo">Undo step</button><button class="btn" id="hint">Hint</button><button class="btn" id="giveup">Show answer</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Turn the top word into the bottom word by changing <b>one letter at a time</b>. Every step must be a real English word.</li>
+        <li>Type your next word (on the keyboard below or your own), then press Enter. The changed letter is highlighted.</li>
+        <li>Par is the fewest steps possible. Hints reveal the next word on a shortest route from where you are.</li>
+        <li>Undo takes back your last step.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- words ---------- */
+const W0=window.LADDER_WORDS||{familiar:'',valid:''};
+const FAMILIAR=new Set(W0.familiar.split(' ').filter(Boolean)),VALID=new Set([...FAMILIAR,...W0.valid.split(' ').filter(Boolean)]);
+const RANGE={3:[3,4],4:[4,5],5:[4,7]};
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const cfg=Object.assign({len:4},store.get('parlor-ladder',{}));
+const stats=store.get('parlor-ladder-stats',{});
+let S=null,entry='',cur=0;
+// Neighbors through "wildcard" buckets: c_ld, co_d, col_ all link cold, cord, colt...
+const graphs={};
+function graph(len,set){const k=len+(set===FAMILIAR?'f':'v');if(graphs[k])return graphs[k];const words=[...set].filter(w=>w.length===len),b=new Map();
+  for(const w of words)for(let i=0;i<len;i++){const p=w.slice(0,i)+'_'+w.slice(i+1);if(!b.has(p))b.set(p,[]);b.get(p).push(w)}
+  return graphs[k]={words,b}}
+function neighbors(g,w){const out=new Set();for(let i=0;i<w.length;i++){const p=w.slice(0,i)+'_'+w.slice(i+1);for(const x of g.b.get(p)||[])if(x!==w)out.add(x)}return out}
+// Shortest path from a to b (familiar words in between when possible, then any valid word).
+function path(a,b){for(const set of [FAMILIAR,VALID]){const g=graph(a.length,set);const prev=new Map([[a,null]]),q=[a];
+    for(let i=0;i<q.length;i++){const w=q[i];if(w===b){const p=[];for(let x=b;x;x=prev.get(x))p.unshift(x);return p}
+      for(const n of neighbors(g,w))if(!prev.has(n)){prev.set(n,w);q.push(n)}}}
+  return null}
+function makePuzzle(len){const g=graph(len,FAMILIAR),[lo,hi]=RANGE[len];
+  for(let t=0;t<200;t++){const a=g.words[Math.floor(Math.random()*g.words.length)];const dist=new Map([[a,0]]),q=[a];
+    for(let i=0;i<q.length;i++){const w=q[i];if(dist.get(w)>=hi)continue;for(const n of neighbors(g,w))if(!dist.has(n)){dist.set(n,dist.get(w)+1);q.push(n)}}
+    const far=[...dist].filter(([,d])=>d>=lo&&d<=hi).map(([w])=>w);if(far.length){const b=far[Math.floor(Math.random()*far.length)];return{a,b,par:dist.get(b)}}}
+  return{a:'cold',b:'warm',par:4}}
+
+/* ---------- game ---------- */
+function newPuzzle(){$('overlay').hidden=true;const p=makePuzzle(cfg.len);S={a:p.a,b:p.b,par:p.par,steps:[p.a],hints:0,done:false,gave:false,hint:null};entry='';cur=0;save();render();say('')}
+function save(){if(S)store.set('parlor-ladder-game',Object.assign({len:cfg.len},S))}
+function load(){const o=store.get('parlor-ladder-game',null);if(!o||!o.a||o.a.length!==cfg.len||o.done)return false;S=o;S.hint=null;render();return true}
+const last=()=>S.steps[S.steps.length-1];
+const diffs=(x,y)=>[...x].filter((c,i)=>c!==y[i]).length;
+function say(t,cls){const m=$('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'')}
+function submit(){if(S.done)return;const w=entry.toLowerCase();
+  if(w.length!==cfg.len){shake();say(`Type a ${cfg.len}-letter word.`,'bad');return}
+  if(diffs(w,last())!==1){shake();say(diffs(w,last())?'Change exactly one letter.':'That is the same word.','bad');return}
+  if(!VALID.has(w)){shake();say(`“${w.toUpperCase()}” isn't in the dictionary.`,'bad');return}
+  if(S.steps.includes(w)){shake();say('You already used that word.','bad');return}
+  S.steps.push(w);entry='';cur=0;S.hint=null;S.fresh=true;
+  if(w===S.b){win();return}
+  // if the next step would reach the goal, the goal itself is one letter away
+  say(diffs(w,S.b)===1?'One more change to go!':'',diffs(w,S.b)===1?'good':'');save();render()}
+function shake(){const e=document.querySelector('.rung.entry');if(e){e.classList.remove('shake');void e.offsetWidth;e.classList.add('shake')}}
+function undo(){if(S.done||S.steps.length<2)return;S.steps.pop();S.hint=null;entry='';say('');save();render()}
+function hint(){if(S.done)return;const p=path(last(),S.b);if(!p||p.length<2){say('No route from here. Try undoing a step.','bad');return}
+  S.hints++;S.hint=p[1];entry='';say(`Try ${p[1].toUpperCase()}.`,'good');save();render()}
+function giveUp(){if(S.done)return;const p=path(S.a,S.b);S.done=true;S.gave=true;save();store.del('parlor-ladder-game');render();
+  $('modal').innerHTML=`<h2>The answer</h2><p class="path">${p?p.join(' → '):'—'}</p><p>${S.par} step${S.par>1?'s':''}.</p><div class="row"><button class="btn primary" id="mnew">New puzzle</button></div>`;
+  $('overlay').hidden=false;$('mnew').onclick=newPuzzle;$('mnew').focus()}
+function win(){S.done=true;const n=S.steps.length-1,st=stats[cfg.len]=stats[cfg.len]||{solved:0,par:0,streak:0};st.solved++;if(n<=S.par&&!S.hints)st.par++;
+  st.streak=S.hints?0:st.streak+1;store.set('parlor-ladder-stats',stats);store.del('parlor-ladder-game');render();say('Solved!','good');
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${n<=S.par&&!S.hints?'Perfect!':'Solved!'}</h2><p class="path">${S.steps.join(' → ')}</p><p>${n} step${n>1?'s':''} (par ${S.par})${S.hints?` with ${S.hints} hint${S.hints>1?'s':''}`:''}.</p><p>${st.solved} solved at this length · ${st.par} at par without hints</p><div class="row"><button class="btn" id="mview">View ladder</button><button class="btn primary" id="mnew">New puzzle</button></div>`;
+    $('overlay').hidden=false;$('mnew').onclick=newPuzzle;$('mview').onclick=()=>{$('overlay').hidden=true};$('mnew').focus()},600)}
+
+/* ---------- drawing & input ---------- */
+const tiles=(w,prev,cls='')=>`<div class="rung ${cls}">${[...w].map((c,i)=>`<div class="t${prev&&prev[i]!==c?' chg':''}">${c}</div>`).join('')}</div>`;
+function render(){if(!S)return;let h=tiles(S.a,null,'start');
+  S.steps.slice(1).forEach((w,i)=>{if(w===S.b&&S.done)return;h+=tiles(w,S.steps[i],i===S.steps.length-2&&S.fresh?'new':'')});
+  if(!S.done){const L=cfg.len;h+=`<div class="rung entry" role="textbox" aria-label="Your next word">${[...Array(L)].map((_,i)=>`<div class="t${i===Math.min(entry.length,L-1)?' on':''}">${entry[i]||''}</div>`).join('')}</div>`;
+    if(S.hint)h+=`<div class="gapmark">hint: ${S.hint.toUpperCase()}</div>`;
+    h+=`<div class="gapmark">${diffs(last(),S.b)} letter${diffs(last(),S.b)===1?'':'s'} differ from the goal</div>`}
+  h+=tiles(S.b,S.done?S.steps[S.steps.length-2]:null,'goal');
+  $('ladder').innerHTML=h;S.fresh=false;
+  $('steps').textContent=S.steps.length-1;$('par').textContent=S.par;$('hints').textContent=S.hints;
+  const st=stats[cfg.len];$('streak').innerHTML=st&&st.solved?`Solved <b>${st.solved}</b>`:'';
+  $('undo').disabled=S.done||S.steps.length<2;$('hint').disabled=S.done;$('giveup').disabled=S.done;$('level').value=cfg.len}
+function buildKbd(){const rows=['qwertyuiop','asdfghjkl','⏎zxcvbnm⌫'];$('kbd').innerHTML=rows.map(r=>`<div class="r">${[...r].map(k=>k==='⏎'?'<button class="wide" data-k="Enter">Enter</button>':k==='⌫'?'<button class="wide" data-k="Backspace" aria-label="Delete">⌫</button>':`<button data-k="${k}">${k}</button>`).join('')}</div>`).join('')}
+function key(k){if(!S||S.done||!$('overlay').hidden)return;
+  if(k==='Enter'){submit();return}if(k==='Backspace'){entry=entry.slice(0,-1);render();return}
+  if(/^[a-z]$/i.test(k)&&entry.length<cfg.len){entry+=k.toLowerCase();say('');render()}}
+$('kbd').addEventListener('click',e=>{const b=e.target.closest('button');if(b)key(b.dataset.k)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select')||e.ctrlKey||e.metaKey||e.altKey)return;if(e.key==='Escape'&&!$('overlay').hidden){$('overlay').hidden=true;return}
+  if(e.key==='Enter'||e.key==='Backspace'||/^[a-z]$/i.test(e.key)){e.preventDefault();key(e.key)}});
+$('undo').onclick=undo;$('hint').onclick=hint;$('giveup').onclick=giveUp;
+$('newgame').onclick=()=>{if(S&&!S.done&&S.steps.length>1&&!confirm('Skip this puzzle?'))return;newPuzzle()};
+$('level').onchange=e=>{cfg.len=+e.target.value;store.set('parlor-ladder',cfg);if(!load())newPuzzle()};
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+if(![3,4,5].includes(cfg.len))cfg.len=4;
+buildKbd();if(!FAMILIAR.size){say('The word list did not load. Keep ladder-words.js next to this page.','bad')}else if(!load())newPuzzle();
+</script>
+</body>
+</html>

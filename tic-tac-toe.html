@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tic-Tac-Toe</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with opponent and strength; a scoreboard; the hand-drawn 3×3 grid on chalkboard green; rules below. */
+:root{
+  --bg:#f2efe6; --fg:#22281f; --muted:#666e5e; --panel:#ffffff; --line:#dcd8c9; --chip:#f0ede2;
+  --accent:#2f6b3f; --accent-ink:#ffffff; --board:#2f4a38; --chalk:#f4f1e6; --x:#ffd166; --o:#7fd3ff;
+  --display:"Permanent Marker", "Comic Sans MS", cursive;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121510; --fg:#e8ecdf; --muted:#a4ad98; --panel:#1b2018; --line:#2f3829; --chip:#232a1f; --accent:#7fd39a; --accent-ink:#0b2414; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#121510; --fg:#e8ecdf; --muted:#a4ad98; --panel:#1b2018; --line:#2f3829; --chip:#232a1f; --accent:#7fd39a; --accent-ink:#0b2414; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:520px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,7vw,48px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.score{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center}
+.score div{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px}
+.score div.cur{border-color:var(--accent)}
+.score b{display:block;font-family:var(--display);font-size:28px;line-height:1.1}
+.score small{color:var(--muted);font-weight:700}
+.status{text-align:center;font-weight:800;min-height:24px}
+.board{position:relative;width:min(100%,calc(100dvh - 300px));min-width:min(100%,260px);aspect-ratio:1;align-self:center;background:var(--board);border-radius:18px;padding:4%;box-sizing:border-box;box-shadow:inset 0 0 0 8px #6b4a2b,0 18px 30px -18px rgba(0,0,0,.6)}
+.grid{position:relative;display:grid;grid-template-columns:repeat(3,1fr);width:100%;height:100%}
+.grid svg.lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.grid svg.lines path{fill:none;stroke:var(--chalk);stroke-width:2.2;stroke-linecap:round;opacity:.9}
+.cell{border:0;background:none;padding:12%;cursor:pointer;display:grid;place-items:center;position:relative}
+.cell:disabled{cursor:default}
+.cell svg{width:100%;height:100%;overflow:visible}
+.cell svg path,.cell svg circle{fill:none;stroke-width:9;stroke-linecap:round;stroke-dasharray:300;stroke-dashoffset:300;animation:draw .35s ease-out forwards}
+.cell svg .x{stroke:var(--x)} .cell svg .o{stroke:var(--o)}
+.cell svg .x2{animation-delay:.15s}
+@keyframes draw{to{stroke-dashoffset:0}}
+.cell.kb{outline:3px dashed var(--chalk);outline-offset:-6px;border-radius:10px}
+.cell.hint::after{content:"";position:absolute;inset:32%;border-radius:50%;background:rgba(255,255,255,.12)}
+.strike{position:absolute;inset:0;pointer-events:none}
+.strike line{stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-dasharray:200;stroke-dashoffset:200;animation:draw .4s ease-out forwards}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.row{display:flex;gap:8px;justify-content:center}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:900px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;padding-block:8px 12px}.board{grid-column:1;grid-row:1/7;width:calc(100dvh - 20px);min-width:0}h1{font-size:28px}}
+@media (prefers-reduced-motion:reduce){.cell svg path,.cell svg circle,.strike line{animation:none;stroke-dashoffset:0}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Tic-Tac-Toe</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Unbeatable</option></select>
+      <select id="first" aria-label="Who starts"><option value="alt">Take turns starting</option><option value="you">You always start</option><option value="cpu">Computer starts</option></select>
+    </div>
+  </header>
+  <div class="score" aria-live="polite"><div id="s0"><b id="w0">0</b><small id="n0">You (X)</small></div><div><b id="wd">0</b><small>Draws</small></div><div id="s1"><b id="w1">0</b><small id="n1">Computer (O)</small></div></div>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="board"><div class="grid" id="grid" role="grid" aria-label="Board. Arrow keys move, Enter places."><svg class="lines" viewBox="0 0 300 300" preserveAspectRatio="none"><path d="M100 6 Q98 150 101 294 M200 4 Q203 150 199 296 M6 101 Q150 97 294 100 M4 200 Q150 204 296 199"/></svg></div></div>
+  <div class="row"><button class="btn primary" id="again">New round</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Take turns marking an empty square. X goes first.</li>
+        <li>Get three of your marks in a row, across, down or diagonally, to win.</li>
+        <li>If all nine squares fill up with no line, it's a draw. Played perfectly, every game is a draw, so see if you can catch the computer out on Easy or Medium.</li>
+        <li>Keyboard: arrows move, Enter or Space places, N starts a new round.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<script>
+const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',level:'medium',first:'alt'},store.get('parlor-ttt',{}));
+const wins={0:0,1:0,d:0};
+let S=null,round=0,kb=-1;
+
+const winner=b=>{for(const l of LINES)if(b[l[0]]&&b[l[0]]===b[l[1]]&&b[l[1]]===b[l[2]])return{p:b[l[0]],l};return b.every(Boolean)?{p:0}:null};
+// Perfect play: minimax, preferring quicker wins and slower losses.
+function minimax(b,me,turn,depth){const w=winner(b);if(w)return w.p===me?10-depth:w.p?depth-10:0;
+  let best=turn===me?-99:99;for(let i=0;i<9;i++)if(!b[i]){b[i]=turn;const v=minimax(b,me,turn==='X'?'O':'X',depth+1);b[i]=0;best=turn===me?Math.max(best,v):Math.min(best,v)}return best}
+function cpuMove(){const b=S.b.slice(),me=S.turn,them=me==='X'?'O':'X',empty=[...Array(9).keys()].filter(i=>!b[i]);
+  const finds=p=>empty.find(i=>{b[i]=p;const w=winner(b);b[i]=0;return w&&w.p===p});
+  if(cfg.level==='easy'){if(Math.random()<.5){const w=finds(me);if(w!=null)return w}return empty[Math.floor(Math.random()*empty.length)]}
+  if(cfg.level==='medium'){const w=finds(me);if(w!=null)return w;const bl=finds(them);if(bl!=null&&Math.random()<.9)return bl;if(!b[4]&&Math.random()<.6)return 4;return empty[Math.floor(Math.random()*empty.length)]}
+  let best=-99,picks=[];for(const i of empty){b[i]=me;const v=minimax(b,me,them,1);b[i]=0;if(v>best){best=v;picks=[i]}else if(v===best)picks.push(i)}
+  return picks[Math.floor(Math.random()*picks.length)]}
+
+const isCpu=()=>cfg.mode==='cpu'&&S.turn===S.cpu;
+function newRound(){round++;const cpuFirst=cfg.mode==='cpu'&&(cfg.first==='cpu'||(cfg.first==='alt'&&round%2===0));
+  // X always moves first; whoever starts plays X
+  S={b:Array(9).fill(0),turn:'X',cpu:cfg.mode==='cpu'?(cpuFirst?'X':'O'):null,over:null,busy:false,gen:(S?S.gen:0)+1};
+  build();render();next()}
+function next(){render();if(!S.over&&isCpu()){S.busy=true;render();const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;place(cpuMove())},520)}}
+function place(i){if(S.over||S.b[i])return;S.b[i]=S.turn;drawMark(i);const w=winner(S.b);
+  if(w){S.over=w;const key=!w.p?'d':cfg.mode==='cpu'?(w.p===S.cpu?1:0):(w.p==='X'?0:1);wins[key]++;if(w.l)strike(w.l);render();return}
+  S.turn=S.turn==='X'?'O':'X';next()}
+
+/* ---------- drawing ---------- */
+function build(){const g=$('grid');g.querySelectorAll('.cell,.strike').forEach(e=>e.remove());
+  for(let i=0;i<9;i++){const c=document.createElement('button');c.className='cell';c.dataset.i=i;c.setAttribute('aria-label',`Square ${i+1}: empty`);g.appendChild(c)}}
+function drawMark(i){const c=$('grid').children[i+1],m=S.b[i];
+  c.innerHTML=m==='X'?'<svg viewBox="0 0 100 100"><path class="x" d="M18 16 Q50 52 84 86"/><path class="x x2" d="M84 18 Q48 50 16 84"/></svg>':'<svg viewBox="0 0 100 100"><circle class="o" cx="50" cy="50" r="34"/></svg>';
+  c.setAttribute('aria-label',`Square ${i+1}: ${m}`)}
+function strike(l){const pos=i=>[(i%3+.5)*100,(Math.floor(i/3)+.5)*100];const [a,b]=[pos(l[0]),pos(l[2])];const dx=(b[0]-a[0])*.18,dy=(b[1]-a[1])*.18;
+  $('grid').insertAdjacentHTML('beforeend',`<svg class="strike" viewBox="0 0 300 300"><line x1="${a[0]-dx}" y1="${a[1]-dy}" x2="${b[0]+dx}" y2="${b[1]+dy}"/></svg>`)}
+function render(){const cells=[...$('grid').querySelectorAll('.cell')];const me=!S.over&&!S.busy&&!isCpu();
+  cells.forEach((c,i)=>{c.disabled=!me||!!S.b[i];c.classList.toggle('kb',kb===i&&me)});
+  const you=cfg.mode==='cpu'?(S.cpu==='X'?'O':'X'):'X';
+  $('n0').textContent=cfg.mode==='cpu'?`You (${you})`:'X';$('n1').textContent=cfg.mode==='cpu'?`Computer (${S.cpu})`:'O';
+  $('w0').textContent=wins[0];$('w1').textContent=wins[1];$('wd').textContent=wins.d;
+  const turnIdx=cfg.mode==='cpu'?(S.turn===S.cpu?1:0):(S.turn==='X'?0:1);$('s0').classList.toggle('cur',!S.over&&turnIdx===0);$('s1').classList.toggle('cur',!S.over&&turnIdx===1);
+  const w=S.over;$('status').textContent=w?(!w.p?'A draw.':cfg.mode==='cpu'?(w.p===S.cpu?'The computer wins.':'You win!'):`${w.p} wins!`):isCpu()?'Computer is thinking…':cfg.mode==='cpu'?`Your move (${S.turn}).`:`${S.turn} to move.`;
+  $('level').hidden=$('first').hidden=cfg.mode!=='cpu'}
+
+/* ---------- input & settings ---------- */
+$('grid').addEventListener('click',e=>{const c=e.target.closest('.cell');if(!c||c.disabled)return;kb=-1;place(+c.dataset.i)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;const mv={ArrowUp:-3,ArrowDown:3,ArrowLeft:-1,ArrowRight:1}[e.key];
+  if(mv){e.preventDefault();if(kb<0)kb=4;else{const n=kb+mv;if(n>=0&&n<9&&!(Math.abs(mv)===1&&Math.floor(n/3)!==Math.floor(kb/3)))kb=n}render();return}
+  if((e.key==='Enter'||e.key===' ')&&kb>=0&&!S.over&&!S.busy&&!isCpu()){e.preventDefault();place(kb)}
+  else if(e.key==='n'||e.key==='N'||(S.over&&e.key==='Enter'))newRound()});
+$('again').onclick=newRound;
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('first').value=cfg.first}
+function setCfg(k,v){cfg[k]=v;store.set('parlor-ttt',cfg);sync();if(k!=='level'){wins[0]=wins[1]=wins.d=0;round=0}newRound()}
+$('mode').onchange=e=>setCfg('mode',e.target.value);$('level').onchange=e=>setCfg('level',e.target.value);$('first').onchange=e=>setCfg('first',e.target.value);
+window.onAppBack=()=>false;
+if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';if(!['alt','you','cpu'].includes(cfg.first))cfg.first='alt';
+sync();newRound();
+</script>
+</body>
+</html>

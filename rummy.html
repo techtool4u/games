@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rummy</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a green card table. Rivals along the top (card counts, scores), the draw and discard piles, the melds laid on the table, then your hand fanned along the bottom with Meld / Lay off / Discard buttons. Scores and rules beside on wide screens, below on phones. */
+:root{
+  --bg:#0f3a2a; --felt:#16553d; --felt-2:#0f402d; --fg:#f2f6f3; --muted:#b5cdbf; --panel:rgba(255,255,255,.08); --line:rgba(255,255,255,.16);
+  --accent:#f3c246; --accent-ink:#2a1d00; --card:#fffdf8; --red:#c62b2b; --black:#1d1d22; --back-1:#8c2f2b; --back-2:#6e2421;
+  --display:"Libre Baskerville", Georgia, serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#08201a;--felt:#0f3b2b;--felt-2:#0a2c20;--card:#f1ece2}}
+:root[data-theme="dark"]{--bg:#08201a;--felt:#0f3b2b;--felt-2:#0a2c20;--card:#f1ece2}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4;min-height:100vh}
+.wrap{max-width:1120px;margin:0 auto;padding-block:10px 20px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+h1{font-family:var(--display);font-size:clamp(24px,4.5vw,34px);line-height:1.05;margin:2px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:#123d2d;color:var(--fg);padding:7px 10px;border-radius:999px;min-height:38px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.game{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.table{background:radial-gradient(ellipse at 50% 30%,var(--felt),var(--felt-2) 75%);border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset 0 10px 40px rgba(0,0,0,.3);padding:12px;display:flex;flex-direction:column;gap:12px;--cw:clamp(44px,8.4vw,70px);user-select:none;-webkit-user-select:none}
+.rivals{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px}
+.rv{background:rgba(255,255,255,.07);border-radius:12px;padding:6px 8px;display:flex;justify-content:space-between;align-items:center;gap:6px;border:2px solid transparent}
+.rv.cur{border-color:var(--accent)}
+.rv b{font-size:14px}.rv small{color:var(--muted);font-size:12.5px}
+.piles{display:flex;gap:16px;align-items:center;justify-content:center}
+.pile{border:0;padding:0;background:none;cursor:pointer;border-radius:calc(var(--cw)*.09);position:relative}
+.pile:disabled{cursor:default}
+.pile.glow .card,.pile.glow .cback{box-shadow:0 0 0 3px var(--accent),0 2px 4px rgba(0,0,0,.4)}
+.pile small{display:block;text-align:center;color:var(--muted);font-size:12px;margin-top:3px}
+.cback{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:repeating-linear-gradient(45deg,var(--back-1) 0 6%,var(--back-2) 6% 12%);box-shadow:0 2px 0 rgba(0,0,0,.3),inset 0 0 0 calc(var(--cw)*.05) #fff}
+.empty{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);border:2px dashed rgba(255,255,255,.25);box-sizing:border-box}
+.melds{display:flex;flex-wrap:wrap;gap:10px 14px;min-height:calc(var(--cw)*1.1);align-content:flex-start;padding:6px;border-radius:12px;background:rgba(0,0,0,.08)}
+.melds .hint{color:var(--muted);font-size:14px;align-self:center;margin:auto}
+.meld{display:flex;border:0;background:none;padding:3px;border-radius:10px;cursor:default;--mw:calc(var(--cw)*.78)}
+.meld.target{cursor:pointer;box-shadow:0 0 0 2px var(--accent)}
+.meld .card{width:var(--mw);height:calc(var(--mw)*1.42);margin-left:calc(var(--mw)*-.6)}
+.meld .card:first-child{margin-left:0}
+.meld .card .ix{font-size:calc(var(--mw)*.3)}.meld .card .cc{display:none}
+.hand{display:flex;flex-wrap:wrap;justify-content:center;padding-top:16px;row-gap:10px;max-width:100%}
+.hand .card{margin-left:calc(var(--cw)*-.42);transition:transform .15s;cursor:pointer}
+.hand .card:first-child{margin-left:0}
+.hand .card.sel{transform:translateY(-14px);box-shadow:0 0 0 3px var(--accent),0 6px 12px rgba(0,0,0,.4)}
+.hand .card.drawn{box-shadow:0 0 0 3px #7fd1ff,0 4px 10px rgba(0,0,0,.4)}
+.hand .card.sel.drawn{box-shadow:0 0 0 3px var(--accent),0 6px 12px rgba(0,0,0,.4)}
+.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center}
+.msg{color:var(--muted);font-size:14.5px;text-align:center;min-height:20px}
+.card{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.12);overflow:hidden;flex:none;border:0;padding:0;font:inherit;position:relative}
+.card .ix{position:absolute;left:7%;top:3%;font-weight:800;font-size:calc(var(--cw)*.3);line-height:1;letter-spacing:-.04em;display:flex;flex-direction:column;align-items:center}
+.card .ix i{font-style:normal;font-size:.85em}
+.card .cc{position:absolute;right:7%;bottom:5%;font-size:calc(var(--cw)*.5);line-height:1}
+.card.r{color:var(--red)} .card.k{color:var(--black)}
+span.card{display:block}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.label{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.sc div{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;padding:2px 0}
+.log{max-height:150px;overflow:auto;display:flex;flex-direction:column;gap:3px;font-size:13.5px;color:var(--muted)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+.overlay{position:fixed;inset:0;background:rgba(0,10,5,.6);display:grid;place-items:center;padding:16px;z-index:1000}
+.modal{background:#fffdf8;color:#1f2a24;border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px}
+.modal h2{font-family:var(--display);font-size:28px;margin:0}
+.modal p{margin:0;color:#5b6b62}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.modal .btn{background:#f1efe8;color:#1f2a24;border-color:#ddd7ca}
+.modal .btn.primary{background:#1f7a4f;color:#fff;border-color:#1f7a4f}
+@media (max-width:520px){.table{padding:8px;--cw:clamp(40px,12.5vw,56px)}.hand .card{margin-left:calc(var(--cw)*-.5)}}
+@media (prefers-reduced-motion:reduce){.hand .card{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Rummy</h1>
+    </div>
+    <div class="controls">
+      <select id="rivals" aria-label="Opponents"><option value="1">You vs 1</option><option value="2">You vs 2</option><option value="3">You vs 3</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="target" aria-label="Game length"><option value="0">Single hand</option><option value="100">Game to 100</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="game">
+    <section class="table" aria-live="polite">
+      <div class="rivals" id="rivalsBox"></div>
+      <div class="piles">
+        <button class="pile" id="stock" aria-label="Draw from the stock"><div class="cback"></div><small id="stockN"></small></button>
+        <button class="pile" id="disc" aria-label="Take the top discard"></button>
+      </div>
+      <div class="melds" id="melds"></div>
+      <div class="msg" id="msg"></div>
+      <div class="hand" id="hand" aria-label="Your hand"></div>
+      <div class="bar">
+        <button class="btn primary" id="meld">Meld</button>
+        <button class="btn" id="layoff">Lay off</button>
+        <button class="btn primary" id="discard">Discard</button>
+        <button class="btn" id="sort">Sort</button>
+      </div>
+    </section>
+    <aside class="side">
+      <div class="panel"><p class="label">Scores</p><div class="sc" id="scores"></div></div>
+      <div class="panel"><p class="label">Last plays</p><div class="log" id="log"></div></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Each turn: <b>draw</b> one card (from the stock, or the top of the discard pile), then make any melds you can, then <b>discard</b> one card.</li>
+            <li>A meld is a <b>set</b> of three or four of a kind, or a <b>run</b> of three or more in a row in one suit (ace is low or high: A-2-3 or Q-K-A).</li>
+            <li>Select cards in your hand and press <b>Meld</b>. To add a card to any meld on the table, select it and tap that meld (or press Lay off).</li>
+            <li>You can't throw back the discard you just picked up.</li>
+            <li>Get rid of all your cards to win the hand. You score the cards left in everyone else's hand: face cards 10, aces 1, others their number.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- cards ---------- */
+// A card is 0-51: suit = floor(c/13) (0 ♠, 1 ♥, 2 ♦, 3 ♣), rank = c%13 + 1 (ace = 1, king = 13).
+const SUITS=['♠','♥','♦','♣'],SN=['spades','hearts','diamonds','clubs'],RK=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const suit=c=>Math.floor(c/13),rank=c=>c%13+1,red=c=>suit(c)===1||suit(c)===2,val=c=>Math.min(10,rank(c));
+const label=c=>RK[rank(c)-1]+SUITS[suit(c)];
+const NAMES=['Ada','Monty','Lou'];
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({rivals:1,level:'medium',target:100},store.get('parlor-rummy',{}));
+let S=null,sortBy='suit';
+
+/* ---------- melds ---------- */
+function isSet(cs){if(cs.length<3||cs.length>4)return false;const r=rank(cs[0]);return cs.every(c=>rank(c)===r)&&new Set(cs.map(suit)).size===cs.length}
+// Run in one suit: consecutive ranks, ace low (1) or high (14) but no wrapping.
+function runOrder(cs){if(cs.length<3)return null;const s=suit(cs[0]);if(!cs.every(c=>suit(c)===s))return null;
+  for(const aceHigh of [false,true]){const rs=cs.map(c=>rank(c)===1&&aceHigh?14:rank(c)).sort((a,b)=>a-b);if(rs.every((r,i)=>i===0||r===rs[i-1]+1))return cs.slice().sort((a,b)=>(rank(a)===1&&aceHigh?14:rank(a))-(rank(b)===1&&aceHigh?14:rank(b)))}
+  return null}
+const isMeld=cs=>isSet(cs)||!!runOrder(cs);
+const arrange=cs=>isSet(cs)?cs.slice().sort((a,b)=>suit(a)-suit(b)):runOrder(cs);
+const fitsMeld=(m,c)=>isMeld(m.cards.concat(c));
+// Best set of non-overlapping melds from a hand (most cards), by trying every candidate meld.
+function findMelds(hand){const cand=[];
+  for(let r=1;r<=13;r++){const cs=hand.filter(c=>rank(c)===r);if(cs.length>=3){cand.push(cs.slice());if(cs.length===4)for(let k=0;k<4;k++)cand.push(cs.filter((_,i)=>i!==k))}}
+  for(let s=0;s<4;s++){const has=r=>hand.includes(s*13+((r-1)%13));for(let a=1;a<=12;a++)for(let b=a+2;b<=14;b++){let ok=true;for(let r=a;r<=b;r++)if(!has(r)){ok=false;break}if(!ok)break;const cs=[];for(let r=a;r<=b;r++)cs.push(s*13+((r-1)%13));cand.push(cs)}}
+  let best={n:0,v:0,melds:[]};
+  const rec=(i,used,melds,n,v)=>{if(n>best.n||(n===best.n&&v>best.v))best={n,v,melds:melds.slice()};
+    for(let k=i;k<cand.length;k++){const m=cand[k];if(m.some(c=>used.has(c)))continue;m.forEach(c=>used.add(c));melds.push(m);rec(k+1,used,melds,n+m.length,v+m.reduce((a,c)=>a+val(c),0));melds.pop();m.forEach(c=>used.delete(c))}};
+  rec(0,new Set(),[],0,0);return best.melds}
+
+/* ---------- game ---------- */
+function newGame(){$('overlay').hidden=true;const names=shuffle(NAMES.slice());S={players:[{name:'You'},...[...Array(+cfg.rivals)].map((_,i)=>({name:names[i],cpu:true}))],dealer:-1,gen:(S?S.gen:0)+1};S.players.forEach(p=>p.score=0);deal()}
+function deal(){const n=S.players.length,deck=shuffle([...Array(52).keys()]),hand=n===2?10:7;S.dealer=(S.dealer+1)%n;
+  Object.assign(S,{hands:S.players.map(()=>deck.splice(0,hand)),stock:deck,disc:[],melds:[],refills:0,turn:(S.dealer+1)%n,phase:'draw',sel:new Set(),took:null,drawn:null,log:[],over:false,busy:false,pickups:S.players.map(()=>[])});
+  S.disc.push(S.stock.pop());sortHand();log(`New hand. ${S.players[S.turn].name} ${S.turn===0?'go':'goes'} first.`);next()}
+const cur=()=>S.players[S.turn];
+function log(t){S.log.push(t);if(S.log.length>30)S.log.shift()}
+function sortHand(){S.hands[0].sort(sortBy==='suit'?(a,b)=>suit(a)-suit(b)||rank(a)-rank(b):(a,b)=>rank(a)-rank(b)||suit(a)-suit(b))}
+function refill(){if(S.stock.length)return true;if(S.disc.length<2||S.refills>=2)return false;S.refills++;const top=S.disc.pop();S.stock=shuffle(S.disc);S.disc=[top];log('The discards are shuffled into a new stock.');return true}
+function draw(p,fromDisc){let c;if(fromDisc){c=S.disc.pop();S.took=c;S.pickups[p].push(c);log(`${S.players[p].name} ${p===0?'take':'takes'} ${label(c)} from the discards.`)}
+  else{if(!refill()){blocked();return null}c=S.stock.pop();S.took=null;log(`${S.players[p].name} ${p===0?'draw':'draws'} from the stock.`)}
+  S.hands[p].push(c);S.drawn=c;S.phase='play';return c}
+function meld(p,cs){S.hands[p]=S.hands[p].filter(c=>!cs.includes(c));S.melds.push({cards:arrange(cs),by:p});log(`${S.players[p].name} ${p===0?'meld':'melds'} ${arrange(cs).map(label).join(' ')}.`)}
+function layoff(p,c,mi){const m=S.melds[mi];S.hands[p]=S.hands[p].filter(x=>x!==c);m.cards=arrange(m.cards.concat(c));log(`${S.players[p].name} ${p===0?'lay':'lays'} off ${label(c)}.`)}
+function discard(p,c){S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c);log(`${S.players[p].name} ${p===0?'discard':'discards'} ${label(c)}.`);
+  if(!S.hands[p].length){handOver(p);return}S.turn=(S.turn+1)%S.players.length;S.phase='draw';S.took=null;S.drawn=null;S.sel=new Set();next()}
+// After the stock has run out twice with nobody going out, the hand is a draw and nobody scores.
+function blocked(){S.over=true;log('The stock ran out again: this hand is a draw.');render();
+  setTimeout(()=>{$('modal').innerHTML=`<h2>A blocked hand</h2><p>The stock ran out for the second time and nobody went out, so nobody scores.</p><div class="row"><button class="btn primary" id="mnext">Next hand</button></div>`;
+    $('overlay').hidden=false;$('mnext').focus();$('mnext').onclick=()=>{$('overlay').hidden=true;deal()}},500)}
+// Going out by melding or laying off the last cards ends the hand without a discard.
+function checkOut(p){if(!S.hands[p].length){handOver(p);return true}return false}
+function handOver(w){S.over=true;const gained=S.hands.reduce((n,h,i)=>i===w?n:n+h.reduce((a,c)=>a+val(c),0),0);S.players[w].score+=gained;render();
+  const target=+cfg.target,done=!target||S.players[w].score>=target,nm=S.players[w].name;
+  const title=done?(w===0?'You win!':`${nm} wins`):(w===0?'You went out!':`${nm} went out`);
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><p>${w===0?'You':nm} scored ${gained} from the cards left in other hands.</p><p>${S.players.map(p=>`${p.name} ${p.score}`).join(' · ')}${target?` · playing to ${target}`:''}</p><div class="row"><button class="btn" id="mview">View table</button><button class="btn primary" id="mnext">${done?'New game':'Next hand'}</button></div>`;
+    $('overlay').hidden=false;$('mnext').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('mnext').onclick=()=>{$('overlay').hidden=true;if(done)newGame();else deal()}},600)}
+
+/* ---------- computer ---------- */
+// Cards that are halfway to a meld: a pair, or two of a suit within two ranks.
+function partners(hand,c){return hand.filter(x=>x!==c&&(rank(x)===rank(c)||(suit(x)===suit(c)&&Math.abs(rank(x)-rank(c))<=2))).length}
+function wantsDiscard(p){const top=S.disc[S.disc.length-1];if(top==null)return false;const h=S.hands[p];
+  if(S.melds.some(m=>fitsMeld(m,top)))return cfg.level!=='easy';
+  const with_=findMelds(h.concat(top)).flat().length,without=findMelds(h).flat().length;return with_>without+0||(cfg.level==='hard'&&partners(h,top)>=2)}
+function chooseDiscard(p){const h=S.hands[p],lv=cfg.level;let opts=h.filter(c=>c!==S.took);if(!opts.length)opts=h;
+  if(lv==='easy')return opts[rand(opts.length)];
+  const next=(p+1)%S.players.length,theirs=S.pickups[next];
+  const score=c=>val(c)*2-partners(h,c)*12-(lv==='hard'&&theirs.some(t=>rank(t)===rank(c)||(suit(t)===suit(c)&&Math.abs(rank(t)-rank(c))<=1))?14:0)-(lv==='hard'&&S.melds.some(m=>fitsMeld(m,c))?30:0);
+  return opts.reduce((a,b)=>score(b)>score(a)?b:a)}
+function cpuTurn(){const p=S.turn,g=S.gen;S.busy=true;render();
+  setTimeout(()=>{if(g!==S.gen)return;if(draw(p,wantsDiscard(p))==null){S.busy=false;return}render();
+    setTimeout(()=>{if(g!==S.gen)return;
+      // meld everything it can, then lay off anything that fits (going out this way is allowed)
+      for(const m of findMelds(S.hands[p]))meld(p,m);
+      if(cfg.level!=='easy'||Math.random()<.5)for(const c of S.hands[p].slice()){const mi=S.melds.findIndex(m=>fitsMeld(m,c));if(mi>=0)layoff(p,c,mi)}
+      render();if(!S.hands[p].length){handOver(p);return}
+      setTimeout(()=>{if(g!==S.gen)return;S.busy=false;discard(p,chooseDiscard(p))},600)},700)},700)}
+function next(){render();if(S.over)return;if(cur().cpu)cpuTurn()}
+
+/* ---------- you ---------- */
+const selCards=()=>[...S.sel];
+function youDraw(fromDisc){if(S.turn!==0||S.phase!=='draw'||S.busy||S.over)return;if(fromDisc&&!S.disc.length)return;if(draw(0,fromDisc)==null)return;sortHand();render()}
+function youMeld(){const cs=selCards();if(!isMeld(cs))return;meld(0,cs);S.sel=new Set();if(!checkOut(0))render()}
+function youLayoff(mi){const cs=selCards();if(cs.length!==1)return;const c=cs[0];const targets=S.melds.map((m,i)=>i).filter(i=>fitsMeld(S.melds[i],c));
+  if(mi==null){if(targets.length!==1)return;mi=targets[0]}if(!targets.includes(mi))return;layoff(0,c,mi);S.sel=new Set();if(!checkOut(0))render()}
+function youDiscard(){const cs=selCards();if(cs.length!==1||S.phase!=='play')return;if(cs[0]===S.took&&S.hands[0].length>1){S.msg='You can\'t throw back the card you just took.';render();return}S.msg='';discard(0,cs[0])}
+
+/* ---------- drawing ---------- */
+const cardHTML=(c,cls='')=>`<button class="card ${red(c)?'r':'k'} ${cls}" data-c="${c}" aria-label="${RK[rank(c)-1]} of ${SN[suit(c)]}"><span class="ix">${RK[rank(c)-1]}<i>${SUITS[suit(c)]}</i></span><span class="cc">${SUITS[suit(c)]}</span></button>`;
+function render(){if(!S)return;const me=S.turn===0&&!S.busy&&!S.over,cs=selCards();
+  $('rivalsBox').innerHTML=S.players.slice(1).map((p,k)=>{const i=k+1,n=S.hands[i].length;return`<div class="rv${S.turn===i&&!S.over?' cur':''}"><div><b>${p.name}</b><br><small>${n} card${n===1?'':'s'}</small></div><small>${p.score} pts</small></div>`}).join('');
+  $('stockN').textContent=`${S.stock.length} left`;$('stock').disabled=!(me&&S.phase==='draw');$('stock').classList.toggle('glow',me&&S.phase==='draw');
+  const top=S.disc[S.disc.length-1];$('disc').innerHTML=top!=null?cardHTML(top).replace('<button','<span').replace('</button>','</span>')+'<small>discards</small>':'<div class="empty"></div><small>discards</small>';
+  $('disc').disabled=!(me&&S.phase==='draw'&&top!=null);$('disc').classList.toggle('glow',me&&S.phase==='draw'&&top!=null);
+  const lay=cs.length===1&&me&&S.phase==='play'?S.melds.map((m,i)=>fitsMeld(m,cs[0])?i:-1).filter(i=>i>=0):[];
+  $('melds').innerHTML=S.melds.length?S.melds.map((m,i)=>`<button class="meld${lay.includes(i)?' target':''}" data-m="${i}" aria-label="Meld ${i+1}${lay.includes(i)?', tap to lay off':''}">${m.cards.map(c=>cardHTML(c).replace('<button','<span').replace('</button>','</span>')).join('')}</button>`).join(''):'<span class="hint">Melds go here</span>';
+  $('hand').innerHTML=S.hands[0].map(c=>cardHTML(c,`${S.sel.has(c)?'sel':''}${c===S.drawn&&S.turn===0?' drawn':''}`)).join('');
+  $('meld').disabled=!(me&&S.phase==='play'&&isMeld(cs));$('layoff').disabled=!(lay.length===1);
+  $('discard').disabled=!(me&&S.phase==='play'&&cs.length===1);
+  $('msg').textContent=S.over?'Hand over.':S.msg||(!me?`${cur().name} is playing…`:S.phase==='draw'?'Draw a card: tap the stock or the discard pile.':cs.length===0?'Select cards to meld, or one card to discard.':isMeld(cs)?'That\'s a meld: press Meld.':lay.length?'Tap a highlighted meld to lay this card off, or discard it.':cs.length===1?'Discard this card to end your turn.':'Those cards don\'t make a set or a run yet.');
+  S.msg='';
+  $('scores').innerHTML=S.players.map((p,i)=>`<div><span>${p.name} <small style="color:var(--muted)">${S.hands[i].length} card${S.hands[i].length===1?'':'s'}</small></span><b>${p.score}</b></div>`).join('')+`<div><span style="color:var(--muted)">${+cfg.target?'Playing to '+cfg.target:'Single hand'}</span><span></span></div>`;
+  $('log').innerHTML=S.log.slice(-12).map(t=>`<div>${t}</div>`).join('');$('log').scrollTop=1e6}
+
+/* ---------- input & settings ---------- */
+$('hand').addEventListener('click',e=>{const b=e.target.closest('.card');if(!b||S.turn!==0||S.over)return;const c=+b.dataset.c;if(S.sel.has(c))S.sel.delete(c);else S.sel.add(c);render()});
+$('melds').addEventListener('click',e=>{const m=e.target.closest('.meld.target');if(m)youLayoff(+m.dataset.m)});
+$('stock').onclick=()=>youDraw(false);$('disc').onclick=()=>youDraw(true);
+$('meld').onclick=youMeld;$('layoff').onclick=()=>youLayoff();$('discard').onclick=youDiscard;
+$('sort').onclick=()=>{sortBy=sortBy==='suit'?'rank':'suit';sortHand();render()};
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}if(S&&S.sel.size){S.sel=new Set();render();return true}return false};
+function sync(){$('rivals').value=cfg.rivals;$('level').value=cfg.level;$('target').value=cfg.target}
+const started=()=>S&&!S.over&&(S.log.length>2||S.players.some(p=>p.score));
+function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-rummy',cfg);sync();if(restart)newGame();else render()}
+$('rivals').onchange=e=>setCfg('rivals',+e.target.value,true);$('level').onchange=e=>setCfg('level',e.target.value,false);$('target').onchange=e=>setCfg('target',+e.target.value,false);
+$('newgame').onclick=()=>{if(started()&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+if(!(cfg.rivals>=1&&cfg.rivals<=3))cfg.rivals=1;if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';if(![0,100].includes(+cfg.target))cfg.target=100;
+sync();newGame();
+</script>
+</body>
+</html>

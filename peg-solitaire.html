@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peg Solitaire</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with board shape and restart; a strip with pegs left and best; the round wooden board with marble pegs; undo/hint and rules below. */
+:root{
+  --bg:#f1ebe0; --fg:#2c2217; --muted:#6e6150; --panel:#fffaf1; --line:#ddd1bd; --chip:#f2e9da;
+  --accent:#9a4d1e; --accent-ink:#ffffff; --wood:#c4935c; --wood-2:#8f6233; --hole:#5a3c1d; --peg:#2f6fd6; --peg-2:#174a9e;
+  --display:"Cormorant Garamond", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15110c; --fg:#efe5d5; --muted:#aa9c87; --panel:#1f1912; --line:#3a2f22; --chip:#2a2218; --accent:#e29a5f; --accent-ink:#2a1205; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#15110c; --fg:#efe5d5; --muted:#aa9c87; --panel:#1f1912; --line:#3a2f22; --chip:#2a2218; --accent:#e29a5f; --accent-ink:#2a1205; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:560px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(34px,7vw,50px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.strip{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:14.5px}
+.strip b{color:var(--fg);font-variant-numeric:tabular-nums}
+.board{width:min(100%,calc(100dvh - 250px));min-width:min(100%,270px);aspect-ratio:1;align-self:center;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--wood),var(--wood-2));box-shadow:0 18px 34px -18px rgba(60,35,10,.8),inset 0 3px 0 rgba(255,255,255,.25);display:grid;place-items:center;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.grid{display:grid;grid-template-columns:repeat(var(--n),1fr);width:84%;aspect-ratio:1}
+.grid.tri{width:86%}
+.board.tri{border-radius:26px}
+.h{border:0;background:none;padding:12%;cursor:pointer;position:relative;display:grid;place-items:center;min-width:0}
+.h::before{content:"";width:56%;aspect-ratio:1;border-radius:50%;background:var(--hole);box-shadow:inset 0 3px 5px rgba(0,0,0,.6)}
+.h.off{visibility:hidden;pointer-events:none}
+.h .p{position:absolute;width:76%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 30%,#8ab4ff,var(--peg) 45%,var(--peg-2));box-shadow:0 3px 4px rgba(0,0,0,.45);transition:transform .15s}
+.h.sel .p{transform:scale(1.12);box-shadow:0 0 0 3px #ffd36b,0 6px 10px rgba(0,0,0,.45)}
+.h.tgt::after{content:"";position:absolute;width:40%;aspect-ratio:1;border-radius:50%;background:#ffd36b;opacity:.85}
+.h.hint .p{animation:bob .8s ease-in-out 2}
+.h.kb{outline:3px solid #ffd36b;outline-offset:-4px;border-radius:50%}
+@keyframes bob{50%{transform:translateY(-14%)}}
+.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.overlay{position:fixed;inset:0;background:rgba(30,18,6,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:38px;margin:0;line-height:1.05}
+.modal p{margin:0;color:var(--muted)}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:900px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;padding-block:8px 12px}.board{grid-column:1;grid-row:1/7;width:calc(100dvh - 20px);min-width:0}h1{font-size:30px}}
+@media (prefers-reduced-motion:reduce){.h .p{transition:none}.h.hint .p{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Peg Solitaire</h1>
+    </div>
+    <div class="controls">
+      <select id="shape" aria-label="Board"><option value="english">English cross · 33 holes</option><option value="european">French round · 37 holes</option><option value="triangle">Triangle · 15 holes</option></select>
+      <button class="btn primary" id="newgame">Restart</button>
+    </div>
+  </header>
+  <div class="strip" aria-live="polite"><span>Pegs left <b id="left">32</b></span><span>Moves <b id="moves">0</b></span><span id="best"></span></div>
+  <div class="board"><div class="grid" id="grid" role="grid" aria-label="Board. Arrow keys move, Enter picks a peg or a hole."></div></div>
+  <div class="row"><button class="btn" id="undo">Undo</button><button class="btn" id="hint">Hint</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Jump one peg over a neighbor into an empty hole straight beyond it; the peg you jumped over is removed.</li>
+        <li>Jumps go along the lines of holes (across or down; on the triangle, along its three directions).</li>
+        <li>Tap a peg, then a highlighted hole. Keep jumping until no jump is left.</li>
+        <li>The goal is to finish with a single peg, best of all in the hole that started empty. Fewer pegs left is better.</li>
+        <li>Hint looks for a jump from which the board can still be cleared down to one peg.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+// Each board is a square grid; '.' = no hole. Triangle uses a skewed grid where row r has r+1 holes.
+const SHAPES={
+  english:{n:7,rows:['..###..','..###..','#######','#######','#######','..###..','..###..'],empty:[3,3],dirs:[[0,1],[1,0],[0,-1],[-1,0]]},
+  european:{n:7,rows:['..###..','.#####.','#######','#######','#######','.#####.','..###..'],empty:[2,3],dirs:[[0,1],[1,0],[0,-1],[-1,0]]},
+  triangle:{n:5,rows:['#....','##...','###..','####.','#####'],empty:[0,0],dirs:[[0,1],[1,0],[0,-1],[-1,0],[1,1],[-1,-1]]}};
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({shape:'english'},store.get('parlor-pegs',{}));
+const best=store.get('parlor-pegs-best',{});
+let G=null,kb=-1;
+
+const sh=()=>SHAPES[G.shape];
+const hole=(r,c)=>r>=0&&c>=0&&r<sh().n&&c<sh().n&&sh().rows[r][c]==='#';
+function jumps(b){const out=[],n=sh().n;for(let r=0;r<n;r++)for(let c=0;c<n;c++){if(!b[r*n+c])continue;for(const [dr,dc] of sh().dirs){const r1=r+dr,c1=c+dc,r2=r+2*dr,c2=c+2*dc;
+  if(hole(r2,c2)&&b[r1*n+c1]&&!b[r2*n+c2])out.push({from:r*n+c,over:r1*n+c1,to:r2*n+c2})}}return out}
+function newGame(){$('overlay').hidden=true;G={shape:cfg.shape,b:null,hist:[],sel:-1,moves:0};const s=sh(),n=s.n;G.b=[];for(let r=0;r<n;r++)for(let c=0;c<n;c++)G.b.push(hole(r,c)&&!(r===s.empty[0]&&c===s.empty[1])?1:0);
+  kb=-1;build();render()}
+function apply(j){G.hist.push(G.b.slice());G.b[j.from]=0;G.b[j.over]=0;G.b[j.to]=1;G.moves++;G.sel=-1;render();if(!jumps(G.b).length)finish()}
+function undo(){if(!G.hist.length)return;G.b=G.hist.pop();G.moves--;G.sel=-1;$('overlay').hidden=true;render()}
+const pegs=()=>G.b.reduce((a,v)=>a+v,0);
+// Search for a jump from which one peg can still be reached (memoized, with a time limit).
+function solveFrom(b,deadline,memo){const k=b.join('');if(memo.has(k))return memo.get(k);if(Date.now()>deadline)throw 0;
+  const p=b.reduce((a,v)=>a+v,0);if(p===1){memo.set(k,true);return true}
+  for(const j of jumps(b)){b[j.from]=0;b[j.over]=0;b[j.to]=1;const ok=solveFrom(b,deadline,memo);b[j.from]=1;b[j.over]=1;b[j.to]=0;if(ok){memo.set(k,true);return true}}
+  memo.set(k,false);return false}
+function hint(){const js=jumps(G.b);if(!js.length)return;const memo=new Map(),deadline=Date.now()+1500;let pick=null,timedOut=false;
+  try{for(const j of js){const b=G.b.slice();b[j.from]=0;b[j.over]=0;b[j.to]=1;if(solveFrom(b,deadline,memo)){pick=j;break}}}catch(e){timedOut=true}
+  // Too many positions to search in time: suggest the jump that leaves the most follow-up jumps, toward the middle.
+  if(!pick&&timedOut){const n=sh().n,mid=(n-1)/2;let bv=-1e9;for(const j of js){const b=G.b.slice();b[j.from]=0;b[j.over]=0;b[j.to]=1;const r=Math.floor(j.to/n),c=j.to%n;const v=jumps(b).length*2-Math.abs(r-mid)-Math.abs(c-mid);if(v>bv){bv=v;pick=j}}}
+  const cells=$('grid').children;if(!pick){toastMsg('No path to one peg from here. Try undo.');return}
+  cells[pick.from].classList.add('hint');G.sel=pick.from;render();if(timedOut)toastMsg('No sure route found quickly; this jump looks promising.');setTimeout(()=>cells[pick.from].classList.remove('hint'),1700)}
+function toastMsg(t){$('best').textContent=t;setTimeout(()=>render(),2200)}
+function finish(){const p=pegs(),s=sh(),n=s.n,center=G.b[s.empty[0]*n+s.empty[1]]===1;const k=G.shape,b=best[k];const nb=!b||p<b;if(nb){best[k]=p;store.set('parlor-pegs-best',best)}
+  const title=p===1?(center?'Perfect!':'One peg left!'):p<=3?'Very good':'No more jumps';
+  const note=p===1?(center?'You finished in the starting hole.':'Can you finish in the hole that started empty?'):`${p} pegs left.`;
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><p>${note}</p><p>Best on this board: ${best[k]} peg${best[k]>1?'s':''}.</p><div class="row"><button class="btn" id="mundo">Undo</button><button class="btn primary" id="mnew">Play again</button></div>`;
+    $('overlay').hidden=false;$('mnew').focus();$('mnew').onclick=newGame;$('mundo').onclick=undo},400)}
+
+function build(){const s=sh(),n=s.n;$('grid').style.setProperty('--n',n);$('grid').className='grid'+(G.shape==='triangle'?' tri':'');document.querySelector('.board').classList.toggle('tri',G.shape==='triangle');
+  $('grid').innerHTML=G.b.map((_,i)=>{const r=Math.floor(i/n),c=i%n;const tri=G.shape==='triangle';
+    // the triangle is drawn with each row shifted half a hole, so it looks like a triangle
+    const style=tri?`style="transform:translateX(${(n-1-r)*50}%)"`:'';
+    return`<button class="h${hole(r,c)?'':' off'}" data-i="${i}" ${style} aria-label="Hole ${r+1}-${c+1}"></button>`}).join('')}
+function render(){const cells=$('grid').children,js=jumps(G.b),tg=new Set(G.sel>=0?js.filter(j=>j.from===G.sel).map(j=>j.to):[]);
+  for(let i=0;i<cells.length;i++){const e=cells[i];if(e.classList.contains('off'))continue;e.classList.toggle('sel',i===G.sel);e.classList.toggle('tgt',tg.has(i));e.classList.toggle('kb',i===kb);
+    const has=!!G.b[i];if(has&&!e.firstChild)e.innerHTML='<span class="p"></span>';else if(!has&&e.firstChild)e.innerHTML='';e.setAttribute('aria-label',has?'peg':'empty hole')}
+  $('left').textContent=pegs();$('moves').textContent=G.moves;$('undo').disabled=!G.hist.length;$('hint').disabled=!js.length;
+  const b=best[G.shape];$('best').innerHTML=b?`Best <b>${b}</b> peg${b>1?'s':''}`:'';$('shape').value=G.shape}
+function tap(i){if(G.b[i]){G.sel=G.sel===i?-1:i;render();return}if(G.sel>=0){const j=jumps(G.b).find(j=>j.from===G.sel&&j.to===i);if(j){apply(j);return}}G.sel=-1;render()}
+$('grid').addEventListener('click',e=>{const h=e.target.closest('.h');if(!h)return;kb=-1;tap(+h.dataset.i)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select')||!$('overlay').hidden)return;const n=sh().n,mv={ArrowUp:-n,ArrowDown:n,ArrowLeft:-1,ArrowRight:1}[e.key];
+  if(mv){e.preventDefault();if(kb<0)kb=G.b.findIndex((_,i)=>hole(Math.floor(i/n),i%n));else{let k=kb;do{k+=mv}while(k>=0&&k<n*n&&!hole(Math.floor(k/n),k%n)&&!(Math.abs(mv)===1&&Math.floor(k/n)!==Math.floor(kb/n)));if(k>=0&&k<n*n&&hole(Math.floor(k/n),k%n))kb=k}render();return}
+  if((e.key==='Enter'||e.key===' ')&&kb>=0){e.preventDefault();tap(kb)}else if(e.key==='u'||e.key==='U')undo();else if(e.key==='h'||e.key==='H')hint()});
+$('undo').onclick=undo;$('hint').onclick=hint;
+$('newgame').onclick=()=>{if(G.moves&&$('overlay').hidden&&jumps(G.b).length&&!confirm('Restart this board?'))return;newGame()};
+$('shape').onchange=e=>{cfg.shape=e.target.value;store.set('parlor-pegs',cfg);newGame()};
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}if(G&&G.sel>=0){G.sel=-1;render();return true}return false};
+if(!SHAPES[cfg.shape])cfg.shape='english';
+newGame();
+</script>
+</body>
+</html>

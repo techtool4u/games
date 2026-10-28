@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Blackjack</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a casino table. The dealer's hand at the top, your hand(s) below, then the bet chips and Hit / Stand / Double / Split buttons, with your chip count. Rules and stats sit below. */
+:root{
+  --bg:#0d2b20; --felt:#13573c; --felt-2:#0c3d2a; --fg:#f2f6f3; --muted:#b5cdbf; --panel:rgba(255,255,255,.08); --line:rgba(255,255,255,.16);
+  --accent:#f3c246; --accent-ink:#2a1d00; --card:#fffdf8; --red:#c62b2b; --black:#1d1d22; --back-1:#1d4e89; --back-2:#163c6a;
+  --display:"Playfair Display", Georgia, serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4;min-height:100vh}
+.wrap{max-width:760px;margin:0 auto;padding-block:10px 24px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(28px,5vw,40px);line-height:1;margin:2px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:#123d2d;color:var(--fg);padding:7px 10px;border-radius:999px;min-height:38px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:44px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.advice{box-shadow:0 0 0 3px #7fd1ff}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.table{background:radial-gradient(ellipse at 50% 0%,var(--felt),var(--felt-2) 75%);border-radius:0 0 200px 200px/0 0 60px 60px;box-shadow:inset 0 0 0 6px #5b3a1e,inset 0 0 0 9px #7a5230,inset 0 10px 40px rgba(0,0,0,.3);padding:16px 14px 26px;display:flex;flex-direction:column;gap:14px;--cw:clamp(52px,12vw,80px);user-select:none;-webkit-user-select:none;min-height:360px}
+.area{display:flex;flex-direction:column;align-items:center;gap:6px}
+.area h2{margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.hands{display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+.hand{display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 8px;border-radius:14px;border:2px solid transparent}
+.hand.cur{border-color:var(--accent)}
+.cards{display:flex;min-height:calc(var(--cw)*1.42)}
+.cards .card{margin-left:calc(var(--cw)*-.55)}
+.cards .card.fresh{animation:deal .28s ease-out}
+.cards .card:first-child{margin-left:0}
+@keyframes deal{from{transform:translate(30px,-40px) rotate(8deg);opacity:0}}
+.tot{font-weight:800;font-size:14px;background:rgba(0,0,0,.35);padding:2px 10px;border-radius:999px}
+.tot.bust{background:#a12b26}.tot.bj{background:var(--accent);color:var(--accent-ink)}
+.res{font-family:var(--display);font-size:18px;min-height:24px}
+.res.win{color:#9fe8b8}.res.lose{color:#ffb3ab}.res.push{color:var(--muted)}
+.card{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.45),0 0 0 1px rgba(0,0,0,.12);overflow:hidden;flex:none;position:relative;display:block}
+.card .ix{position:absolute;left:7%;top:3%;font-weight:800;font-size:calc(var(--cw)*.3);line-height:1;letter-spacing:-.04em;display:flex;flex-direction:column;align-items:center}
+.card .ix i{font-style:normal;font-size:.85em}
+.card .cc{position:absolute;right:7%;bottom:5%;font-size:calc(var(--cw)*.5);line-height:1}
+.card.r{color:var(--red)} .card.k{color:var(--black)}
+.card.down{background:repeating-linear-gradient(45deg,var(--back-1) 0 6%,var(--back-2) 6% 12%);box-shadow:0 1px 3px rgba(0,0,0,.45),inset 0 0 0 calc(var(--cw)*.05) #fff}
+.card.down>*{display:none}
+.msg{text-align:center;color:var(--muted);min-height:22px;font-size:15px}
+.dock{display:flex;flex-direction:column;gap:10px;align-items:center}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.chip{width:56px;height:56px;border-radius:50%;border:4px dashed rgba(255,255,255,.75);cursor:pointer;font-weight:800;font-size:14px;color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.35);padding:0}
+.chip:disabled{opacity:.35;cursor:not-allowed}
+.c5{background:#c62b2b}.c25{background:#2b8a3e}.c100{background:#1d1d22}.c500{background:#6b3fa8}
+.betrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.bank{font-family:var(--display);font-size:22px}
+.bank small{font-family:var(--body);font-size:13px;color:var(--muted);margin-left:6px}
+.acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.acts .btn{min-width:88px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.opt{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px;margin-top:8px}
+.stats{color:var(--muted);font-size:14px;margin-top:8px}
+@media (max-width:520px){.table{padding:12px 8px 22px;--cw:clamp(46px,14vw,64px)}.chip{width:50px;height:50px}}
+@media (prefers-reduced-motion:reduce){.cards .card.fresh{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Blackjack</h1>
+    </div>
+    <div class="controls">
+      <select id="soft17" aria-label="Dealer rule"><option value="s17">Dealer stands on soft 17</option><option value="h17">Dealer hits soft 17</option></select>
+    </div>
+  </header>
+  <section class="table" aria-live="polite">
+    <div class="area"><h2>Dealer</h2><div class="hand" id="dealer"></div></div>
+    <div class="msg" id="msg"></div>
+    <div class="area"><h2>You</h2><div class="hands" id="hands"></div></div>
+  </section>
+  <div class="dock">
+    <div class="betrow"><span class="bank" id="bank"></span></div>
+    <div class="chips" id="chips"><button class="chip c5" data-v="5">5</button><button class="chip c25" data-v="25">25</button><button class="chip c100" data-v="100">100</button><button class="chip c500" data-v="500">500</button></div>
+    <div class="acts" id="betActs"><button class="btn" id="clearBet">Clear bet</button><button class="btn" id="rebet">Same bet</button><button class="btn primary" id="deal">Deal</button></div>
+    <div class="acts" id="playActs" hidden><button class="btn primary" id="hit">Hit</button><button class="btn primary" id="stand">Stand</button><button class="btn" id="double">Double</button><button class="btn" id="split">Split</button></div>
+  </div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Get closer to 21 than the dealer without going over. Number cards count their value, face cards 10, and aces 1 or 11.</li>
+        <li>Place a bet with the chips, then deal. You and the dealer get two cards; one of the dealer's is face down.</li>
+        <li><b>Hit</b> to take a card, <b>Stand</b> to stop. <b>Double</b> doubles your bet for exactly one more card. <b>Split</b> a pair into two hands (once).</li>
+        <li>An ace and a ten-value card on your first two cards is a <b>blackjack</b> and pays 3 to 2. Other wins pay 1 to 1; ties push and your bet comes back.</li>
+        <li>The dealer must hit up to 17. Six decks are shuffled together, and the shoe is reshuffled when it runs low.</li>
+        <li>Keyboard: H hit, S stand, D double, P split, Enter deals.</li>
+      </ul>
+    </details>
+    <label class="opt"><input type="checkbox" id="advise"> Highlight the basic-strategy move</label>
+    <p class="stats" id="stats"></p>
+  </div>
+</div>
+
+<script>
+const SUITS=['♠','♥','♦','♣'],RK=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({rule:'s17',advise:false},store.get('parlor-bj',{}));
+const W=Object.assign({bank:1000,hands:0,won:0,lost:0,pushed:0,bjs:0,best:1000,lastBet:25},store.get('parlor-bj-wallet',{}));
+let shoe=[],S=null;
+const saveW=()=>store.set('parlor-bj-wallet',W);
+
+/* ---------- cards ---------- */
+// A card is 0-51 (suit = floor(c/13), rank index = c%13). The shoe is six decks.
+const rankI=c=>c%13,cardVal=c=>Math.min(10,rankI(c)+1);
+function freshShoe(){shoe=[];for(let d=0;d<6;d++)for(let c=0;c<52;c++)shoe.push(c);for(let i=shoe.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shoe[i],shoe[j]]=[shoe[j],shoe[i]]}S&&(S.shuffled=true)}
+const drawCard=()=>{if(!shoe.length)freshShoe();return shoe.pop()};
+function total(cards){let t=0,aces=0;for(const c of cards){t+=cardVal(c);if(rankI(c)===0)aces++}const soft=aces&&t+10<=21;return{t:soft?t+10:t,soft}}
+const isBJ=h=>h.cards.length===2&&total(h.cards).t===21&&!h.fromSplit;
+
+/* ---------- basic strategy (multi-deck) ---------- */
+// Returns 'H', 'S', 'D' (double, else hit), 'Ds' (double, else stand) or 'P' (split).
+function advice(h,up){const cs=h.cards,{t,soft}=total(cs),d=cardVal(up)===1?11:cardVal(up),first=cs.length===2;
+  if(first&&!h.fromSplit&&cardVal(cs[0])===cardVal(cs[1])&&S.hands.length===1){const v=cardVal(cs[0])===1?11:cardVal(cs[0]);
+    if(v===11||v===8)return'P';if(v===9&&d!==7&&d!==10&&d!==11)return'P';if((v===7||v===3||v===2)&&d<=7)return'P';if(v===6&&d<=6)return'P';if(v===4&&(d===5||d===6))return'P'}
+  if(soft){if(t>=20)return'S';if(t===19)return d===6&&first?'Ds':'S';if(t===18)return d<=6&&first?(d>=2?'Ds':'S'):(d<=8?'S':'H');
+    if(t===17)return d>=3&&d<=6&&first?'D':'H';if(t>=15)return d>=4&&d<=6&&first?'D':'H';return d>=5&&d<=6&&first?'D':'H'}
+  if(t>=17)return'S';if(t>=13)return d<=6?'S':'H';if(t===12)return d>=4&&d<=6?'S':'H';if(t===11)return first?'D':'H';if(t===10)return d<=9&&first?'D':'H';if(t===9)return d>=3&&d<=6&&first?'D':'H';return'H'}
+
+/* ---------- round ---------- */
+function newRound(){S={phase:'bet',bet:0,hands:[],dealer:[],cur:0,msg:'Place your bet.',shuffled:false};if(shoe.length<78)freshShoe();render()}
+function addChip(v){if(S.phase!=='bet'||S.bet+v>W.bank)return;S.bet+=v;S.msg='';render()}
+function deal(){if(S.phase!=='bet')return;if(!S.bet){if(W.lastBet<=W.bank)S.bet=W.lastBet;else return}
+  W.bank-=S.bet;W.lastBet=S.bet;saveW();S.hands=[{cards:[drawCard(),drawCard()],bet:S.bet,done:false}];S.dealer=[drawCard(),drawCard()];S.phase='play';S.cur=0;S.msg=S.shuffled?'Fresh shoe shuffled.':'';
+  const pbj=isBJ(S.hands[0]),dbj=total(S.dealer).t===21;
+  if(pbj||dbj){S.phase='done';settle();return}render()}
+const hand=()=>S.hands[S.cur];
+function hit(){if(S.phase!=='play')return;const h=hand();h.cards.push(drawCard());const {t}=total(h.cards);if(t>=21||h.splitAces)nextHand();else render()}
+function stand(){if(S.phase!=='play')return;nextHand()}
+function canDouble(){const h=hand();return S.phase==='play'&&h&&h.cards.length===2&&!h.splitAces&&W.bank>=h.bet}
+function canSplit(){const h=hand();return S.phase==='play'&&S.hands.length===1&&h.cards.length===2&&cardVal(h.cards[0])===cardVal(h.cards[1])&&W.bank>=h.bet}
+function double(){if(!canDouble())return;const h=hand();W.bank-=h.bet;h.bet*=2;h.doubled=true;saveW();h.cards.push(drawCard());nextHand()}
+function split(){if(!canSplit())return;const h=hand();W.bank-=h.bet;saveW();const aces=rankI(h.cards[0])===0;
+  S.hands=[{cards:[h.cards[0],drawCard()],bet:h.bet,fromSplit:true,splitAces:aces},{cards:[h.cards[1],drawCard()],bet:h.bet,fromSplit:true,splitAces:aces}];
+  S.cur=0;if(aces){S.cur=1;nextHand();return}render()}
+function nextHand(){hand().done=true;if(S.cur<S.hands.length-1){S.cur++;if(hand().splitAces){nextHand();return}render();return}dealerPlay()}
+function dealerPlay(){S.phase='dealer';render();const live=S.hands.some(h=>total(h.cards).t<=21);
+  const step=()=>{const {t,soft}=total(S.dealer);if(live&&(t<17||(t===17&&soft&&cfg.rule==='h17'))){S.dealer.push(drawCard());render();setTimeout(step,550)}else{S.phase='done';settle()}};
+  setTimeout(step,500)}
+function settle(){const d=total(S.dealer).t,dbj=S.dealer.length===2&&d===21;let net=0;
+  for(const h of S.hands){const p=total(h.cards).t,pbj=isBJ(h);let r,pay=0;
+    if(pbj&&!dbj){r='Blackjack!';pay=h.bet*2.5;W.bjs++;W.won++}
+    else if(dbj&&!pbj){r='Dealer blackjack';W.lost++}
+    else if(p>21){r='Bust';W.lost++}
+    else if(d>21||p>d){r='Win';pay=h.bet*2;W.won++}
+    else if(p===d){r='Push';pay=h.bet;W.pushed++}
+    else{r='Lose';W.lost++}
+    h.result=r;h.pay=pay;W.bank+=pay;net+=pay-h.bet;W.hands++}
+  W.best=Math.max(W.best,W.bank);saveW();
+  S.msg=net>0?`You win ${net} chip${net===1?'':'s'}.`:net<0?`You lose ${-net} chip${net===-1?'':'s'}.`:'Your bet comes back.';
+  if(W.bank<5){S.msg+=' Out of chips: the house spots you 1,000 more.';W.bank=1000;saveW()}
+  render();S.phase='done';render()}
+
+/* ---------- drawing ---------- */
+const cardHTML=(c,down,fresh)=>`<span class="card${fresh?' fresh':''} ${(Math.floor(c/13)===1||Math.floor(c/13)===2)?'r':'k'}${down?' down':''}" aria-label="${down?'face-down card':RK[rankI(c)]+' of '+['spades','hearts','diamonds','clubs'][Math.floor(c/13)]}"><span class="ix">${RK[rankI(c)]}<i>${SUITS[Math.floor(c/13)]}</i></span><span class="cc">${SUITS[Math.floor(c/13)]}</span></span>`;
+function totLabel(cards,hideHole){if(hideHole){return`<span class="tot">${cardVal(cards[0])===1?'1 or 11':cardVal(cards[0])}</span>`}const {t,soft}=total(cards);return`<span class="tot${t>21?' bust':cards.length===2&&t===21?' bj':''}">${t>21?'Bust · '+t:soft&&t<21?`${t-10} / ${t}`:t}</span>`}
+// Only cards that weren't on the table at the last redraw get the deal animation.
+let seen={};
+function render(){const hide=S.phase==='play';const now={};const isNew=(k,i)=>i>=(seen[k]||0);
+  now.d=S.dealer.length;$('dealer').innerHTML=S.dealer.length?`<div class="cards">${S.dealer.map((c,i)=>cardHTML(c,hide&&i===1,isNew('d',i))).join('')}</div>${totLabel(S.dealer,hide)}`:'<div class="cards"></div>';
+  S.hands.forEach((h,i)=>now['h'+i+'/'+S.hands.length]=h.cards.length);
+  $('hands').innerHTML=S.hands.length?S.hands.map((h,i)=>`<div class="hand${S.phase==='play'&&i===S.cur&&S.hands.length>1?' cur':''}"><div class="cards">${h.cards.map((c,k)=>cardHTML(c,false,isNew('h'+i+'/'+S.hands.length,k))).join('')}</div>${totLabel(h.cards)}<span class="tot">Bet ${h.bet}${h.doubled?' (doubled)':''}</span><span class="res ${h.result?/Win|Blackjack!/.test(h.result)?'win':h.result==='Push'?'push':'lose':''}">${h.result||''}</span></div>`).join(''):`<div class="hand"><div class="cards"></div><span class="tot">Bet ${S.bet}</span></div>`;
+  seen=now;
+  $('msg').textContent=S.msg||(S.phase==='play'?(S.hands.length>1?`Playing hand ${S.cur+1} of 2.`:'Hit or stand?'):S.phase==='dealer'?'Dealer plays…':'');
+  $('bank').innerHTML=`${W.bank.toLocaleString()}<small>chips</small>`;
+  const bet=S.phase==='bet'||S.phase==='done';$('chips').hidden=!bet;$('betActs').hidden=!bet;$('playActs').hidden=S.phase!=='play';
+  document.querySelectorAll('.chip').forEach(c=>c.disabled=S.phase==='bet'&&S.bet+(+c.dataset.v)>W.bank||S.phase==='done'&&+c.dataset.v>W.bank);
+  $('deal').textContent=S.phase==='done'?'Next hand':'Deal';$('deal').disabled=S.phase==='bet'&&!S.bet&&W.lastBet>W.bank;
+  $('rebet').hidden=S.phase!=='bet'||!!S.bet;$('rebet').textContent=`Same bet (${W.lastBet})`;$('clearBet').hidden=S.phase!=='bet'||!S.bet;
+  $('double').disabled=!canDouble();$('split').disabled=!canSplit();
+  const adv=cfg.advise&&S.phase==='play'?advice(hand(),S.dealer[0]):null;
+  const map={H:'hit',S:'stand',D:canDouble()?'double':'hit',Ds:canDouble()?'double':'stand',P:'split'};
+  ['hit','stand','double','split'].forEach(id=>$(id).classList.toggle('advice',adv&&map[adv]===id));
+  $('stats').textContent=W.hands?`${W.hands} hand${W.hands===1?"":"s"} · won ${W.won}, lost ${W.lost}, pushed ${W.pushed} · ${W.bjs} blackjack${W.bjs===1?"":"s"} · most chips ${W.best.toLocaleString()}`:''}
+
+/* ---------- input ---------- */
+$('chips').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c||c.disabled)return;if(S.phase==='done')newRound();addChip(+c.dataset.v)});
+$('clearBet').onclick=()=>{S.bet=0;render()};$('rebet').onclick=()=>{if(W.lastBet<=W.bank){S.bet=W.lastBet;render()}};
+$('deal').onclick=()=>{if(S.phase==='done'){newRound();return}deal()};
+$('hit').onclick=hit;$('stand').onclick=stand;$('double').onclick=double;$('split').onclick=split;
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;const k=e.key.toLowerCase();
+  if(S.phase==='play'){if(k==='h')hit();else if(k==='s')stand();else if(k==='d')double();else if(k==='p')split()}
+  else if(e.key==='Enter'){e.preventDefault();$('deal').click()}});
+$('soft17').onchange=e=>{cfg.rule=e.target.value;store.set('parlor-bj',cfg)};
+$('advise').onchange=e=>{cfg.advise=e.target.checked;store.set('parlor-bj',cfg);render()};
+window.onAppBack=()=>false;
+$('soft17').value=cfg.rule;$('advise').checked=cfg.advise;
+freshShoe();newRound();
+</script>
+</body>
+</html>

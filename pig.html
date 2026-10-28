@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pig</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with players, rules and new game; the scoreboard (a progress bar per player toward the target); the dice tray with this turn's total and Roll / Hold buttons; rules below. */
+:root{
+  --bg:#fff0f3; --fg:#3a1c25; --muted:#86606b; --panel:#ffffff; --line:#f3d3dc; --chip:#ffe6ec;
+  --accent:#e0577a; --accent-ink:#ffffff; --tray:#e0577a; --tray-2:#b93e5f; --die:#fffaf5; --pip:#3a1c25;
+  --p0:#e0577a; --p1:#2f8fd6; --p2:#2b8a3e; --p3:#8d4bd6; --p4:#e08a1e; --p5:#0e7490;
+  --display:"Lilita One", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1a0e12; --fg:#fbe8ee; --muted:#caa0ad; --panel:#25151b; --line:#422630; --chip:#331d25; --accent:#ff86a6; --accent-ink:#2a0812; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#1a0e12; --fg:#fbe8ee; --muted:#caa0ad; --panel:#25151b; --line:#422630; --chip:#331d25; --accent:#ff86a6; --accent-ink:#2a0812; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:620px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(38px,8vw,56px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.board{display:flex;flex-direction:column;gap:6px}
+.pl{display:grid;grid-template-columns:minmax(80px,auto) 1fr auto;gap:10px;align-items:center;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 10px}
+.pl.cur{border-color:var(--c)}
+.pl span{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl .bar{height:12px;border-radius:99px;background:var(--chip);overflow:hidden;position:relative}
+.pl .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--c);border-radius:99px;transition:width .4s}
+.pl .bar em{position:absolute;top:0;bottom:0;background:var(--c);opacity:.35;transition:left .3s,width .3s}
+.pl b{font-family:var(--display);font-weight:400;font-size:22px;min-width:40px;text-align:right;font-variant-numeric:tabular-nums}
+.tray{background:radial-gradient(circle at 50% 35%,var(--tray),var(--tray-2));border-radius:20px;padding:16px;color:#fff;display:flex;flex-direction:column;gap:12px;align-items:center;box-shadow:inset 0 0 0 6px rgba(0,0,0,.1),0 16px 30px -18px rgba(120,20,50,.7)}
+.who{font-family:var(--display);font-size:24px}
+.dice{display:flex;gap:14px;min-height:96px;align-items:center}
+.d{width:84px;aspect-ratio:1;border-radius:18%;background:var(--die);box-shadow:inset 0 -5px 0 rgba(0,0,0,.12),0 6px 10px rgba(0,0,0,.3);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:12%;box-sizing:border-box}
+.d i{width:68%;aspect-ratio:1;border-radius:50%;background:var(--pip);place-self:center}
+.d.one i{background:#e0302f}
+.d.roll{animation:shake .45s ease-out}
+@keyframes shake{0%{transform:rotate(-30deg) scale(.7)}60%{transform:rotate(12deg)}100%{transform:none}}
+.turn{font-size:15px;opacity:.95;text-align:center;min-height:22px}
+.turn b{font-family:var(--display);font-size:40px;font-weight:400;display:block;line-height:1}
+.acts{display:flex;gap:10px;width:100%;max-width:360px}
+.acts .btn{flex:1;min-height:52px;font-size:18px}
+.acts .btn.primary{background:#fff;color:var(--tray-2);border-color:#fff}
+.tray .btn:not(.primary){background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.55)}
+.log{color:var(--muted);font-size:14px;text-align:center;min-height:20px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.overlay{position:fixed;inset:0;background:rgba(40,10,20,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:38px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.d.roll{animation:none}.pl .bar i,.pl .bar em{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Pig</h1>
+    </div>
+    <div class="controls">
+      <select id="players" aria-label="Players"><option value="c1">You vs computer</option><option value="c2">You vs 2 computers</option><option value="c3">You vs 3 computers</option><option value="h2">2 players</option><option value="h3">3 players</option><option value="h4">4 players</option><option value="h6">6 players</option></select>
+      <select id="level" aria-label="Computer style"><option value="easy">Cautious</option><option value="medium">Steady</option><option value="hard">Clever</option></select>
+      <select id="dice" aria-label="Dice"><option value="1">One die</option><option value="2">Two dice</option></select>
+      <select id="target" aria-label="Target"><option value="50">To 50</option><option value="100">To 100</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="board" id="board" aria-live="polite"></div>
+  <div class="tray" aria-live="polite">
+    <div class="who" id="who">Your turn</div>
+    <div class="dice" id="diceBox"></div>
+    <div class="turn" id="turn"><b>0</b>this turn</div>
+    <div class="acts"><button class="btn primary" id="roll">Roll</button><button class="btn" id="hold">Hold</button></div>
+  </div>
+  <div class="log" id="log"></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>On your turn, roll as often as you like. Every roll adds to this turn's total.</li>
+        <li>Roll a <b>1</b> and you lose the whole turn total, and your turn ends.</li>
+        <li>Press <b>Hold</b> to bank the turn total into your score and pass the dice.</li>
+        <li><b>Two dice:</b> a single 1 loses the turn; double 1s (snake eyes) also wipes your whole score; any other double means you must roll again.</li>
+        <li>First to reach the target wins.</li>
+        <li>Keyboard: R or Space rolls, H or Enter holds.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+const COLORS=['--p0','--p1','--p2','--p3','--p4','--p5'];
+const NAMES=['Hamlet','Truffle','Babe','Wilbur','Peppa'];
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({players:'c1',level:'medium',dice:1,target:100},store.get('parlor-pig',{}));
+const tally=store.get('parlor-pig-tally',{won:0,played:0});
+let S=null;
+
+function setup(){const m=cfg.players,n=+m[1];if(m[0]==='c')return[{name:'You'},...[...Array(n)].map((_,i)=>({name:NAMES[i],cpu:true}))];return[...Array(n)].map((_,i)=>({name:`Player ${i+1}`}))}
+function newGame(){$('overlay').hidden=true;S={players:setup(),turn:0,turnTotal:0,dice:[],mustRoll:false,over:false,busy:false,log:'',anim:false,gen:(S?S.gen:0)+1};S.players.forEach(p=>p.score=0);render();next()}
+const cur=()=>S.players[S.turn];
+function roll(){if(S.over||S.busy)return;const n=+cfg.dice;S.dice=[...Array(n)].map(()=>1+Math.floor(Math.random()*6));S.anim=true;S.mustRoll=false;
+  const ones=S.dice.filter(v=>v===1).length,nm=cur().name,you=nm==='You';
+  if(n===2&&ones===2){cur().score=0;S.turnTotal=0;S.log=`Snake eyes! ${nm} ${you?'lose':'loses'} the whole score.`;render();endTurn();return}
+  if(ones){S.log=`${you?'You':nm} rolled a 1 and ${you?'lose':'loses'} ${S.turnTotal} point${S.turnTotal===1?'':'s'}.`;S.turnTotal=0;render();endTurn();return}
+  S.turnTotal+=S.dice.reduce((a,b)=>a+b,0);if(n===2&&S.dice[0]===S.dice[1]){S.mustRoll=true;S.log='Doubles: roll again!'}else S.log='';
+  if(cur().score+S.turnTotal>=cfg.target){S.mustRoll=false;hold();return}
+  render();S.anim=false}
+function hold(){if(S.over||!S.turnTotal||S.mustRoll)return;cur().score+=S.turnTotal;S.log=`${cur().name} ${cur().name==='You'?'bank':'banks'} ${S.turnTotal}.`;S.turnTotal=0;
+  if(cur().score>=cfg.target){S.over=true;render();finish();return}endTurn()}
+function endTurn(){S.busy=true;render();S.anim=false;const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;S.turn=(S.turn+1)%S.players.length;S.turnTotal=0;S.dice=[];S.mustRoll=false;next()},1100)}
+// Computer: hold once the turn total reaches a target that depends on style and the race.
+function holdAt(){const me=cur(),others=Math.max(...S.players.filter(p=>p!==me).map(p=>p.score)),need=cfg.target-me.score,scale=cfg.target/100;
+  if(cfg.level==='easy')return Math.round(14*scale);if(cfg.level==='medium')return Math.round(20*scale);
+  // clever: go for it when far behind or when a rival is close to winning; bank sooner when the win is near
+  if(others>=cfg.target*.8)return need;let t=21*scale+(others-me.score)/8;return Math.max(10*scale,Math.min(need,Math.round(t)))}
+function next(){render();if(S.over||!cur().cpu)return;const g=S.gen;
+  const step=()=>{if(g!==S.gen||S.over||S.busy)return;if(!S.mustRoll&&S.turnTotal>=holdAt()){hold();return}roll();if(!S.busy&&!S.over)setTimeout(step,700)};
+  setTimeout(step,650)}
+function finish(){const w=S.players.find(p=>p.score>=cfg.target);const vsCpu=cfg.players[0]==='c';if(vsCpu){tally.played++;if(w.name==='You')tally.won++;store.set('parlor-pig-tally',tally)}
+  $('modal').innerHTML=`<h2>${w.name==='You'?'You win!':w.name+' wins'}</h2><p>${S.players.map(p=>`${p.name} ${p.score}`).join(' · ')}</p>${vsCpu?`<p>You've won ${tally.won} of ${tally.played}.</p>`:''}<div class="acts" style="max-width:none"><button class="btn primary" id="mnew" style="background:var(--accent);color:var(--accent-ink)">Play again</button></div>`;
+  setTimeout(()=>{$('overlay').hidden=false;$('mnew').focus();$('mnew').onclick=newGame},500)}
+
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function render(){const me=!S.over&&!S.busy&&!cur().cpu;
+  $('board').innerHTML=S.players.map((p,i)=>{const pct=Math.min(100,100*p.score/cfg.target),tt=i===S.turn&&!S.over?Math.min(100-pct,100*S.turnTotal/cfg.target):0;
+    return`<div class="pl${i===S.turn&&!S.over?' cur':''}" style="--c:var(${COLORS[i]})"><span>${p.name}</span><div class="bar"><i style="width:${pct}%"></i><em style="left:${pct}%;width:${tt}%"></em></div><b>${p.score}</b></div>`}).join('');
+  $('who').textContent=S.over?'Game over':cur().cpu?`${cur().name} is rolling…`:cur().name==='You'?'Your turn':`${cur().name}'s turn`;
+  $('diceBox').innerHTML=(S.dice.length?S.dice:[...Array(+cfg.dice)].map(()=>0)).map(v=>`<div class="d${v===1?' one':''}${S.anim&&v?' roll':''}" aria-label="${v||'not rolled'}">${[...Array(9)].map((_,k)=>v&&PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</div>`).join('');
+  $('turn').innerHTML=`<b>${S.turnTotal}</b>this turn${S.turnTotal?` · ${cur().score+S.turnTotal} if banked`:''}`;
+  $('roll').disabled=!me;$('hold').disabled=!me||!S.turnTotal||S.mustRoll;$('log').textContent=S.log;
+  $('level').hidden=cfg.players[0]!=='c'}
+$('roll').onclick=roll;$('hold').onclick=hold;
+document.addEventListener('keydown',e=>{if(e.target.closest('select')||!$('overlay').hidden||!S||S.busy||S.over||cur().cpu)return;
+  if(e.key==='r'||e.key==='R'||e.key===' '){e.preventDefault();roll()}else if(e.key==='h'||e.key==='H'||e.key==='Enter'){e.preventDefault();hold()}});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function sync(){$('players').value=cfg.players;$('level').value=cfg.level;$('dice').value=cfg.dice;$('target').value=cfg.target}
+const started=()=>S&&!S.over&&S.players.some(p=>p.score)||S&&S.turnTotal;
+function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-pig',cfg);sync();if(restart)newGame();else render()}
+$('players').onchange=e=>setCfg('players',e.target.value,true);$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('dice').onchange=e=>setCfg('dice',+e.target.value,true);$('target').onchange=e=>setCfg('target',+e.target.value,true);
+$('newgame').onclick=()=>{if(started()&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+if(!['c1','c2','c3','h2','h3','h4','h6'].includes(cfg.players))cfg.players='c1';if(![1,2].includes(+cfg.dice))cfg.dice=1;if(![50,100].includes(+cfg.target))cfg.target=100;if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';
+sync();newGame();
+</script>
+</body>
+</html>

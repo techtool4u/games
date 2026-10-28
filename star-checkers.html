@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Star Checkers</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a six-pointed star of holes on a midnight board, each point tinted with the color of the player who starts there.
+   Header with settings; the board with a scorecard (turn, players and progress, wins, rules) beside it on wide screens and below it on phones. */
+:root{
+  --bg:#eef0f7; --fg:#1b1f33; --muted:#5e6580; --panel:#ffffff; --line:#d9ddeb; --chip:#eef1f8;
+  --accent:#3a47a8; --accent-ink:#ffffff; --board:#20294f; --board-2:#141a36; --hole:#0c1024; --rim:#3b4677;
+  --display:"Fraunces", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1020; --fg:#e6e9f5; --muted:#9aa2c2; --panel:#161a30; --line:#2a3052; --chip:#1e2340; --accent:#8b97ff; --accent-ink:#0b0f2a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0d1020; --fg:#e6e9f5; --muted:#9aa2c2; --panel:#161a30; --line:#2a3052; --chip:#1e2340; --accent:#8b97ff; --accent-ink:#0b0f2a; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,5.5vw,48px);line-height:1;margin:4px 0 0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:48ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:880px){.game{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;justify-content:center;min-width:0}
+.boardbox{width:min(100%,640px,calc((100dvh - 190px) * .9));min-width:min(100%,290px)}
+@media (max-width:880px){.boardbox{width:min(100%,640px)}}
+svg{display:block;width:100%;height:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none;outline:none;border-radius:22px;background:radial-gradient(circle at 50% 45%,var(--board),var(--board-2))}
+svg:focus-visible{box-shadow:0 0 0 4px var(--accent)}
+.zone{opacity:.28}
+.hole{fill:var(--hole);stroke:var(--rim);stroke-width:.1}
+.hit{fill:transparent;cursor:default}
+.hit.can{cursor:pointer}
+.target{fill:#fff;opacity:.55;pointer-events:none}
+.target.far{opacity:.85}
+.marble{pointer-events:none;transition:transform .14s ease-in-out}
+.marble circle.body{stroke:rgba(0,0,0,.35);stroke-width:.06}
+.marble circle.shine{fill:#fff;opacity:.45}
+.sel-ring{fill:none;stroke:#ffe27a;stroke-width:.2;pointer-events:none}
+.last-ring{fill:none;stroke:#ffffff;stroke-width:.1;stroke-dasharray:.25 .2;opacity:.75;pointer-events:none}
+.cur-ring{fill:none;stroke:#6fb0ff;stroke-width:.2;pointer-events:none}
+.trail{fill:none;stroke:#fff;stroke-width:.1;stroke-dasharray:.3 .25;opacity:.55;pointer-events:none}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.turn{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:23px;line-height:1.15}
+.dot{width:20px;height:20px;border-radius:50%;flex:none;box-shadow:inset -3px -3px 5px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.3)}
+.turn.think .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.hint{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.players{display:flex;flex-direction:column;gap:8px}
+.pl{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;font-size:14px}
+.pl .dot{width:16px;height:16px}
+.pl.now b{text-decoration:underline;text-underline-offset:3px}
+.pl small{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.pl .bar{grid-column:2/4;height:6px;border-radius:99px;background:var(--chip);overflow:hidden}
+.pl .bar i{display:block;height:100%;border-radius:99px;transition:width .3s}
+.tally{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:13.5px}
+.tally b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:15;box-shadow:0 8px 20px rgba(0,0,0,.25);max-width:calc(100vw - 32px);text-align:center}
+.overlay{position:fixed;inset:0;background:rgba(6,8,20,.6);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:32px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal ol{margin:0;padding-left:22px;text-align:left;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:8px 16px}
+  .game{display:contents}
+  .stage{grid-column:1;grid-row:1/3;position:sticky;top:8px;align-self:start}
+  header,.side{grid-column:2}
+  .sub{display:none} h1{font-size:28px}
+  .boardbox{width:calc((100dvh - 16px) * .87);min-width:0}
+}
+@media (prefers-reduced-motion:reduce){.marble{transition:none}.turn.think .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Star Checkers</h1>
+      <p class="sub">Race your ten marbles across the star into the opposite point. Hop over any marble, and chain hops together for big leaps.</p>
+    </div>
+    <div class="controls">
+      <select id="players" aria-label="Number of players"><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="6">6 players</option></select>
+      <select id="humans" aria-label="People playing"></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="stage" aria-label="Board">
+      <div class="boardbox"><svg id="svg" viewBox="-10.5 -11.6 21 23.2" tabindex="0" aria-label="Star board. Arrow keys move between your marbles and their moves, Enter picks."></svg></div>
+    </section>
+
+    <aside class="side">
+      <div class="panel" aria-live="polite">
+        <div class="turn" id="turn"><span class="dot" id="tdot"></span><span id="turnText">Your turn</span></div>
+        <p class="hint" id="hint"></p>
+        <div class="row"><button class="btn" id="undo">Undo</button><label style="display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13.5px"><input type="checkbox" id="fast"> Fast computer moves</label></div>
+      </div>
+      <div class="panel">
+        <p class="label">Marbles home</p>
+        <div class="players" id="plist"></div>
+      </div>
+      <div class="panel">
+        <p class="label">Wins this session</p>
+        <div class="tally" id="tally"></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Each player starts with ten marbles in one point of the star. The goal is the point straight across.</li>
+            <li>On your turn, move one marble: either one step to an empty neighboring hole, or a hop over a neighboring marble (anyone's) into the empty hole just beyond it.</li>
+            <li>Hops can be chained, in any direction, as long as each one lands in an empty hole. Tap your marble to see every place it can reach, then tap one. Marbles are never captured.</li>
+            <li>The first player to fill their goal point wins. If a rival's marble is still sitting in your goal, filling every other hole of it also counts as a win.</li>
+            <li>Keyboard: arrows choose a marble or a destination, Enter picks, Escape cancels, U undoes.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- the board ---------- */
+// Holes use cube coordinates (q, r, s = -q - r). The star is every point where all three are >= -4, or all three are <= 4.
+// The six points of the star, clockwise from the bottom: each is where one coordinate passes 4 or -4.
+const CORNERS=[p=>p.r>4,p=>p.q<-4,p=>p.s>4,p=>p.r<-4,p=>p.q>4,p=>p.s<-4];
+const APEX=[{q:-4,r:8},{q:-8,r:4},{q:-4,r:-4},{q:4,r:-8},{q:8,r:-4},{q:4,r:4}];
+const SEATS={2:[0,3],3:[0,2,4],4:[0,1,3,4],6:[0,1,2,3,4,5]};
+const COLORS=[['#e2483a','Red'],['#f2b134','Gold'],['#33b46b','Green'],['#2f6fe0','Blue'],['#9a5fe0','Purple'],['#20c4c9','Teal']];
+const DIRS=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const P=[],IDX=new Map();
+for(let q=-8;q<=8;q++)for(let r=-8;r<=8;r++){const s=-q-r;if((q>=-4&&r>=-4&&s>=-4)||(q<=4&&r<=4&&s<=4)){IDX.set(q+','+r,P.length);P.push({q,r,s,x:(q+r/2)*1.5,y:r*1.5*.866})}}
+const NB=P.map(p=>DIRS.map(([dq,dr])=>{const a=IDX.get((p.q+dq)+','+(p.r+dr));const b=IDX.get((p.q+2*dq)+','+(p.r+2*dr));return[a===undefined?-1:a,b===undefined?-1:b]}));
+const ZONE=CORNERS.map(f=>P.map((p,i)=>f(p)?i:-1).filter(i=>i>=0));
+const hexDist=(i,a)=>{const p=P[i],dq=p.q-a.q,dr=p.r-a.r;return Math.max(Math.abs(dq),Math.abs(dr),Math.abs(dq+dr))};
+const DIST=APEX.map(a=>P.map((_,i)=>hexDist(i,a)));// distance from each hole to each corner's tip
+
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({players:2,humans:1,level:'medium',fast:false},store.get('parlor-starcheck',{}));
+const wins={};
+let S=null,sel=-1,kb=false,kbList=[],kbPos=0,toastT=0;
+
+/* ---------- rules ---------- */
+// Every hole a marble at i can reach this turn, with the path to get there.
+function reach(b,i){const out=new Map();
+  for(const[a]of NB[i])if(a>=0&&b[a]<0)out.set(a,[i,a]);
+  const seen=new Set([i]),q=[[i,[i]]];
+  while(q.length){const[c,path]=q.shift();for(const[a,j]of NB[c]){if(a<0||j<0||b[a]<0||b[j]>=0||seen.has(j)||j===i)continue;seen.add(j);const np=path.concat(j);if(!out.has(j))out.set(j,np);q.push([j,np])}}
+  return out}
+function allMoves(b,pl){const out=[];for(let i=0;i<P.length;i++)if(b[i]===pl)for(const[to,path]of reach(b,i))out.push({from:i,to,path});return out}
+function won(b,pl){const goal=ZONE[(S.seats[pl]+3)%6];let mine=0;for(const g of goal){if(b[g]<0)return false;if(b[g]===pl)mine++}return mine>0}
+const homeCount=(b,pl)=>ZONE[(S.seats[pl]+3)%6].reduce((n,g)=>n+(b[g]===pl),0);
+const progress=(b,pl)=>{const c=(S.seats[pl]+3)%6;let d=0;for(let i=0;i<P.length;i++)if(b[i]===pl)d+=DIST[c][i];return d};
+
+/* ---------- computer ---------- */
+// Score a move by how much closer it brings the marble to the goal tip, nudged toward moving stragglers and not leaving the goal.
+function moveValue(b,pl,m){const c=(S.seats[pl]+3)%6,D=DIST[c];let v=(D[m.from]-D[m.to])*10;
+  v+=D[m.from]*.6;
+  const goal=ZONE[c];if(goal.includes(m.from)&&!goal.includes(m.to))v-=30;
+  // leaving a marble far behind everyone else is costly later
+  return v}
+function chooseMove(pl){const b=S.b,ms=allMoves(b,pl);if(!ms.length)return null;const L=cfg.level;
+  let scored=ms.map(m=>({m,v:moveValue(b,pl,m)}));
+  if(L==='hard'){// look one move of our own ahead
+    for(const x of scored){b[x.m.from]=-1;b[x.m.to]=pl;let best=-1e9;
+      if(won(b,pl))best=1e6;else for(const n of allMoves(b,pl)){const v=moveValue(b,pl,n);if(v>best)best=v}
+      b[x.m.to]=-1;b[x.m.from]=pl;x.v+=best*.8}}
+  if(L==='easy')for(const x of scored)x.v+=Math.random()*26-8;
+  else for(const x of scored)x.v+=Math.random()*.5;
+  // never pass up a winning move
+  for(const x of scored){b[x.m.from]=-1;b[x.m.to]=pl;if(won(b,pl))x.v+=1e7;b[x.m.to]=-1;b[x.m.from]=pl}
+  scored.sort((a,c)=>c.v-a.v);return scored[0].m}
+
+/* ---------- game flow ---------- */
+const nPlayers=()=>+cfg.players;
+const isCpu=pl=>pl>=S.humans;
+const nameOf=pl=>S.humans===1?(pl===0?'You':`Computer ${COLORS[S.seats[pl]][1]}`):(isCpu(pl)?`Computer ${COLORS[S.seats[pl]][1]}`:COLORS[S.seats[pl]][1]);
+const colorOf=pl=>COLORS[S.seats[pl]][0];
+function toast(t,ms=2000){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function newGame(){$('overlay').hidden=true;const n=nPlayers();
+  const seats=SEATS[n],b=new Array(P.length).fill(-1);seats.forEach((c,pl)=>{for(const i of ZONE[c])b[i]=pl});
+  S={b,seats,n,humans:Math.min(+cfg.humans,n),turn:0,hist:[],over:null,busy:false,last:null,moves:0,gen:(S?S.gen:0)+1};
+  S.start=[...Array(n).keys()].map(pl=>progress(b,pl));
+  for(let pl=0;pl<n;pl++)if(wins[pl]===undefined)wins[pl]=0;
+  sel=-1;build();next()}
+function next(){render();if(S.over)return;
+  if(isCpu(S.turn)){S.busy=true;render();const g=S.gen;
+    setTimeout(()=>{if(g!==S.gen)return;const m=chooseMove(S.turn);if(!m){pass();return}animate(m,()=>{if(g===S.gen)apply(m)})},cfg.fast?60:420)}
+  else if(!allMoves(S.b,S.turn).length){toast(`${nameOf(S.turn)} can't move and must pass.`);setTimeout(()=>pass(),900)}}
+function pass(){S.busy=false;S.turn=(S.turn+1)%S.n;next()}
+function apply(m){S.busy=false;
+  if(!isCpu(S.turn))S.hist.push({b:S.b.slice(),turn:S.turn,last:S.last,moves:S.moves});
+  S.b[m.from]=-1;S.b[m.to]=S.turn;S.last=m;S.moves++;sel=-1;
+  if(won(S.b,S.turn)){finish(S.turn);return}
+  if(S.moves>S.n*400){S.over={w:-1};render();toast('The game is taking too long: call it a draw.');return}
+  S.turn=(S.turn+1)%S.n;next()}
+function finish(w){S.over={w};wins[w]=(wins[w]||0)+1;render();
+  const rank=[...Array(S.n).keys()].sort((a,c)=>homeCount(S.b,c)-homeCount(S.b,a)||progress(S.b,a)-progress(S.b,c));
+  const title=S.humans===1?(w===0?'You win!':`${nameOf(w)} wins`):`${nameOf(w)} wins`;
+  setTimeout(()=>{if(!S.over)return;$('modal').innerHTML=`<h2>${title}</h2><p>All ten marbles home in ${Math.ceil(S.moves/S.n)} turns.</p>${S.n>2?`<ol>${rank.map(pl=>`<li>${nameOf(pl)}: ${homeCount(S.b,pl)} home</li>`).join('')}</ol>`:''}<div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+    $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame},900)}
+function undo(){if(!S.hist.length||S.busy)return;if(S.over&&S.over.w>=0)wins[S.over.w]--;S.over=null;$('overlay').hidden=true;
+  const h=S.hist.pop();S.b=h.b;S.turn=h.turn;S.last=h.last;S.moves=h.moves;S.gen++;sel=-1;next()}
+
+/* ---------- drawing ---------- */
+const HR=.62;
+function build(){let s='<defs>';
+  COLORS.forEach(([c],k)=>{s+=`<radialGradient id="m${k}" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".25" stop-color="${c}"/><stop offset="1" stop-color="${c}" stop-opacity="1"/></radialGradient>`});
+  s+='</defs><g id="zones">';
+  // tint each point of the star; the tip triangles are drawn around their outer holes
+  CORNERS.forEach((_,c)=>{const pts=ZONE[c].map(i=>P[i]);const far=pts.filter(p=>DIST[c][IDX.get(p.q+','+p.r)]===0)[0],edge=pts.filter(p=>DIST[c][IDX.get(p.q+','+p.r)]===3);
+    const ends=[edge.reduce((a,p)=>p.x<a.x||(p.x===a.x&&p.y<a.y)?p:a),edge.reduce((a,p)=>p.x>a.x||(p.x===a.x&&p.y>a.y)?p:a)];
+    const cx=(far.x+ends[0].x+ends[1].x)/3,cy=(far.y+ends[0].y+ends[1].y)/3,grow=p=>[cx+(p.x-cx)*1.45,cy+(p.y-cy)*1.45];
+    const seat=S.seats.indexOf(c),home=S.seats.indexOf((c+3)%6),col=seat>=0?COLORS[c][0]:home>=0?COLORS[S.seats[home]][0]:'#56608f';
+    s+=`<polygon class="zone" fill="${col}" points="${[far,ends[0],ends[1]].map(p=>grow(p).map(v=>v.toFixed(2)).join(',')).join(' ')}" style="opacity:${seat>=0?.3:home>=0?.16:.1}"/>`});
+  s+='</g><g id="holes">';
+  P.forEach((p,i)=>{s+=`<circle class="hole" cx="${p.x.toFixed(3)}" cy="${p.y.toFixed(3)}" r="${HR*.62}"/>`});
+  s+='</g><polyline class="trail" id="trail" points=""/><g id="targets"></g><g id="marbles"></g><g id="rings"></g><g id="hits">';
+  P.forEach((p,i)=>{s+=`<circle class="hit" data-i="${i}" cx="${p.x.toFixed(3)}" cy="${p.y.toFixed(3)}" r="${HR*1.25}"/>`});
+  s+='</g>';$('svg').innerHTML=s;
+  let m='';for(let i=0;i<P.length;i++)if(S.b[i]>=0)m+=marbleSVG(i,S.b[i]);$('marbles').innerHTML=m}
+const marbleSVG=(i,pl)=>`<g class="marble" data-at="${i}" style="transform:translate(${P[i].x}px,${P[i].y}px)"><circle class="body" r="${HR}" fill="url(#m${S.seats[pl]})"/><circle class="shine" r="${HR*.22}" cx="${-HR*.32}" cy="${-HR*.36}"/></g>`;
+function syncMarbles(){const g=$('marbles');let m='';for(let i=0;i<P.length;i++)if(S.b[i]>=0)m+=marbleSVG(i,S.b[i]);g.innerHTML=m}
+// Walk the marble along its path, one step or hop at a time.
+function animate(m,done){sel=-1;render();const el=$('marbles').querySelector(`[data-at="${m.from}"]`);
+  const steps=m.path.slice(1);if(!el||matchMedia('(prefers-reduced-motion:reduce)').matches||cfg.fast&&isCpu(S.turn)){done();return}
+  $('marbles').appendChild(el);let k=0;
+  const go=()=>{if(k>=steps.length){setTimeout(done,40);return}const p=P[steps[k++]];el.style.transform=`translate(${p.x}px,${p.y}px)`;setTimeout(go,150)};go()}
+function render(){if(!S)return;
+  syncMarbles();
+  const me=!S.over&&!S.busy&&!isCpu(S.turn),opts=me&&sel>=0?reach(S.b,sel):new Map();
+  let t='';for(const[to,path]of opts)t+=`<circle class="target${path.length>2?' far':''}" cx="${P[to].x}" cy="${P[to].y}" r="${HR*.42}"/>`;$('targets').innerHTML=t;
+  let r='';if(S.last){for(const i of[S.last.from,S.last.to])r+=`<circle class="last-ring" cx="${P[i].x}" cy="${P[i].y}" r="${HR*1.15}"/>`}
+  if(sel>=0)r+=`<circle class="sel-ring" cx="${P[sel].x}" cy="${P[sel].y}" r="${HR*1.2}"/>`;
+  if(kb&&me&&kbList.length){const i=kbList[kbPos%kbList.length];r+=`<circle class="cur-ring" cx="${P[i].x}" cy="${P[i].y}" r="${HR*1.35}"/>`}
+  $('rings').innerHTML=r;
+  $('trail').setAttribute('points',S.last&&S.last.path.length>2?S.last.path.map(i=>`${P[i].x},${P[i].y}`).join(' '):'');
+  for(const h of $('hits').children){const i=+h.dataset.i;h.setAttribute('class','hit'+(me&&(S.b[i]===S.turn||opts.has(i))?' can':''))}
+  const shown=S.over&&S.over.w>=0?S.over.w:S.turn;$('tdot').style.background=colorOf(shown);
+  $('turn').classList.toggle('think',!S.over&&isCpu(S.turn));
+  $('turnText').textContent=S.over?(S.over.w<0?'Draw':S.humans===1&&S.over.w===0?'You win':`${nameOf(S.over.w)} wins`):isCpu(S.turn)?`${nameOf(S.turn)} is thinking…`:S.humans===1?'Your turn':`${nameOf(S.turn)}'s turn`;
+  $('hint').textContent=S.over?'Press New game or Play again for another round.':isCpu(S.turn)?'':sel>=0?(opts.size?`Tap a dot to move there (${opts.size} choice${opts.size===1?'':'s'}). Bright dots are hops.`:'That marble is boxed in. Pick another.'):`Tap one of your ${COLORS[S.seats[S.turn]][1].toLowerCase()} marbles. Your goal is the point across the star.`;
+  $('plist').innerHTML=[...Array(S.n).keys()].map(pl=>{const h=homeCount(S.b,pl),pr=progress(S.b,pl),pct=Math.max(0,Math.min(100,100*(S.start[pl]-pr)/(S.start[pl]-20)));
+    return `<div class="pl${pl===S.turn&&!S.over?' now':''}"><span class="dot" style="background:${colorOf(pl)}"></span><b>${nameOf(pl)}</b><small>${h}/10</small><span class="bar"><i style="width:${pct.toFixed(0)}%;background:${colorOf(pl)}"></i></span></div>`}).join('');
+  $('tally').innerHTML=[...Array(S.n).keys()].map(pl=>`<span>${nameOf(pl)} <b>${wins[pl]||0}</b></span>`).join('');
+  $('undo').disabled=S.busy||!S.hist.length}
+
+/* ---------- input & settings ---------- */
+function pick(i){if(S.over||S.busy||isCpu(S.turn))return;
+  if(S.b[i]===S.turn){sel=sel===i?-1:i;render();return}
+  if(sel>=0){const path=reach(S.b,sel).get(i);if(path){const m={from:sel,to:i,path};S.busy=true;animate(m,()=>apply(m));return}}
+  sel=-1;render()}
+$('svg').addEventListener('click',e=>{const h=e.target.closest('.hit');if(!h)return;kb=false;pick(+h.dataset.i)});
+// Keyboard: cycle through your marbles (or, once one is picked, its destinations), sorted left to right.
+function kbRefresh(){const me=!S.over&&!S.busy&&!isCpu(S.turn);if(!me){kbList=[];return}
+  const list=sel>=0?[...reach(S.b,sel).keys()]:P.map((_,i)=>i).filter(i=>S.b[i]===S.turn);list.sort((a,c)=>P[a].y-P[c].y||P[a].x-P[c].x);kbList=list;kbPos=Math.min(kbPos,Math.max(0,list.length-1))}
+$('svg').addEventListener('keydown',e=>{const k=e.key;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)){e.preventDefault();kb=true;kbRefresh();if(!kbList.length)return;kbPos=(kbPos+(k==='ArrowRight'||k==='ArrowDown'?1:kbList.length-1))%kbList.length;render();return}
+  if(k==='Enter'||k===' '){e.preventDefault();kbRefresh();if(!kbList.length)return;const i=kbList[kbPos%kbList.length];kbPos=0;pick(i);kbRefresh();render()}
+  else if(k==='Escape'&&sel>=0){sel=-1;kbPos=0;render()}});
+$('svg').addEventListener('focus',()=>{kb=true;kbRefresh();render()});$('svg').addEventListener('blur',()=>{kb=false;render()});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true;else if((e.key==='u'||e.key==='U')&&!$('undo').disabled)undo()});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}if(sel>=0){sel=-1;render();return true}return false};
+function fillHumans(){const n=nPlayers();$('humans').innerHTML=[...Array(n).keys()].map(k=>{const h=k+1;return `<option value="${h}">${h===1?'You vs computers':h===n?`${h} people, no computer`:`${h} people + ${n-h} computer${n-h>1?'s':''}`}</option>`}).join('');
+  if(+cfg.humans>n)cfg.humans=n;$('humans').value=cfg.humans}
+function sync(){$('players').value=cfg.players;fillHumans();$('level').value=cfg.level;$('fast').checked=cfg.fast;$('level').hidden=+cfg.humans>=nPlayers()}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-starcheck',cfg);sync();if(restart){for(const w in wins)delete wins[w];newGame()}else render()}
+$('players').onchange=e=>setCfg('players',+e.target.value,true);
+$('humans').onchange=e=>setCfg('humans',+e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('fast').onchange=e=>setCfg('fast',e.target.checked,false);
+$('newgame').onclick=newGame;$('undo').onclick=undo;
+if(!SEATS[cfg.players])cfg.players=2;cfg.players=+cfg.players;cfg.humans=Math.max(1,Math.min(+cfg.humans||1,cfg.players));if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';
+sync();newGame();
+</script>
+</body>
+</html>

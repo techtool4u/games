@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Snakes and Ladders</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a bright 10×10 board numbered 1 to 100, with wooden ladders and striped snakes drawn over it. Header with settings;
+   the board with the dice tray under it, and a scorecard (players, last move, wins, rules) beside it on wide screens and below on phones. */
+:root{
+  --bg:#f6efe0; --fg:#2a241b; --muted:#6c6356; --panel:#ffffff; --line:#e6dcc8; --chip:#f3ecdd;
+  --accent:#d0621f; --accent-ink:#ffffff; --a:#fde3a7; --b:#bfe3c8; --c:#fff6e2; --d:#d7ecf7; --num:#5b4a32;
+  --die:#fffdf8; --pip:#2a241b;
+  --display:"Fraunces", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15120c; --fg:#efe8da; --muted:#aa9f8c; --panel:#201c15; --line:#3a3226; --chip:#2b251c; --accent:#f0904f; --accent-ink:#2a1203; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#15120c; --fg:#efe8da; --muted:#aa9f8c; --panel:#201c15; --line:#3a3226; --chip:#2b251c; --accent:#f0904f; --accent-ink:#2a1203; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,5.5vw,48px);line-height:1;margin:4px 0 0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:880px){.game{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.boardbox{width:min(100%,600px,calc((100dvh - 290px) * .92));min-width:min(100%,290px)}
+@media (max-width:880px){.boardbox{width:min(100%,600px)}}
+svg{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 14px 30px -16px rgba(40,30,10,.55);user-select:none;-webkit-user-select:none}
+.n{font-family:var(--body);font-weight:800;font-size:.27px;fill:var(--num);opacity:.75}
+.n.big{font-size:.34px;opacity:1}
+.rail{stroke:#8a5a2b;stroke-width:.09;stroke-linecap:round}
+.rung{stroke:#a8743e;stroke-width:.07;stroke-linecap:round}
+.snake{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tok{transition:transform .14s ease-in-out}
+.tok.slide{transition:transform .7s cubic-bezier(.4,0,.3,1)}
+.tok .body{stroke:rgba(0,0,0,.45);stroke-width:.04}
+.tok .ring{fill:none;stroke:#fff;stroke-width:.05;opacity:.9}
+
+.tray{width:min(100%,600px);display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px 14px;box-sizing:border-box}
+.tray .who{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:20px;line-height:1.15;flex:1;min-width:0}
+.tray .msg{font-family:var(--body);font-size:13px;color:var(--muted);font-weight:400;display:block}
+.dot{width:20px;height:20px;border-radius:50%;flex:none;box-shadow:inset -3px -3px 5px rgba(0,0,0,.25)}
+.think .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.die{width:58px;height:58px;border-radius:18%;background:var(--die);box-shadow:inset 0 -4px 0 rgba(0,0,0,.12),0 5px 9px rgba(0,0,0,.25);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:7px;box-sizing:border-box;flex:none;border:2px solid var(--line);cursor:default}
+.die.can{cursor:pointer;border-color:var(--accent);box-shadow:inset 0 -4px 0 rgba(0,0,0,.12),0 0 0 4px rgba(208,98,31,.28)}
+.die i{width:70%;aspect-ratio:1;border-radius:50%;background:var(--pip);place-self:center}
+.die.roll{animation:shake .45s ease-out}
+@keyframes shake{0%{transform:rotate(-30deg) scale(.7)}60%{transform:rotate(12deg)}100%{transform:none}}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.players{display:flex;flex-direction:column;gap:8px}
+.pl{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;font-size:14px}
+.pl .dot{width:16px;height:16px}
+.pl.now b{text-decoration:underline;text-underline-offset:3px}
+.pl small{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.pl .bar{grid-column:2/4;height:6px;border-radius:99px;background:var(--chip);overflow:hidden}
+.pl .bar i{display:block;height:100%;border-radius:99px;transition:width .3s}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:13.5px;color:var(--muted);max-height:150px;overflow:auto}
+.log li:first-child{color:var(--fg);font-weight:600}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.row label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13.5px}
+.tally{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:13.5px}
+.tally b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:15;box-shadow:0 8px 20px rgba(0,0,0,.25);max-width:calc(100vw - 32px);text-align:center}
+.overlay{position:fixed;inset:0;background:rgba(20,16,8,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:32px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal ol{margin:0;padding-left:22px;text-align:left;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:8px 16px}
+  .game{display:contents}
+  .stage{grid-column:1;grid-row:1/3;position:sticky;top:8px;align-self:start}
+  header,.side{grid-column:2}
+  .sub{display:none} h1{font-size:26px}
+  .boardbox{width:calc((100dvh - 16px) * .92);min-width:0}
+  .stage>.tray{display:none}
+  .side>.tray2{display:flex!important}
+}
+@media (prefers-reduced-motion:reduce){.tok,.tok.slide{transition:none}.die.roll,.think .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Snakes and Ladders</h1>
+      <p class="sub">Roll and race to square 100. Ladders carry you up, snakes slide you down. Pure luck, all the way to the top.</p>
+    </div>
+    <div class="controls">
+      <select id="players" aria-label="Number of players"><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option></select>
+      <select id="humans" aria-label="People playing"></select>
+      <select id="layout" aria-label="Board"><option value="classic">Classic board</option><option value="jungle">Jungle board</option><option value="tricky">Tricky board</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="stage" aria-label="Board">
+      <div class="boardbox"><svg id="svg" viewBox="0 0 10 10.9" role="img" aria-label="Snakes and ladders board"></svg></div>
+      <div class="tray" id="tray"></div>
+    </section>
+
+    <aside class="side">
+      <div class="tray tray2" id="tray2" hidden></div>
+      <div class="panel">
+        <p class="label">Players</p>
+        <div class="players" id="plist"></div>
+        <div class="row"><label><input type="checkbox" id="exact" checked> Exact roll to land on 100</label><label><input type="checkbox" id="fast"> Fast computer turns</label></div>
+      </div>
+      <div class="panel">
+        <p class="label">What happened</p>
+        <ul class="log" id="log"></ul>
+      </div>
+      <div class="panel">
+        <p class="label">Wins this session</p>
+        <div class="tally" id="tally"></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Everyone starts off the board. Take turns rolling the die and moving your pawn that many squares, following the numbers from 1 up to 100.</li>
+            <li>Land at the foot of a ladder and climb to its top. Land on a snake's head and slide down to its tail.</li>
+            <li>Rolling a 6 gives you another roll.</li>
+            <li>With <b>Exact roll</b> on, you must land exactly on 100: if the roll is too big you bounce back by the extra squares. With it off, any roll that reaches 100 wins.</li>
+            <li>Keyboard: Space or R rolls.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+const LAYOUTS={
+  classic:{ladders:[[1,38],[4,14],[9,31],[21,42],[28,84],[36,44],[51,67],[71,91],[80,100]],snakes:[[16,6],[47,26],[49,11],[56,53],[62,19],[64,60],[87,24],[93,73],[95,75],[98,78]]},
+  jungle:{ladders:[[3,22],[5,8],[11,26],[20,29],[27,56],[50,70],[57,76],[72,93],[77,96]],snakes:[[17,4],[19,7],[21,9],[54,36],[62,18],[66,45],[89,53],[95,74],[99,41]]},
+  tricky:{ladders:[[2,23],[8,34],[20,77],[32,68],[41,79],[74,88],[85,95]],snakes:[[29,9],[38,15],[47,5],[53,33],[62,37],[86,54],[92,70],[97,25],[99,63]]}};
+const COL=[['#e0463a','Red'],['#2f6fe0','Blue'],['#2fa55a','Green'],['#f2b42a','Yellow']];
+const SNAKECOL=[['#3d9a4a','#a5d36a'],['#d9542b','#f6b54b'],['#7b4cc2','#c8a8f0'],['#1f8f9a','#8fe0d6'],['#c23a6b','#f5a0c0']];
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({players:2,humans:1,layout:'classic',exact:true,fast:false},store.get('parlor-ladders',{}));
+const wins={};
+let S=null,toastT=0;
+
+// Square n (1-100) runs left to right on the bottom row, then right to left, snaking up the board.
+function xy(n){if(n<=0)return null;const r=Math.floor((n-1)/10),k=(n-1)%10,c=r%2?9-k:k;return[c+.5,9-r+.5]}
+const isCpu=pl=>pl>=S.humans;
+const nameOf=pl=>S.humans===1?(pl===0?'You':`Computer ${COL[pl][1]}`):(isCpu(pl)?`Computer ${COL[pl][1]}`:COL[pl][1]);
+const delay=ms=>cfg.fast&&isCpu(S.turn)?Math.min(ms,110):ms;
+function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+
+/* ---------- game flow ---------- */
+function newGame(){$('overlay').hidden=true;const n=+cfg.players;
+  const L=LAYOUTS[cfg.layout],jump=new Map();for(const[a,b]of L.ladders)jump.set(a,b);for(const[a,b]of L.snakes)jump.set(a,b);
+  S={n,humans:Math.min(+cfg.humans,n),pos:new Array(n).fill(0),turn:0,phase:'roll',die:0,rolled:false,anim:false,over:null,msg:'',log:[],jump,L,gen:(S?S.gen:0)+1,climbs:new Array(n).fill(0),slides:new Array(n).fill(0)};
+  for(let pl=0;pl<n;pl++)if(wins[pl]===undefined)wins[pl]=0;
+  build();startTurn()}
+function startTurn(){S.phase='roll';render();if(isCpu(S.turn)){const g=S.gen;setTimeout(()=>{if(g===S.gen)roll()},delay(700))}}
+function roll(){if(S.over||S.phase!=='roll')return;const g=S.gen,pl=S.turn;
+  S.die=1+rand(6);S.rolled=true;S.anim=true;S.phase='anim';S.msg='';render();S.anim=false;
+  const from=S.pos[pl];let target=from+S.die,bounce=0;
+  if(target>100){if(cfg.exact){bounce=target-100;target=100-bounce}else target=100}
+  const path=[];for(let k=from+1;k<=Math.min(from+S.die,100);k++)path.push(k);for(let k=1;k<=bounce;k++)path.push(100-k);
+  let i=0;const walk=()=>{if(g!==S.gen)return;if(i<path.length){S.pos[pl]=path[i++];renderTokens();setTimeout(walk,delay(170));return}
+    const land=S.pos[pl],to=S.jump.get(land);let note=`${nameOf(pl)} rolled ${S.die}: ${from||'start'} → ${land}${bounce?' (bounced back)':''}`;
+    if(to){const up=to>land;up?S.climbs[pl]++:S.slides[pl]++;note+=up?`, climbed a ladder to ${to}!`:`, slid down a snake to ${to}.`;
+      setTimeout(()=>{if(g!==S.gen)return;S.pos[pl]=to;renderTokens(true);toast(up?`${nameOf(pl)} climbed to ${to}!`:`Hiss! ${nameOf(pl)} slid down to ${to}.`);setTimeout(()=>{if(g===S.gen)after(pl,note)},delay(800))},delay(250))}
+    else after(pl,note)};
+  setTimeout(walk,delay(350))}
+function after(pl,note){S.log.unshift(note);S.log=S.log.slice(0,30);
+  if(S.pos[pl]===100){finish(pl);return}
+  if(S.die===6){S.msg='Rolled a 6: roll again.'}else{S.msg='';S.turn=(S.turn+1)%S.n;S.rolled=false}
+  startTurn()}
+function finish(w){S.over={w};S.phase='over';wins[w]=(wins[w]||0)+1;render();
+  const rank=[...Array(S.n).keys()].sort((a,b)=>S.pos[b]-S.pos[a]);
+  setTimeout(()=>{if(!S.over)return;$('modal').innerHTML=`<h2>${S.humans===1&&w===0?'You win!':nameOf(w)+' wins'}</h2><p>${S.climbs[w]} ladder${S.climbs[w]===1?'':'s'} climbed and ${S.slides[w]} snake${S.slides[w]===1?'':'s'} slid on the way to 100.</p>${S.n>2?`<ol>${rank.map(pl=>`<li>${nameOf(pl)}: square ${S.pos[pl]}</li>`).join('')}</ol>`:''}<div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+    $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame},900)}
+
+/* ---------- drawing ---------- */
+function ladderSVG(a,b){const[x1,y1]=xy(a),[x2,y2]=xy(b),dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy),ux=dx/len,uy=dy/len,px=-uy*.17,py=ux*.17;
+  // trim the ends a little so the ladder sits inside its squares
+  const sx=x1+ux*.12,sy=y1+uy*.12,ex=x2-ux*.12,ey=y2-uy*.12,L=len-.24;let s='';
+  for(let t=.25;t<L;t+=.38){const x=sx+ux*t,y=sy+uy*t;s+=`<line class="rung" x1="${(x+px).toFixed(3)}" y1="${(y+py).toFixed(3)}" x2="${(x-px).toFixed(3)}" y2="${(y-py).toFixed(3)}"/>`}
+  s+=`<line class="rail" x1="${(sx+px).toFixed(3)}" y1="${(sy+py).toFixed(3)}" x2="${(ex+px).toFixed(3)}" y2="${(ey+py).toFixed(3)}"/><line class="rail" x1="${(sx-px).toFixed(3)}" y1="${(sy-py).toFixed(3)}" x2="${(ex-px).toFixed(3)}" y2="${(ey-py).toFixed(3)}"/>`;
+  return `<g filter="url(#sh)">${s}</g>`}
+function snakeSVG(h,t,k){const[x1,y1]=xy(h),[x2,y2]=xy(t),dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy),ux=dx/len,uy=dy/len,px=-uy,py=ux;
+  const waves=Math.max(1,Math.round(len/1.6)),amp=Math.min(.42,.18+len*.03),pts=[];
+  for(let i=0;i<=waves*8;i++){const f=i/(waves*8),w=Math.sin(f*waves*Math.PI*2)*amp*Math.sin(Math.PI*Math.min(1,f*1.6));pts.push([x1+dx*f+px*w,y1+dy*f+py*w])}
+  let d=`M${pts[0][0].toFixed(3)} ${pts[0][1].toFixed(3)}`;for(let i=1;i<pts.length-1;i++){const mx=(pts[i][0]+pts[i+1][0])/2,my=(pts[i][1]+pts[i+1][1])/2;d+=` Q${pts[i][0].toFixed(3)} ${pts[i][1].toFixed(3)} ${mx.toFixed(3)} ${my.toFixed(3)}`}
+  const last=pts[pts.length-1];d+=` L${last[0].toFixed(3)} ${last[1].toFixed(3)}`;
+  const[c1,c2]=SNAKECOL[k%SNAKECOL.length],ang=Math.atan2(-uy,-ux)*180/Math.PI;
+  return `<g filter="url(#sh)"><path class="snake" d="${d}" stroke="${c1}" stroke-width=".3"/><path class="snake" d="${d}" stroke="${c2}" stroke-width=".13" stroke-dasharray=".16 .2"/><path class="snake" d="${d}" stroke="#000" stroke-opacity=".12" stroke-width=".3" stroke-dasharray="0 .36" />
+    <g transform="translate(${x1.toFixed(3)} ${y1.toFixed(3)}) rotate(${ang.toFixed(1)})"><ellipse rx=".27" ry=".21" fill="${c1}"/><circle cx=".1" cy="-.09" r=".055" fill="#fff"/><circle cx=".1" cy=".09" r=".055" fill="#fff"/><circle cx=".12" cy="-.09" r=".028" fill="#111"/><circle cx=".12" cy=".09" r=".028" fill="#111"/><path d="M.26 0l.14 0M.4 0l.06-.05M.4 0l.06.05" stroke="#d1242f" stroke-width=".025" stroke-linecap="round"/></g></g>`}
+function build(){const L=S.L;let s=`<defs><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx=".04" dy=".06" stdDeviation=".04" flood-opacity=".35"/></filter>`;
+  COL.forEach(([c],k)=>{s+=`<radialGradient id="g${k}" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".3" stop-color="${c}"/><stop offset="1" stop-color="${c}"/></radialGradient>`});
+  s+='</defs>';const pal=['var(--a)','var(--b)','var(--c)','var(--d)'];
+  for(let n=1;n<=100;n++){const[x,y]=xy(n),r=Math.floor((n-1)/10),k=(n-1)%10;s+=`<rect x="${x-.5}" y="${y-.5}" width="1" height="1" fill="${pal[(r+k)%2?(r%2?1:3):(r%2?2:0)]}"/>`;
+    s+=`<text class="n${n===100||n===1?' big':''}" x="${x-.42}" y="${y-.2}">${n===100?'100 ★':n}</text>`}
+  s+=`<rect x="0" y="10" width="10" height=".9" fill="var(--c)"/><text class="n big" x=".2" y="10.55">START</text><line x1="0" y1="10" x2="10" y2="10" stroke="var(--num)" stroke-width=".03" opacity=".4"/>`;
+  for(const[a,b]of L.ladders)s+=ladderSVG(a,b);
+  L.snakes.forEach(([h,t],k)=>{s+=snakeSVG(h,t,k)});
+  s+='<g id="toks">';for(let pl=0;pl<S.n;pl++)s+=`<g class="tok" id="t${pl}"><circle class="body" r=".27" fill="url(#g${pl})"/><circle class="ring" r=".14"/></g>`;s+='</g>';
+  $('svg').innerHTML=s;renderTokens()}
+function renderTokens(slide){const at=new Map();for(let pl=0;pl<S.n;pl++){const p=S.pos[pl];if(!at.has(p))at.set(p,[]);at.get(p).push(pl)}
+  for(let pl=0;pl<S.n;pl++){const el=$(`t${pl}`),p=S.pos[pl];let x,y,sc=1;
+    if(p===0){x=1.9+pl*.75;y=10.45}else{[x,y]=xy(p);const g=at.get(p);if(g.length>1){const j=g.indexOf(pl),a=j/g.length*Math.PI*2+Math.PI/4;x+=Math.cos(a)*.21;y+=Math.sin(a)*.21;sc=.78}}
+    el.classList.toggle('slide',!!slide&&pl===S.turn);el.style.transform=`translate(${x}px,${y}px) scale(${sc})`;
+    if(pl===S.turn)$('toks').appendChild(el)}}
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function trayHTML(){const pl=S.turn,me=!isCpu(pl)&&!S.over,canRoll=me&&S.phase==='roll';
+  const msg=S.over?'Game over.':S.msg?S.msg:isCpu(pl)?'Rolling…':S.phase==='roll'?(S.pos[pl]?`On square ${S.pos[pl]}. Tap the die to roll.`:'Tap the die to roll.'):'Moving…';
+  const head=S.over?`${nameOf(S.over.w)} ${S.humans===1&&S.over.w===0?'win':'wins'}`:S.humans===1&&pl===0?'Your turn':nameOf(pl);
+  const v=S.rolled?S.die:0;
+  return `<div class="who${isCpu(pl)&&!S.over?' think':''}"><span class="dot" style="background:${COL[S.over?S.over.w:pl][0]}"></span><span>${head}<span class="msg">${msg}</span></span></div>
+    <button class="die${canRoll?' can':''}${S.anim&&v?' roll':''}" data-die="1" aria-label="${canRoll?'Roll the die':v?'Rolled '+v:'Die'}"${canRoll?'':' disabled'}>${[...Array(9)].map((_,k)=>v&&PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</button>`}
+function render(){if(!S)return;renderTokens();const h=trayHTML();$('tray').innerHTML=h;$('tray2').innerHTML=h;
+  $('plist').innerHTML=[...Array(S.n).keys()].map(pl=>`<div class="pl${pl===S.turn&&!S.over?' now':''}"><span class="dot" style="background:${COL[pl][0]}"></span><b>${nameOf(pl)}</b><small>${S.pos[pl]?'square '+S.pos[pl]:'at start'}</small><span class="bar"><i style="width:${S.pos[pl]}%;background:${COL[pl][0]}"></i></span></div>`).join('');
+  $('log').innerHTML=S.log.length?S.log.map(t=>`<li>${t}</li>`).join(''):'<li>Nothing yet. Roll to start!</li>';
+  $('tally').innerHTML=[...Array(S.n).keys()].map(pl=>`<span>${nameOf(pl)} <b>${wins[pl]||0}</b></span>`).join('')}
+
+/* ---------- input & settings ---------- */
+document.addEventListener('click',e=>{if(e.target.closest('[data-die]')&&S&&!isCpu(S.turn))roll()});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;
+  if(e.key==='Escape'&&!$('overlay').hidden){$('overlay').hidden=true;return}
+  if((e.key===' '||e.key==='r'||e.key==='R')&&S&&S.phase==='roll'&&!isCpu(S.turn)&&$('overlay').hidden&&!e.target.closest('button')){e.preventDefault();roll()}});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function fillHumans(){const n=+cfg.players;$('humans').innerHTML=[...Array(n).keys()].map(k=>{const h=k+1;return `<option value="${h}">${h===1?'You vs computers':h===n?`${h} people, no computer`:`${h} people + ${n-h} computer${n-h>1?'s':''}`}</option>`}).join('');
+  if(+cfg.humans>n)cfg.humans=n;$('humans').value=cfg.humans}
+function sync(){$('players').value=cfg.players;fillHumans();$('layout').value=cfg.layout;$('exact').checked=cfg.exact;$('fast').checked=cfg.fast}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-ladders',cfg);sync();if(restart){if(k!=='layout')for(const w in wins)delete wins[w];newGame()}else render()}
+$('players').onchange=e=>setCfg('players',+e.target.value,true);
+$('humans').onchange=e=>setCfg('humans',+e.target.value,true);
+$('layout').onchange=e=>setCfg('layout',e.target.value,true);
+$('exact').onchange=e=>setCfg('exact',e.target.checked,false);
+$('fast').onchange=e=>setCfg('fast',e.target.checked,false);
+$('newgame').onclick=newGame;
+if(![2,3,4].includes(+cfg.players))cfg.players=2;cfg.players=+cfg.players;cfg.humans=Math.max(1,Math.min(+cfg.humans||1,cfg.players));if(!LAYOUTS[cfg.layout])cfg.layout='classic';
+sync();newGame();
+</script>
+</body>
+</html>
