@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mahjong Solitaire</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&display=swap&text=%E4%B8%80%E4%BA%8C%E4%B8%89%E5%9B%9B%E4%BA%94%E5%85%AD%E4%B8%83%E5%85%AB%E4%B9%9D%E8%90%AC%E6%9D%B1%E5%8D%97%E8%A5%BF%E5%8C%97%E4%B8%AD%E7%99%BC">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: ivory tiles stacked on a deep jade felt table. Header with layout choice; a status bar (tiles left, matches available, timer, actions)
+   above the table, and the rules under it. The stack scales to fit the screen width and height. */
+:root{
+  --bg:#e8efe9; --fg:#1b2a25; --muted:#5b6d66; --panel:#ffffff; --line:#d3ded8; --chip:#edf3ef;
+  --accent:#1d5b4f; --accent-ink:#ffffff; --felt:#1d5b4f; --felt-2:#144439;
+  --tile:#fbf6e9; --tile-2:#efe4c8; --side:#c9b27f; --side-2:#a68d58; --ink:#1d1d1d;
+  --display:"Fraunces", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+  --han:"Noto Serif TC","Noto Serif SC","Songti TC","PMingLiU","Noto Serif CJK TC","Noto Sans CJK TC",serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1513; --fg:#e3ece8; --muted:#97aaa3; --panel:#16201d; --line:#26352f; --chip:#1d2a26; --accent:#5fcfae; --accent-ink:#06231b; --felt:#123b33; --felt-2:#0b2924; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0e1513; --fg:#e3ece8; --muted:#97aaa3; --panel:#16201d; --line:#26352f; --chip:#1d2a26; --accent:#5fcfae; --accent-ink:#06231b; --felt:#123b33; --felt-2:#0b2924; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1200px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(30px,5.5vw,46px);line-height:1;margin:4px 0 0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:50ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 12px}
+.bar .st{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:13.5px;flex:1;min-width:0}
+.bar .st b{color:var(--fg);font-variant-numeric:tabular-nums;font-size:15px}
+.bar .st span{white-space:nowrap}
+@media (max-width:560px){.bar .st{flex-basis:100%;gap:12px}}
+.bar .acts{display:flex;gap:6px;flex-wrap:wrap}
+.table{background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--felt-2));border-radius:18px;padding:14px 10px;box-shadow:inset 0 2px 10px rgba(0,0,0,.35);display:flex;justify-content:center;overflow:hidden}
+.stack{position:relative}
+.t{position:absolute;border:0;padding:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.t .s{position:absolute;inset:0;border-radius:12%/9%;background:linear-gradient(135deg,var(--side),var(--side-2));transform:translate(var(--d),var(--d));box-shadow:2px 3px 4px rgba(0,0,0,.35)}
+.t .f{position:absolute;inset:0;border-radius:12%/9%;background:linear-gradient(160deg,var(--tile),var(--tile-2));box-shadow:inset 0 0 0 1px rgba(120,90,40,.35);overflow:hidden}
+.t svg{position:absolute;inset:6% 7%;width:86%;height:88%}
+.t.blk .f::after{content:"";position:absolute;inset:0;background:rgba(40,30,10,.0)}
+.dim .t.blk .f::after{background:rgba(40,30,10,.22)}
+.t.sel .f{background:linear-gradient(160deg,#fff4b8,#f1d36a);box-shadow:inset 0 0 0 2px #c79a1a}
+.t.hint .f{background:linear-gradient(160deg,#d6f5e5,#a8e3c5);box-shadow:inset 0 0 0 2px #2c9a66}
+.t.cur .f{box-shadow:inset 0 0 0 3px #2f6fe0}
+.t.gone{opacity:0;transform:scale(.7);transition:opacity .25s,transform .25s;pointer-events:none}
+.t.shake{animation:shake .3s}
+@keyframes shake{25%{translate:-3px 0}75%{translate:3px 0}}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.cols{grid-template-columns:1fr}}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.rec{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13.5px}
+.rec b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+.lab{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13.5px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:15000;box-shadow:0 8px 20px rgba(0,0,0,.25);max-width:calc(100vw - 32px);text-align:center}
+.overlay{position:fixed;inset:0;background:rgba(5,20,15,.6);display:grid;place-items:center;padding:16px;z-index:20000}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:32px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{padding-block:6px 16px;gap:8px}
+  .sub{display:none} h1{font-size:24px}
+  header{align-items:center}
+  .table{padding:8px}
+}
+@media (prefers-reduced-motion:reduce){.t.gone{transition:none}.t.shake{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Mahjong Solitaire</h1>
+      <p class="sub">Clear the stack two at a time. Match identical tiles that are free: nothing on top, and an open left or right side.</p>
+    </div>
+    <div class="controls">
+      <select id="layout" aria-label="Layout"><option value="turtle">Turtle · 144 tiles</option><option value="pyramid">Pyramid · 82 tiles</option><option value="tower">Little tower · 34 tiles</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="bar" aria-live="polite">
+    <div class="st"><span>Tiles left <b id="left">0</b></span><span>Matches open <b id="open">0</b></span><span>Time <b id="time">0:00</b></span></div>
+    <div class="acts"><button class="btn" id="undo">Undo</button><button class="btn" id="hint">Hint</button><button class="btn" id="shuffle">Shuffle</button></div>
+  </div>
+  <div class="table" id="table"><div class="stack" id="stack" role="grid" aria-label="Tiles"></div></div>
+
+  <div class="cols">
+    <div class="panel">
+      <p class="label">Your record</p>
+      <div class="rec" id="rec"></div>
+      <label class="lab" style="margin-top:10px"><input type="checkbox" id="dimBlocked" checked> Shade tiles that aren't free</label>
+    </div>
+    <div class="panel">
+      <details>
+        <summary>How to play</summary>
+        <ul>
+          <li>Tap two matching tiles to remove them. A tile can only be picked if nothing is stacked on it and its left or right side is open.</li>
+          <li>Tiles match when they are exactly the same. The four flower tiles all match each other, and so do the four season tiles.</li>
+          <li>Every deal can be cleared. If you get stuck, Shuffle rearranges the tiles that are left so the game can still be won.</li>
+          <li>Suits: dots (circles), bamboo (sticks) and characters (red 萬 with a number on top). Also four winds (東 east, 南 south, 西 west, 北 north) and three dragons (red 中, green 發, and the blue-framed white dragon). Small marks in the corner help you tell them apart.</li>
+          <li>Keyboard: arrows move between free tiles, Enter picks, H hint, U undo.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- layouts (positions in half-tile units: a tile at x,y covers x..x+2, y..y+2) ---------- */
+function rect(out,x0,x1,y0,y1,z){for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)out.push([x*2,y*2,z])}
+const LAYOUTS={
+  turtle(){const o=[];[[1,12],[3,10],[2,11],[1,12],[1,12],[2,11],[3,10],[1,12]].forEach(([a,b],y)=>{for(let x=a;x<=b;x++)o.push([x*2,y*2,0])});
+    o.push([0,7,0],[26,7,0],[28,7,0]);rect(o,4,9,1,6,1);rect(o,5,8,2,5,2);rect(o,6,7,3,4,3);o.push([13,7,4]);return o},
+  pyramid(){const o=[];rect(o,0,7,0,5,0);rect(o,1,6,1,4,1);rect(o,2,5,2,3,2);o.push([6,5,3],[8,5,3]);return o},
+  tower(){const o=[];rect(o,0,5,0,3,0);rect(o,1,4,1,2,1);o.push([4,3,2],[6,3,2]);return o}};
+
+/* ---------- tiles ---------- */
+// Kinds 0-8 dots, 9-17 bamboo, 18-26 characters, 27-30 winds, 31-33 dragons, 34-37 flowers, 38-41 seasons.
+const cls=k=>k<34?k:k<38?'F':'S';
+const NUM='一二三四五六七八九',WIND='東南西北';
+const DOTPOS={1:[[20,26]],2:[[20,13],[20,39]],3:[[10,10],[20,26],[30,42]],4:[[11,13],[29,13],[11,39],[29,39]],5:[[11,11],[29,11],[20,26],[11,41],[29,41]],
+  6:[[12,9],[28,9],[12,26],[28,26],[12,43],[28,43]],7:[[9,8],[20,13],[31,18],[12,32],[28,32],[12,44],[28,44]],8:[[12,7],[28,7],[12,19],[28,19],[12,33],[28,33],[12,45],[28,45]],
+  9:[[9,9],[20,9],[31,9],[9,26],[20,26],[31,26],[9,43],[20,43],[31,43]]};
+const DOTCOL=['#1f5fb4','#2e8b57','#c8323c'];
+function face(k){
+  if(k<9){const n=k+1,r=n===1?11:n<=4?7:n<=6?6:5.2;return DOTPOS[n].map(([x,y],i)=>{const c=n===1?'#c8323c':DOTCOL[(i+n)%3];return `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${c}" stroke-width="2.2"/><circle cx="${x}" cy="${y}" r="${r*.42}" fill="${c}"/>`}).join('')+corner(n)}
+  if(k<18){const n=k-8;if(n===1)return `<path d="M20 8c6 4 9 10 7 17-2 6-7 9-7 9s-5-3-7-9c-2-7 1-13 7-17z" fill="#2e8b57"/><circle cx="17.5" cy="16" r="1.6" fill="#c8323c"/><path d="M20 34v12M14 46h12" stroke="#2e8b57" stroke-width="2.4" stroke-linecap="round"/>`+corner(1);
+    const cols=n<=3?n:n<=6?3:n===7?3:n===8?4:3,rows=Math.ceil(n/cols),pos=[];
+    for(let i=0;i<n;i++){const r=Math.floor(i/cols),c=i%cols,cnt=Math.min(cols,n-r*cols);pos.push([20+(c-(cnt-1)/2)*(32/Math.max(cols,1)),rows===1?26:8+r*(36/rows)+18/rows])}
+    const hgt=rows===1?32:rows===2?19:12.5;return pos.map(([x,y],i)=>{const c=(i===Math.floor(n/2)&&n%2&&n>2)?'#c8323c':'#2e8b57';return `<rect x="${x-2.6}" y="${y-hgt/2}" width="5.2" height="${hgt}" rx="2.4" fill="${c}"/><line x1="${x-2.6}" y1="${y}" x2="${x+2.6}" y2="${y}" stroke="#fff" stroke-width="1"/>`}).join('')+corner(n)}
+  if(k<27){const n=k-17;return `<text x="20" y="23" text-anchor="middle" font-size="19" font-family="var(--han)" font-weight="700" fill="#1d1d1d">${NUM[n-1]}</text><text x="20" y="47" text-anchor="middle" font-size="21" font-family="var(--han)" font-weight="700" fill="#c8323c">萬</text>`+corner(n)}
+  if(k<31){const w=k-27;return `<text x="20" y="36" text-anchor="middle" font-size="27" font-family="var(--han)" font-weight="700" fill="#1d1d1d">${WIND[w]}</text>`+corner('ESWN'[w])}
+  if(k===31)return `<text x="20" y="36" text-anchor="middle" font-size="28" font-family="var(--han)" font-weight="700" fill="#c8323c">中</text>`+corner('R');
+  if(k===32)return `<text x="20" y="36" text-anchor="middle" font-size="27" font-family="var(--han)" font-weight="700" fill="#2e8b57">發</text>`+corner('G');
+  if(k===33)return `<rect x="8" y="9" width="24" height="34" rx="3" fill="none" stroke="#1f5fb4" stroke-width="3"/><rect x="12" y="13" width="16" height="26" rx="2" fill="none" stroke="#1f5fb4" stroke-width="1.4"/>`+corner('W');
+  const em=k<38?['🌸','🌼','🌺','🌷'][k-34]:['🌱','☀️','🍂','❄️'][k-38];
+  return `<text x="20" y="34" text-anchor="middle" font-size="22">${em}</text><text x="20" y="48" text-anchor="middle" font-size="7" font-family="var(--body)" font-weight="800" fill="#7a6a40">${k<38?'FLOWER':'SEASON'}</text>`}
+const corner=t=>`<text x="2" y="8" font-size="7.5" font-family="Inter,sans-serif" font-weight="800" fill="#8a7a50">${t}</text>`;
+const NAMES=k=>k<9?`${k+1} of dots`:k<18?`${k-8} of bamboo`:k<27?`${k-17} of characters`:k<31?['east','south','west','north'][k-27]+' wind':k<34?['red','green','white'][k-31]+' dragon':k<38?'flower':'season';
+
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({layout:innerWidth<500?'pyramid':'turtle',dim:true},store.get('parlor-mahjong',{}));
+const rec=store.get('parlor-mahjong-rec',{});
+let S=null,toastT=0,timer=0,kbIdx=-1;
+
+/* ---------- geometry and dealing ---------- */
+function prep(pos){const n=pos.length,above=[],left=[],right=[];
+  for(let i=0;i<n;i++){above.push([]);left.push([]);right.push([]);const[x,y,z]=pos[i];
+    for(let j=0;j<n;j++){if(i===j)continue;const[a,b,c]=pos[j];
+      if(c===z+1&&Math.abs(a-x)<2&&Math.abs(b-y)<2)above[i].push(j);
+      if(c===z&&Math.abs(b-y)<2){if(a===x-2)left[i].push(j);else if(a===x+2)right[i].push(j)}}}
+  return{above,left,right}}
+function isFree(i,alive){const G=S.G;if(G.above[i].some(j=>alive[j]))return false;return!G.left[i].some(j=>alive[j])||!G.right[i].some(j=>alive[j])}
+// Build a deal by taking tiles away in pairs from the full stack: each pair is free at that moment, so playing the pairs in that order always works.
+function solvableAssign(idx,pairKinds){for(let attempt=0;attempt<400;attempt++){const alive=new Array(S.pos.length).fill(false);idx.forEach(i=>alive[i]=true);
+    const kinds=pairKinds.slice().sort(()=>Math.random()-.5),out={};let ok=true,left=idx.length;
+    while(left){const free=idx.filter(i=>alive[i]&&isFree(i,alive));if(free.length<2){ok=false;break}
+      // favor taking tiles from high up and from the ends, which keeps the rest of the stack open
+      free.sort((a,b)=>S.pos[b][2]-S.pos[a][2]+Math.random()*1.6-.8);const pickFrom=free.slice(0,Math.max(2,Math.ceil(free.length*.7)));
+      const a=pickFrom.splice(rand(pickFrom.length),1)[0],b=pickFrom[rand(pickFrom.length)];alive[a]=alive[b]=false;left-=2;const pk=kinds.pop();out[a]=pk[0];out[b]=pk[1]}
+    if(ok)return out}
+  return null}
+function pairsFor(n){const all=[];for(let k=0;k<34;k++){all.push([k,k],[k,k])}all.push([34,35],[36,37],[38,39],[40,41]);
+  if(n>=144)return all;const sh=all.sort(()=>Math.random()-.5);return sh.slice(0,n/2)}
+function newGame(){$('overlay').hidden=true;const pos=LAYOUTS[cfg.layout]();
+  S={pos,G:null,kind:[],alive:new Array(pos.length).fill(true),sel:-1,hist:[],hint:null,t0:0,elapsed:0,over:false,shuffles:0,layout:cfg.layout};S.G=prep(pos);
+  const idx=pos.map((_,i)=>i),asg=solvableAssign(idx,pairsFor(pos.length));S.kind=idx.map(i=>asg[i]);
+  build();startTimer();render()}
+function shuffle(){if(S.over)return;const idx=S.pos.map((_,i)=>i).filter(i=>S.alive[i]);const byCls={};idx.forEach(i=>{const c=cls(S.kind[i]);(byCls[c]=byCls[c]||[]).push(S.kind[i])});
+  const pk=[];for(const c in byCls){const a=byCls[c];for(let j=0;j+1<a.length;j+=2)pk.push([a[j],a[j+1]])}
+  const asg=solvableAssign(idx,pk);if(!asg){toast('Could not shuffle.');return}
+  S.hist.push({shuffle:true,kind:S.kind.slice()});idx.forEach(i=>S.kind[i]=asg[i]);S.shuffles++;S.sel=-1;S.hint=null;
+  for(const i of idx){const el=S.els[i];el.querySelector('svg').innerHTML=face(S.kind[i]);el.setAttribute('aria-label',NAMES(S.kind[i]))}render();toast('Shuffled. This arrangement can be cleared.')}
+
+/* ---------- play ---------- */
+function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function startTimer(){clearInterval(timer);S.t0=Date.now();timer=setInterval(()=>{if(!S.over&&!document.hidden)$('time').textContent=fmt(S.elapsed+(Date.now()-S.t0))},500)}
+const fmt=ms=>{const s=Math.floor(ms/1000);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
+function openPairs(){const free=S.pos.map((_,i)=>i).filter(i=>S.alive[i]&&isFree(i,S.alive)),m={};let n=0,first=null;
+  for(const i of free){const c=cls(S.kind[i]);(m[c]=m[c]||[]).push(i)}for(const c in m){const k=m[c].length;n+=k*(k-1)/2;if(k>=2&&!first)first=[m[c][0],m[c][1]]}return{n,first}}
+function pick(i){if(S.over||!S.alive[i])return;S.hint=null;
+  if(!isFree(i,S.alive)){const el=S.els[i];el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake');toast(S.G.above[i].some(j=>S.alive[j])?'That tile is covered.':'That tile is blocked on both sides.');return}
+  if(S.sel===i){S.sel=-1;render();return}
+  if(S.sel>=0&&cls(S.kind[S.sel])===cls(S.kind[i])){const a=S.sel;S.alive[a]=S.alive[i]=false;S.hist.push({a,b:i});S.sel=-1;
+    S.els[a].classList.add('gone');S.els[i].classList.add('gone');render();checkEnd();return}
+  S.sel=i;render()}
+function undo(){const h=S.hist.pop();if(!h)return;if(h.shuffle){S.kind=h.kind;S.pos.forEach((_,i)=>{S.els[i].querySelector('svg').innerHTML=face(S.kind[i])})}
+  else{S.alive[h.a]=S.alive[h.b]=true;S.els[h.a].classList.remove('gone');S.els[h.b].classList.remove('gone')}S.sel=-1;S.hint=null;if(S.over){S.over=false;S.t0=Date.now()}render()}
+function checkEnd(){const left=S.alive.filter(Boolean).length;
+  if(!left){S.over=true;S.elapsed+=Date.now()-S.t0;const r=rec[S.layout]||(rec[S.layout]={won:0,best:0});r.won++;const best=!r.best||S.elapsed<r.best;if(best)r.best=S.elapsed;store.set('parlor-mahjong-rec',rec);render();
+    setTimeout(()=>{$('modal').innerHTML=`<h2>Cleared!</h2><p>${fmt(S.elapsed)}${best?' · a new best time':''}${S.shuffles?` · ${S.shuffles} shuffle${S.shuffles>1?'s':''}`:''}</p><div class="row"><button class="btn primary" id="magain">New game</button></div>`;$('overlay').hidden=false;$('magain').focus();$('magain').onclick=newGame},500);return}
+  if(!openPairs().n){$('modal').innerHTML=`<h2>No matches left</h2><p>There are no free pairs. Shuffle the remaining ${left} tiles, or undo a few moves and try another path.</p><div class="row"><button class="btn" id="mundo">Undo</button><button class="btn primary" id="mshuf">Shuffle</button></div>`;
+    $('overlay').hidden=false;$('mshuf').focus();$('mshuf').onclick=()=>{$('overlay').hidden=true;shuffle()};$('mundo').onclick=()=>{$('overlay').hidden=true;undo()}}}
+
+/* ---------- drawing ---------- */
+function build(){const st=$('stack');st.innerHTML='';S.els=[];
+  S.pos.forEach(([x,y,z],i)=>{const b=document.createElement('button');b.className='t';b.dataset.i=i;b.setAttribute('aria-label',NAMES(S.kind[i]));
+    b.innerHTML=`<span class="s"></span><span class="f"><svg viewBox="0 0 40 52" aria-hidden="true">${face(S.kind[i])}</svg></span>`;b.style.zIndex=z*1000+y*20+x;st.appendChild(b);S.els.push(b)});
+  layoutStack()}
+function layoutStack(){if(!S)return;const xs=S.pos.map(p=>p[0]),ys=S.pos.map(p=>p[1]),zs=S.pos.map(p=>p[2]);
+  const cols=(Math.max(...xs)+2)/2,rows=(Math.max(...ys)+2)/2,maxZ=Math.max(...zs);
+  const tw=$('table').clientWidth-20,land=matchMedia('(max-height:520px) and (orientation:landscape)').matches;
+  const room=Math.max(220,innerHeight-(land?24:Math.min($('table').offsetTop,innerHeight*.45)+34));
+  // tile width w, height 1.3w, each layer shifted up-left by d
+  let w=Math.min(tw/(cols+maxZ*.12+.12),room/(rows*1.3+maxZ*.12+.12),62);const h=w*1.3,d=w*.12;
+  $('stack').style.width=(cols*w+maxZ*d+d)+'px';$('stack').style.height=(rows*h+maxZ*d+d)+'px';
+  S.pos.forEach(([x,y,z],i)=>{const el=S.els[i];el.style.width=w+'px';el.style.height=h+'px';el.style.left=(x/2*w+(maxZ-z)*d)+'px';el.style.top=(y/2*h+(maxZ-z)*d)+'px';el.style.setProperty('--d',Math.max(2,d*.6)+'px')})}
+function render(){if(!S)return;const op=openPairs();
+  S.pos.forEach((_,i)=>{const el=S.els[i];if(!S.alive[i])return;const free=isFree(i,S.alive);
+    el.className='t'+(free?'':' blk')+(i===S.sel?' sel':'')+(S.hint&&S.hint.includes(i)?' hint':'')+(i===kbIdx?' cur':'');el.tabIndex=-1});
+  $('table').classList.toggle('dim',cfg.dim);
+  $('left').textContent=S.alive.filter(Boolean).length;$('open').textContent=op.n;$('undo').disabled=!S.hist.length;$('hint').disabled=S.over||!op.n;$('shuffle').disabled=S.over;
+  const r=rec[S.layout]||{won:0,best:0};$('rec').innerHTML=`<span>Cleared <b>${r.won}</b></span><span>Best time <b>${r.best?fmt(r.best):'–'}</b></span><span>Layout <b>${$('layout').selectedOptions[0].textContent.split(' ·')[0]}</b></span>`}
+
+/* ---------- input ---------- */
+$('stack').addEventListener('click',e=>{const t=e.target.closest('.t');if(!t)return;kbIdx=-1;pick(+t.dataset.i)});
+$('hint').onclick=()=>{const op=openPairs();if(!op.first)return;S.hint=op.first;S.sel=-1;render()};
+$('undo').onclick=undo;$('shuffle').onclick=shuffle;$('newgame').onclick=newGame;
+$('layout').onchange=e=>{cfg.layout=e.target.value;store.set('parlor-mahjong',cfg);newGame()};
+$('dimBlocked').onchange=e=>{cfg.dim=e.target.checked;store.set('parlor-mahjong',cfg);render()};
+// Keyboard: arrows hop between free tiles in the direction pressed.
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!S)return;
+  if(!$('overlay').hidden){if(e.key==='Escape')$('overlay').hidden=true;return}
+  const k=e.key;if(k==='h'||k==='H'){$('hint').click();return}if(k==='u'||k==='U'){undo();return}
+  const dirs={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+  if(dirs[k]){e.preventDefault();const free=S.pos.map((_,i)=>i).filter(i=>S.alive[i]&&isFree(i,S.alive));if(!free.length)return;
+    if(kbIdx<0||!free.includes(kbIdx)){kbIdx=free[0];render();return}const[dx,dy]=dirs[k],[x0,y0]=S.pos[kbIdx];let best=-1,bd=1e9;
+    for(const i of free){if(i===kbIdx)continue;const vx=S.pos[i][0]-x0,vy=S.pos[i][1]-y0,along=vx*dx+vy*dy;if(along<=0)continue;const dist=along+Math.abs(vx*dy+vy*dx)*2.5;if(dist<bd){bd=dist;best=i}}
+    if(best>=0)kbIdx=best;render();return}
+  if((k==='Enter'||k===' ')&&kbIdx>=0){e.preventDefault();pick(kbIdx)}});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}if(S&&S.sel>=0){S.sel=-1;render();return true}return false};
+let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(layoutStack,100)});
+document.addEventListener('visibilitychange',()=>{if(!S||S.over)return;if(document.hidden){S.elapsed+=Date.now()-S.t0}else S.t0=Date.now()});
+if(!LAYOUTS[cfg.layout])cfg.layout='turtle';$('layout').value=cfg.layout;$('dimBlocked').checked=cfg.dim;
+newGame();
+</script>
+</body>
+</html>

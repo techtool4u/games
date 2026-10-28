@@ -49,6 +49,8 @@ Self-contained HTML files. No install or build step.
 - `snakes-and-ladders.html` — Snakes and Ladders on three boards for 2 to 4 players, people or computers.
 - `twenty-questions.html` — Twenty Questions: the computer guesses your thing (and learns), you guess its secret, or a party tracker for groups.
 - `code-breaker.html` — Code Breaker, the color-code deduction game, solo, 2 players, or watch the computer crack your code.
+- `mahjong-solitaire.html` — Mahjong Solitaire with three layouts; every deal can be cleared, with hints, undo and shuffle.
+- `dominoes.html` — Dominoes (Draw or Block game) for 2 to 4 players, people or computers.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
