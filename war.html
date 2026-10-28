@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>War</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a red felt table with the opponent's pile at the top, your pile at the bottom, and the battle in the middle where flipped cards meet.
+   Game stats, the session tally and the rules sit beside the table on wide screens and below it on phones. */
+:root{
+  --bg:#2e0f0c; --felt:#b23a2e; --felt-2:#7d2219; --fg:#fbf1ee; --muted:#e2b9b5; --panel:rgba(255,255,255,.08); --line:rgba(255,255,255,.16);
+  --accent:#f3c246; --accent-ink:#2a1d00; --card:#fffdf8; --red:#c62b2b; --black:#1d1d22; --back-1:#1d4e89; --back-2:#163c6a;
+  --display:"Libre Baskerville", Georgia, "Times New Roman", serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#200a0b;--felt:#5a191d;--felt-2:#3d1013;--card:#f1ece2}}
+:root[data-theme="dark"]{--bg:#200a0b;--felt:#5a191d;--felt-2:#3d1013;--card:#f1ece2}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4;min-height:100vh}
+.wrap{max-width:1180px;margin:0 auto;padding-block:10px 20px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+h1{font-family:var(--display);font-size:clamp(24px,4.5vw,34px);line-height:1.05;margin:2px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:#4a1a1d;color:var(--fg);padding:7px 10px;border-radius:999px;min-height:38px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:700;min-height:38px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.table{position:relative;background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--felt-2) 75%);border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset 0 10px 40px rgba(0,0,0,.3);padding:12px;display:grid;grid-template-columns:minmax(56px,1fr) minmax(0,2.4fr) minmax(56px,1fr);grid-template-rows:auto minmax(170px,1fr) auto;gap:8px;--cw:clamp(46px,9vw,74px);user-select:none;-webkit-user-select:none}
+.seat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;min-width:0}
+.seat b{font-size:14.5px}
+.seat small{color:var(--muted);font-size:12.5px}
+.seat.cur b{color:var(--accent)}
+.seat .backs{display:flex}
+.seat .backs i{width:16px;height:24px;border-radius:3px;background:repeating-linear-gradient(45deg,var(--back-1) 0 3px,var(--back-2) 3px 6px);box-shadow:0 0 0 1px #fff;margin-left:-9px}
+.seat .backs i:first-child{margin-left:0}
+.seat .backs em{display:none;font-style:normal;font-weight:800;font-size:13px;margin-left:4px;align-self:center}
+.north{grid-column:2;grid-row:1}.west{grid-column:1;grid-row:2}.east{grid-column:3;grid-row:2}
+.trick{grid-column:2;grid-row:2;position:relative;min-height:170px}
+.trick .card{position:absolute;left:50%;top:50%;transition:transform .35s ease,opacity .35s}
+.trick .p0{transform:translate(-50%,-12%)} .trick .p1{transform:translate(-118%,-50%)} .trick .p2{transform:translate(-50%,-88%)} .trick .p3{transform:translate(18%,-50%)}
+.trick .card.win{box-shadow:0 0 0 3px var(--accent),0 4px 12px rgba(0,0,0,.5)}
+.trick.take0 .card{transform:translate(-50%,120%);opacity:0} .trick.take1 .card{transform:translate(-300%,-50%);opacity:0}
+.trick.take2 .card{transform:translate(-50%,-250%);opacity:0} .trick.take3 .card{transform:translate(200%,-50%);opacity:0}
+.center-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:14.5px;padding:8px;pointer-events:none}
+.south{grid-column:1/-1;grid-row:3;display:flex;flex-direction:column;align-items:center;gap:8px}
+.hand{display:flex;justify-content:center;padding-top:16px;min-height:calc(var(--cw)*1.42 + 16px);max-width:100%}
+.hand .card{position:relative;margin-left:calc(var(--cw)*-.52);transition:transform .15s}
+.hand .card:first-child{margin-left:0}
+.hand .card.ok{cursor:pointer}
+.hand .card.ok:hover,.hand .card.kb{transform:translateY(-10px)}
+.hand .card.no{filter:brightness(.62)}
+.hand .card.picked{transform:translateY(-16px);box-shadow:0 0 0 3px var(--accent),0 6px 12px rgba(0,0,0,.45)}
+.hand .card.got{box-shadow:0 0 0 3px #7fd1ff,0 4px 10px rgba(0,0,0,.4)}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;min-height:40px}
+.bar span{color:var(--muted);font-size:14.5px}
+
+.card{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.12);overflow:hidden;flex:none;border:0;padding:0;font:inherit}
+.card .ix{position:absolute;left:7%;top:3%;font-weight:800;font-size:calc(var(--cw)*.3);line-height:1;letter-spacing:-.04em;display:flex;flex-direction:column;align-items:center}
+.card .ix i{font-style:normal;font-size:.85em}
+.card .cc{position:absolute;right:7%;bottom:5%;font-size:calc(var(--cw)*.5);line-height:1}
+.card.r{color:var(--red)} .card.k{color:var(--black)}
+.hand .card,.trick .card{position:relative}
+.trick .card{position:absolute}
+
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.label{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+table.sc{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+table.sc th,table.sc td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line)}
+table.sc th:first-child,table.sc td:first-child{text-align:left}
+table.sc tr.tot td{font-weight:800;border-bottom:0}
+table.sc td.lead{color:var(--accent)}
+.taken{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(10,0,0,.6);display:grid;place-items:center;padding:16px;z-index:1000}
+.modal{background:#fffdf8;color:#2a1a1a;border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px}
+.modal h2{font-family:var(--display);font-size:28px;margin:0}
+.modal p{margin:0;color:#6b5555}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.modal .btn{background:#f1efe8;color:#2a1a1a;border-color:#ddd7ca}
+.modal .btn.primary{background:#8c2f2b;color:#fff;border-color:#8c2f2b}
+.modal table{margin:0 auto;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.modal td{padding:3px 10px;text-align:right}.modal td:first-child{text-align:left}
+
+@media (max-width:520px){.table{grid-template-columns:52px minmax(0,1fr) 52px;padding:8px;--cw:clamp(40px,13.5vw,60px)}.hand .card{margin-left:calc(var(--cw)*-.6)}
+  .seat .backs i:not(:first-child){display:none}.seat .backs em{display:inline}}
+@media (max-height:520px) and (orientation:landscape){.wrap{padding-block:6px 12px}h1{font-size:22px}.table{grid-template-rows:auto minmax(120px,1fr) auto;--cw:clamp(40px,6vw,58px)}.trick{min-height:130px}}
+@media (prefers-reduced-motion:reduce){.trick .card,.hand .card{transition:none}}
+
+.wtable{background:radial-gradient(ellipse at 50% 45%,var(--felt),var(--felt-2) 78%);border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),inset 0 10px 40px rgba(0,0,0,.3);padding:14px;display:flex;flex-direction:column;gap:12px;--cw:clamp(60px,14vw,96px);user-select:none;-webkit-user-select:none;min-width:0}
+.side2{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.side2 .who{display:flex;flex-direction:column;align-items:center;min-width:90px}
+.side2 .who b{font-size:16px}.side2 .who small{color:var(--muted);font-size:12.5px}
+.deck{position:relative;display:grid;place-items:center}
+.deck .dn{position:absolute;bottom:-8px;right:-8px;background:var(--fg);color:var(--felt-2);font-weight:800;font-size:12px;border-radius:99px;padding:1px 7px}
+.card.cback{background:repeating-linear-gradient(45deg,var(--back-1) 0 6%,var(--back-2) 6% 12%);box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 0 0 calc(var(--cw)*.05) #fff;position:relative}
+.card.cback>*{display:none}
+.card.stack{box-shadow:calc(var(--n)*1px) calc(var(--n)*1px) 0 #e8e2d4,calc(var(--n)*2px) calc(var(--n)*2px) 0 rgba(0,0,0,.25),inset 0 0 0 calc(var(--cw)*.05) #fff}
+.slotc{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);border:2px dashed rgba(255,255,255,.3);box-sizing:border-box}
+.flip{min-width:110px;font-size:17px}
+.flip kbd{font:inherit;font-size:11px;opacity:.7;margin-left:4px}
+.battle{position:relative;min-height:calc(var(--cw)*2.9 + 20px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.lane{display:flex;justify-content:center}
+.lane .card{position:relative;margin-left:calc(var(--cw)*-.7)}.lane .card:first-child{margin-left:0}
+.lane .card.old{filter:brightness(.8)}
+.lane .card.fresh{animation:deal .25s ease-out}
+.lane.l1 .card.fresh{animation-name:dealdown}
+@keyframes deal{from{transform:translateY(40px);opacity:.3}}
+@keyframes dealdown{from{transform:translateY(-40px);opacity:.3}}
+.msg{font-family:var(--display);font-size:20px;font-weight:700;text-align:center;min-height:1.3em;order:1;padding:0 8px}
+.lane.l1{order:0}.lane.l0{order:2}
+.msg.war{color:var(--accent);font-size:26px;animation:pulse .5s 2}
+@keyframes pulse{50%{transform:scale(1.12)}}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.stats div{background:rgba(255,255,255,.08);border-radius:10px;padding:8px 4px}
+.stats b{display:block;font-family:var(--display);font-size:22px}
+.stats small{color:var(--muted);font-size:12px}
+.row2{display:flex;gap:14px;margin-top:10px;color:var(--muted);font-size:13.5px}
+.row2 label{display:flex;gap:6px;align-items:center}
+.tally{display:flex;justify-content:space-between;color:var(--muted);font-size:13.5px}
+.tally b{color:var(--fg)}
+@media (max-width:520px){.wtable{--cw:clamp(52px,17vw,80px);padding:10px}}
+@media (max-height:520px) and (orientation:landscape){.wtable{--cw:clamp(40px,8vw,64px);flex-direction:row;align-items:center;gap:8px}.side2{flex-direction:column;gap:6px}.battle{flex:1;min-height:calc(var(--cw)*2.9)}}
+@media (prefers-reduced-motion:reduce){.lane .card.fresh,.msg.war{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>War</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="length" aria-label="Game length"><option value="quick">Quick: one pass through the deck</option><option value="classic">Classic: win every card</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="game">
+    <section class="wtable" id="table" aria-live="polite">
+      <div class="side2 top" id="p1"></div>
+      <div class="battle" id="battle"><div class="msg" id="msg"></div></div>
+      <div class="side2 bot" id="p0"></div>
+    </section>
+    <aside class="side">
+      <div class="panel"><p class="label">This game</p><div class="stats" id="stats"></div>
+        <div class="row2"><label><input type="checkbox" id="auto"> Auto-flip</label><label><input type="checkbox" id="fast"> Fast</label></div></div>
+      <div class="panel"><p class="label">Session</p><div class="tally" id="tally"></div></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>The deck is split evenly. Each round, both players flip their top card. The higher card wins both, and they go to the bottom of the winner's pile. Aces are high.</li>
+            <li>If the cards tie, it's <b>war</b>: each player puts three cards face down and one face up. The higher face-up card takes the whole pile. Ties can lead to double wars.</li>
+            <li>If you don't have enough cards for a war, your last card is used as the face-up one.</li>
+            <li><b>Quick</b> games end when the piles have been played through once: whoever won more cards wins. <b>Classic</b> games go on until one player has all 52, which can take a while, so try Auto-flip.</li>
+            <li>2 players: each taps their own Flip button (or presses A and L).</li>
+            <li>Keyboard: Space flips.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+// A card is 0-51: suit = floor(c/13) (0 ♣, 1 ♦, 2 ♠, 3 ♥), rank = c%13 + 2 (2..14, ace high).
+const SUITS=['♣','♦','♠','♥'],SN=['clubs','diamonds','spades','hearts'],RK=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const suit=c=>Math.floor(c/13),rank=c=>c%13+2,red=c=>suit(c)===1||suit(c)===3;
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',length:'quick',auto:false,fast:false},store.get('parlor-war',{}));
+const tally=store.get('parlor-war-tally',{0:0,1:0,d:0});
+let S=null,autoT=0;
+const NAME=p=>cfg.mode==='cpu'?(p===0?'You':'Computer'):`Player ${p+1}`;
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+
+/* ---------- game ---------- */
+// Each player has a draw pile (top = index 0) and, in Quick games, a separate pile of won cards.
+function newGame(){$('overlay').hidden=true;clearTimeout(autoT);const d=shuffle([...Array(52).keys()]);
+  S={pile:[d.slice(0,26),d.slice(26)],won:[[],[]],table:[[],[]],up:[-1,-1],ready:[false,false],rounds:0,wars:0,biggest:0,busy:false,over:false,msg:'',winner:-1,gen:(S?S.gen:0)+1};render();scheduleAuto()}
+const count=p=>S.pile[p].length+S.won[p].length;
+function flip(p){if(S.over||S.busy)return;if(cfg.mode==='cpu'){if(p!==0)return;S.ready=[true,true]}else{S.ready[p]=true;render();if(!S.ready[0]||!S.ready[1])return}
+  S.ready=[false,false];battle(false)}
+function take(p){// next card from p's pile; Classic games recycle won cards (they are already at the bottom)
+  if(!S.pile[p].length)return -1;return S.pile[p].shift()}
+function battle(isWar){const g=S.gen;
+  if(!isWar){S.table=[[],[]];S.rounds++}
+  const out=[0,1].map(p=>!S.pile[p].length);
+  if(out[0]||out[1]){finish();return}
+  if(isWar){S.wars++;for(const p of[0,1]){const n=Math.min(3,S.pile[p].length-1);for(let i=0;i<n;i++)S.table[p].push({c:take(p),up:false})}}
+  S.up=[take(0),take(1)];S.table[0].push({c:S.up[0],up:true});S.table[1].push({c:S.up[1],up:true});
+  const a=rank(S.up[0]),b=rank(S.up[1]);S.busy=true;S.lastWar=isWar;
+  if(a===b){S.msg=`${RK[a-2]} vs ${RK[b-2]}: WAR!`;render();
+    setTimeout(()=>{if(g!==S.gen)return;if(!S.pile[0].length||!S.pile[1].length){// someone can't fight on: the other takes the pot
+        const w=S.pile[0].length>=S.pile[1].length?0:1;collect(w);return}battle(true)},delay(1300));return}
+  const w=a>b?0:1;S.msg=`${NAME(w)} ${w===0&&cfg.mode==='cpu'?'win':'wins'} ${S.table[0].length+S.table[1].length} cards${isWar?' in the war':''}!`;render();
+  setTimeout(()=>{if(g===S.gen)collect(w)},delay(isWar?1400:800))}
+function collect(w){const pot=shuffle(S.table[0].concat(S.table[1]).map(x=>x.c));S.biggest=Math.max(S.biggest,pot.length);
+  if(cfg.length==='classic')S.pile[w].push(...pot);else S.won[w].push(...pot);
+  S.table=[[],[]];S.up=[-1,-1];S.busy=false;S.msg='';
+  if(cfg.length==='classic'&&(!S.pile[0].length||!S.pile[1].length||S.rounds>=3000)){finish();return}
+  if(cfg.length==='quick'&&(!S.pile[0].length||!S.pile[1].length)){finish();return}
+  render();scheduleAuto()}
+const delay=ms=>cfg.fast?Math.round(ms*.3):ms;
+function scheduleAuto(){clearTimeout(autoT);if(!cfg.auto||S.over||S.busy)return;const g=S.gen;autoT=setTimeout(()=>{if(g===S.gen&&!S.busy&&!S.over){S.ready=[true,true];S.ready=[false,false];battle(false)}},delay(600))}
+function finish(){S.over=true;S.busy=false;clearTimeout(autoT);
+  // leftovers on the table go back to their owners
+  for(const p of[0,1])(cfg.length==='classic'?S.pile[p]:S.won[p]).push(...S.table[p].map(x=>x.c));S.table=[[],[]];
+  if(cfg.length==='quick')for(const p of[0,1]){S.won[p].push(...S.pile[p]);S.pile[p]=[]}
+  const c=[count(0),count(1)],w=c[0]>c[1]?0:c[1]>c[0]?1:-1;S.winner=w;tally[w<0?'d':w]++;store.set('parlor-war-tally',tally);render();
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${w<0?'A tie!':cfg.mode==='cpu'?(w===0?'You win!':'Computer wins'):`${NAME(w)} wins!`}</h2><p>${c[0]} to ${c[1]} cards after ${S.rounds} rounds and ${S.wars} war${S.wars===1?'':'s'}.</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`;$('overlay').hidden=false;$('mnew').focus();$('mnew').onclick=newGame},600)}
+
+/* ---------- drawing ---------- */
+const cardHTML=(c,cls='')=>`<span class="card ${red(c)?'r':'k'} ${cls}" aria-label="${RK[c%13]} of ${SN[suit(c)]}"><span class="ix">${RK[c%13]}<i>${SUITS[suit(c)]}</i></span><span class="cc">${SUITS[suit(c)]}</span></span>`;
+function sideHTML(p){const n=S.pile[p].length,canFlip=!S.over&&!S.busy&&(cfg.mode==='two'||p===0)&&!S.ready[p];
+  const btn=cfg.mode==='cpu'&&p===1?'':`<button class="btn primary flip" data-p="${p}"${canFlip?'':' disabled'}>${S.ready[p]?'Ready…':'Flip'}${cfg.mode==='two'?` <kbd>${p?'L':'A'}</kbd>`:''}</button>`;
+  return `<div class="who"><b>${NAME(p)}</b><small>${count(p)} card${count(p)===1?'':'s'}${cfg.length==='quick'?` · ${S.won[p].length} won`:''}</small></div><div class="deck">${n?`<span class="card cback stack" style="--n:${Math.min(6,Math.ceil(n/5))}"></span>`:'<span class="slotc"></span>'}<span class="dn">${n}</span></div>${btn}`}
+function render(){if(!S)return;$('p0').innerHTML=sideHTML(0);$('p1').innerHTML=sideHTML(1);
+  const b=$('battle');b.querySelectorAll('.lane').forEach(e=>e.remove());
+  for(const p of[1,0]){const t=S.table[p];if(!t.length)continue;const lane=document.createElement('div');lane.className='lane l'+p;
+    lane.innerHTML=t.map((x,i)=>x.up?cardHTML(x.c,i===t.length-1?'fresh':'old'):'<span class="card cback"></span>').join('');b.appendChild(lane)}
+  $('msg').textContent=S.msg||(S.over?'Game over.':cfg.mode==='cpu'?'Tap Flip (or press Space).':S.ready[0]||S.ready[1]?`Waiting for ${NAME(S.ready[0]?1:0)}…`:'Both players: tap Flip.');
+  $('msg').classList.toggle('war',/WAR/.test(S.msg));
+  const total=count(0)+count(1);$('stats').innerHTML=`<div><b>${S.rounds}</b><small>rounds</small></div><div><b>${S.wars}</b><small>wars</small></div><div><b>${S.biggest}</b><small>biggest pot</small></div>`;
+  $('tally').innerHTML=`<span>${NAME(0)} <b>${tally[0]}</b></span><span>Ties <b>${tally.d}</b></span><span>${NAME(1)} <b>${tally[1]}</b></span>`;
+  $('auto').checked=cfg.auto;$('fast').checked=cfg.fast}
+
+/* ---------- input ---------- */
+document.addEventListener('click',e=>{const b=e.target.closest('.flip');if(b)flip(+b.dataset.p)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!$('overlay').hidden||!S)return;const k=e.key.toLowerCase();
+  if(cfg.mode==='cpu'&&(k===' '||k==='enter')){e.preventDefault();flip(0)}else if(cfg.mode==='two'){if(k==='a')flip(0);else if(k==='l')flip(1)}});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function sync(){$('mode').value=cfg.mode;$('length').value=cfg.length}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-war',cfg);sync();if(restart)newGame();else{render();scheduleAuto()}}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);
+$('length').onchange=e=>setCfg('length',e.target.value,true);
+$('auto').onchange=e=>setCfg('auto',e.target.checked,false);
+$('fast').onchange=e=>setCfg('fast',e.target.checked,false);
+$('newgame').onclick=newGame;
+if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['quick','classic'].includes(cfg.length))cfg.length='quick';
+sync();newGame();
+</script>
+</body>
+</html>

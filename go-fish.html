@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Go Fish</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a sea-blue card table. Computer players along the top (tap one to ask them), the pond in the middle with the last question,
+   and your hand along the bottom, grouped by rank, with your books above it. Books tally, log and rules beside or below. */
+:root{
+  --bg:#0f2b3a; --felt:#2a8fb8; --felt-2:#1c6688; --fg:#f0f8fb; --muted:#c3e2ee; --panel:rgba(255,255,255,.08); --line:rgba(255,255,255,.16);
+  --accent:#f3c246; --accent-ink:#2a1d00; --card:#fffdf8; --red:#c62b2b; --black:#1d1d22; --back-1:#1d4e89; --back-2:#163c6a;
+  --display:"Libre Baskerville", Georgia, "Times New Roman", serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#081a24;--felt:#1b6788;--felt-2:#124a63;--card:#f1ece2}}
+:root[data-theme="dark"]{--bg:#081a24;--felt:#1b6788;--felt-2:#124a63;--card:#f1ece2}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4;min-height:100vh}
+.wrap{max-width:1180px;margin:0 auto;padding-block:10px 20px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+h1{font-family:var(--display);font-size:clamp(24px,4.5vw,34px);line-height:1.05;margin:2px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:#1c5a78;color:var(--fg);padding:7px 10px;border-radius:999px;min-height:38px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:700;min-height:38px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.table{position:relative;background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--felt-2) 75%);border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset 0 10px 40px rgba(0,0,0,.3);padding:12px;display:grid;grid-template-columns:minmax(56px,1fr) minmax(0,2.4fr) minmax(56px,1fr);grid-template-rows:auto minmax(170px,1fr) auto;gap:8px;--cw:clamp(46px,9vw,74px);user-select:none;-webkit-user-select:none}
+.seat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;min-width:0}
+.seat b{font-size:14.5px}
+.seat small{color:var(--muted);font-size:12.5px}
+.seat.cur b{color:var(--accent)}
+.seat .backs{display:flex}
+.seat .backs i{width:16px;height:24px;border-radius:3px;background:repeating-linear-gradient(45deg,var(--back-1) 0 3px,var(--back-2) 3px 6px);box-shadow:0 0 0 1px #fff;margin-left:-9px}
+.seat .backs i:first-child{margin-left:0}
+.seat .backs em{display:none;font-style:normal;font-weight:800;font-size:13px;margin-left:4px;align-self:center}
+.north{grid-column:2;grid-row:1}.west{grid-column:1;grid-row:2}.east{grid-column:3;grid-row:2}
+.trick{grid-column:2;grid-row:2;position:relative;min-height:170px}
+.trick .card{position:absolute;left:50%;top:50%;transition:transform .35s ease,opacity .35s}
+.trick .p0{transform:translate(-50%,-12%)} .trick .p1{transform:translate(-118%,-50%)} .trick .p2{transform:translate(-50%,-88%)} .trick .p3{transform:translate(18%,-50%)}
+.trick .card.win{box-shadow:0 0 0 3px var(--accent),0 4px 12px rgba(0,0,0,.5)}
+.trick.take0 .card{transform:translate(-50%,120%);opacity:0} .trick.take1 .card{transform:translate(-300%,-50%);opacity:0}
+.trick.take2 .card{transform:translate(-50%,-250%);opacity:0} .trick.take3 .card{transform:translate(200%,-50%);opacity:0}
+.center-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:14.5px;padding:8px;pointer-events:none}
+.south{grid-column:1/-1;grid-row:3;display:flex;flex-direction:column;align-items:center;gap:8px}
+.hand{display:flex;justify-content:center;padding-top:16px;min-height:calc(var(--cw)*1.42 + 16px);max-width:100%}
+.hand .card{position:relative;margin-left:calc(var(--cw)*-.52);transition:transform .15s}
+.hand .card:first-child{margin-left:0}
+.hand .card.ok{cursor:pointer}
+.hand .card.ok:hover,.hand .card.kb{transform:translateY(-10px)}
+.hand .card.no{filter:brightness(.62)}
+.hand .card.picked{transform:translateY(-16px);box-shadow:0 0 0 3px var(--accent),0 6px 12px rgba(0,0,0,.45)}
+.hand .card.got{box-shadow:0 0 0 3px #7fd1ff,0 4px 10px rgba(0,0,0,.4)}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;min-height:40px}
+.bar span{color:var(--muted);font-size:14.5px}
+
+.card{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.12);overflow:hidden;flex:none;border:0;padding:0;font:inherit}
+.card .ix{position:absolute;left:7%;top:3%;font-weight:800;font-size:calc(var(--cw)*.3);line-height:1;letter-spacing:-.04em;display:flex;flex-direction:column;align-items:center}
+.card .ix i{font-style:normal;font-size:.85em}
+.card .cc{position:absolute;right:7%;bottom:5%;font-size:calc(var(--cw)*.5);line-height:1}
+.card.r{color:var(--red)} .card.k{color:var(--black)}
+.hand .card,.trick .card{position:relative}
+.trick .card{position:absolute}
+
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.label{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+table.sc{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+table.sc th,table.sc td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line)}
+table.sc th:first-child,table.sc td:first-child{text-align:left}
+table.sc tr.tot td{font-weight:800;border-bottom:0}
+table.sc td.lead{color:var(--accent)}
+.taken{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(10,0,0,.6);display:grid;place-items:center;padding:16px;z-index:1000}
+.modal{background:#fffdf8;color:#2a1a1a;border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px}
+.modal h2{font-family:var(--display);font-size:28px;margin:0}
+.modal p{margin:0;color:#6b5555}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.modal .btn{background:#f1efe8;color:#2a1a1a;border-color:#ddd7ca}
+.modal .btn.primary{background:#1c6688;color:#fff;border-color:#1c6688}
+.modal table{margin:0 auto;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.modal td{padding:3px 10px;text-align:right}.modal td:first-child{text-align:left}
+
+@media (max-width:520px){.table{grid-template-columns:52px minmax(0,1fr) 52px;padding:8px;--cw:clamp(40px,13.5vw,60px)}.hand .card{margin-left:calc(var(--cw)*-.6)}
+  .seat .backs i:not(:first-child){display:none}.seat .backs em{display:inline}}
+@media (max-height:520px) and (orientation:landscape){.wrap{padding-block:6px 12px}h1{font-size:22px}.table{grid-template-rows:auto minmax(120px,1fr) auto;--cw:clamp(40px,6vw,58px)}.trick{min-height:130px}}
+@media (prefers-reduced-motion:reduce){.trick .card,.hand .card{transition:none}}
+
+.ftable{background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--felt-2) 75%);border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),inset 0 10px 40px rgba(0,0,0,.25);padding:12px;display:flex;flex-direction:column;gap:12px;--cw:clamp(44px,8.4vw,70px);user-select:none;-webkit-user-select:none;min-width:0}
+.rivals{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.rival{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;background:rgba(0,30,50,.25);border:2px solid transparent;border-radius:14px;padding:8px 10px;min-width:96px;color:var(--fg);font:inherit;cursor:default}
+.rival.cur{border-color:rgba(255,255,255,.4)}
+.rival.can{cursor:pointer;border-color:var(--accent);background:rgba(243,194,70,.16)}
+.rival small{color:var(--muted);font-size:12px}
+.rival .key{position:absolute;top:4px;right:7px;font-size:10px;color:var(--muted);opacity:.7}
+.mini{display:flex;justify-content:center;align-items:flex-start;min-height:calc(clamp(24px,4.4vw,34px) * 1.42)}.mini .card{position:relative;--cw:clamp(24px,4.4vw,34px);margin-left:-14px}.mini .card:first-child{margin-left:0}
+.card.cback{background:repeating-linear-gradient(45deg,var(--back-1) 0 6%,var(--back-2) 6% 12%);box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 0 0 calc(var(--cw)*.05) #fff}
+.card.cback>*{display:none}
+.books{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;max-width:150px}
+.book{display:inline-grid;place-items:center;min-width:20px;height:24px;padding:0 3px;border-radius:5px;background:#fffdf8;color:#1d1d22;font-weight:800;font-size:12px;box-shadow:2px 2px 0 #e7e2d6,3px 3px 0 rgba(0,0,0,.25)}
+.pond{display:flex;align-items:center;justify-content:center;gap:16px;min-height:calc(var(--cw)*1.42 + 20px)}
+.pilew{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted);font-weight:700}
+.pondcard{position:relative}
+.say{max-width:340px;font-size:15px;line-height:1.35;background:rgba(0,20,35,.3);border-radius:12px;padding:8px 12px;min-height:20px}
+.say:empty{display:none}
+.mybooks{display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;font-size:12.5px;color:var(--muted);font-weight:700}
+.mybooks span:first-child{margin-right:4px}
+.hand .card.gap{margin-left:calc(var(--cw)*-.15)}
+.hand .card.picked{transform:translateY(-14px);box-shadow:0 0 0 3px var(--accent),0 6px 12px rgba(0,0,0,.45)}
+.hand .empty{color:var(--muted)}
+.brk{font-size:13.5px;color:var(--muted);display:flex;flex-direction:column;gap:3px;max-height:240px;overflow:auto}
+.brk b{color:var(--fg)}
+@media (max-width:520px){.ftable{--cw:clamp(34px,10vw,56px);padding:8px}.hand .card{margin-left:calc(var(--cw)*-.5)}.rival{min-width:0;padding:6px 8px}}
+@media (max-height:520px) and (orientation:landscape){.ftable{--cw:clamp(36px,5.6vw,54px);gap:6px}.pond{min-height:0}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Go Fish</h1>
+    </div>
+    <div class="controls">
+      <select id="rivals" aria-label="Computer players"><option value="1">You vs 1 computer</option><option value="2">You vs 2 computers</option><option value="3">You vs 3 computers</option><option value="4">You vs 4 computers</option></select>
+      <select id="level" aria-label="Computer memory"><option value="easy">Forgetful computers</option><option value="medium">Sharp computers</option><option value="hard">Card-counting computers</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="game">
+    <section class="ftable" id="table" aria-live="polite">
+      <div class="rivals" id="rivalsRow"></div>
+      <div class="pond"><div class="pilew"><span class="card cback pondcard" aria-hidden="true"></span><span id="pondN">Pond</span></div><div class="say" id="say"></div></div>
+      <div class="south"><div class="mybooks" id="mybooks"></div><div class="hand" id="hand" role="listbox" aria-label="Your hand"></div><div class="bar" id="bar"></div></div>
+    </section>
+    <aside class="side">
+      <div class="panel"><p class="label">Books</p><table class="sc" id="scores"></table></div>
+      <div class="panel"><p class="label">What happened</p><div class="brk" id="log"></div></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Collect <b>books</b>: all four cards of one rank. Each player starts with 7 cards (5 with four or more players).</li>
+            <li>On your turn, tap a rank in your hand, then tap a player to ask them for it. You can only ask for ranks you already hold.</li>
+            <li>If they have any, they must hand them all over and you ask again. If not, they say <b>"Go fish!"</b> and you draw from the pond. If you fish the rank you asked for, show it and go again.</li>
+            <li>Completed books are laid down right away. If your hand runs out, you draw a card from the pond (if any are left).</li>
+            <li>When all 13 books are made, the player with the most books wins.</li>
+            <li>The computers remember what's been asked: forgetful ones lose track quickly, card counters remember everything.</li>
+            <li>Keyboard: ← → choose a rank, 1–4 ask that player, Enter asks the only rival.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- cards ---------- */
+// A card is 0-51: suit = floor(c/13) (0 ♣, 1 ♦, 2 ♠, 3 ♥), rank index = c%13 (0 = ace … 12 = king).
+const SUITS=['♣','♦','♠','♥'],SN=['clubs','diamonds','spades','hearts'],RK=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const RN=['aces','twos','threes','fours','fives','sixes','sevens','eights','nines','tens','jacks','queens','kings'],R1=['ace','two','three','four','five','six','seven','eight','nine','ten','jack','queen','king'];
+const suit=c=>Math.floor(c/13),rk=c=>c%13,red=c=>suit(c)===1||suit(c)===3;
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({rivals:2,level:'medium'},store.get('parlor-gofish',{}));
+const tally=store.get('parlor-gofish-tally',{won:0,played:0});
+const NAMES=['You','Ruby','Theo','Mira','Jonah'];
+let S=null,kb=-1;
+
+/* ---------- game flow ---------- */
+function newGame(){$('overlay').hidden=true;const n=1+(+cfg.rivals),deck=[...Array(52).keys()].sort(()=>Math.random()-.5),per=n<=3?7:5;
+  S={n,hands:[...Array(n)].map((_,i)=>deck.slice(i*per,i*per+per)),pond:deck.slice(n*per),books:[...Array(n)].map(()=>[]),turn:0,sel:-1,busy:false,over:false,log:[],say:'',
+     // what each computer believes: known[p][q] = set of ranks q has been seen asking for (and so holds), since forgotten after a while on easier levels
+     known:[...Array(n)].map(()=>[...Array(n)].map(()=>new Map())),asked:[...Array(n)].map(()=>new Map()),fail:[...Array(n)].map(()=>({})),tick:0,gen:(S?S.gen:0)+1};
+  for(let p=0;p<n;p++)layBooks(p,true);sortHand();render();next()}
+const sortHand=()=>S.hands[0].sort((a,b)=>rk(a)-rk(b)||suit(a)-suit(b));
+const nameOf=p=>NAMES[p];
+function log(t){S.log.unshift(t);S.log=S.log.slice(0,16)}
+function layBooks(p,quiet){const h=S.hands[p];for(let r=0;r<13;r++){const g=h.filter(c=>rk(c)===r);if(g.length===4){S.hands[p]=S.hands[p].filter(c=>rk(c)!==r);S.books[p].push(r);if(!quiet)log(`<b>${nameOf(p)} ${p?'makes':'make'} a book of ${RN[r]}!</b>`);
+  for(const row of S.known)for(const m of row)m.delete(r)}}}
+const totalBooks=()=>S.books.reduce((a,b)=>a+b.length,0);
+function refill(p){if(!S.hands[p].length&&S.pond.length){S.hands[p].push(S.pond.pop());if(p===0)sortHand();layBooks(p)}}
+function ask(p,q,r){if(S.over||S.turn!==p||p===q||!S.hands[p].some(c=>rk(c)===r))return;S.sel=-1;S.tick++;
+  // everyone now knows p holds at least one r
+  for(let o=0;o<S.n;o++)if(o!==p)S.known[o][p].set(r,S.tick);
+  S.asked[p].set(r,(S.asked[p].get(r)||0)+1);
+  const got=S.hands[q].filter(c=>rk(c)===r);
+  if(got.length){S.hands[q]=S.hands[q].filter(c=>rk(c)!==r);S.hands[p].push(...got);for(let o=0;o<S.n;o++)S.known[o][q].delete(r);
+    S.say=`${nameOf(p)}: “${nameOf(q)}, got any ${RN[r]}?” ${nameOf(q)}: “Yes, ${got.length===1?'one':got.length}.”`;log(`${nameOf(p)} ${p?'gets':'get'} ${got.length} ${got.length===1?R1[r]:RN[r]} from ${nameOf(q)}.`);
+    if(p===0)sortHand();layBooks(p);refill(q);refill(p);after(p,true);return}
+  S.say=`${nameOf(p)}: “${nameOf(q)}, got any ${RN[r]}?” ${nameOf(q)}: “Go fish!”`;S.fail[p][r]=S.tick;
+  if(!S.pond.length){log(`${nameOf(p)} asked ${nameOf(q)} for ${RN[r]}. Go fish, but the pond is empty.`);after(p,false);return}
+  const c=S.pond.pop();S.hands[p].push(c);if(p===0)sortHand();const lucky=rk(c)===r;
+  log(`${nameOf(p)} asked ${nameOf(q)} for ${RN[r]}: go fish. ${p===0?`You drew the ${RK[rk(c)]}${SUITS[suit(c)]}.`:`${nameOf(p)} draws a card.`}${lucky?` It's a ${R1[r]}! ${p?'Goes':'Go'} again.`:''}`);
+  if(lucky)for(let o=0;o<S.n;o++)if(o!==p)S.known[o][p].set(r,S.tick);
+  layBooks(p);refill(p);after(p,lucky)}
+function after(p,again){render();if(totalBooks()===13||S.hands.every(h=>!h.length)&&!S.pond.length){finish();return}
+  if(!again||!S.hands[p].length){let t=p;for(let k=0;k<S.n;k++){t=(t+1)%S.n;refill(t);if(S.hands[t].length)break}S.turn=t}
+  next()}
+function next(){render();if(S.over)return;const p=S.turn;if(!S.hands[p].length){after(p,false);return}
+  if(p===0)return;S.busy=true;render();const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;const[q,r]=cpuChoose(p);ask(p,q,r)},cfg.level==='easy'?900:1000)}
+// Computer: ask someone known (and remembered) to hold a rank we have; otherwise ask for our most plentiful rank from a random rival.
+function cpuChoose(p){const h=S.hands[p],mine=[...new Set(h.map(rk))],lv=cfg.level,mem=lv==='easy'?S.n*1.2:lv==='medium'?S.n*4:1e9;
+  const opts=[];for(let q=0;q<S.n;q++){if(q===p||!S.hands[q].length)continue;for(const[r,t]of S.known[p][q]){if(mine.includes(r)&&S.tick-t<=mem)opts.push([q,r,h.filter(c=>rk(c)===r).length])}}
+  if(opts.length&&(lv!=='easy'||Math.random()<.7)){opts.sort((a,b)=>b[2]-a[2]);return opts[0].slice(0,2)}
+  // otherwise ask for a random rank (asking the same one every time is easy to read); card counters skip ranks a rival just denied having
+  const fresh=lv==='hard'?mine.filter(r=>!(S.fail[p][r]>S.tick-2*S.n)):mine,pool=fresh.length?fresh:mine,r=pool[rand(pool.length)];
+  const qs=[...Array(S.n).keys()].filter(q=>q!==p&&S.hands[q].length);let q=qs[rand(qs.length)];
+  if(lv==='hard'){const scored=qs.map(x=>[x,S.hands[x].length+Math.random()]);scored.sort((a,b)=>b[1]-a[1]);q=scored[0][0]}
+  return[q,r]}
+function finish(){S.over=true;S.busy=false;render();const b=S.books.map(x=>x.length),mx=Math.max(...b),win=b.map((v,i)=>v===mx?i:-1).filter(i=>i>=0);
+  tally.played++;if(win.length===1&&win[0]===0)tally.won++;store.set('parlor-gofish-tally',tally);
+  const title=win.length>1?(win.includes(0)?"It's a tie!":`${win.map(nameOf).join(' and ')} tie`):win[0]===0?'You win!':`${nameOf(win[0])} wins`;
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><table>${b.map((v,i)=>`<tr><td>${nameOf(i)}</td><td><b>${v}</b> book${v===1?'':'s'}</td></tr>`).join('')}</table><p>You've won ${tally.won} of ${tally.played} games.</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`;
+    $('overlay').hidden=false;$('mnew').focus();$('mnew').onclick=newGame},700)}
+
+/* ---------- drawing ---------- */
+const cardHTML=(c,cls='',attrs='')=>`<button class="card ${red(c)?'r':'k'} ${cls}" data-c="${c}" ${attrs} aria-label="${RK[rk(c)]} of ${SN[suit(c)]}"><span class="ix">${RK[rk(c)]}<i>${SUITS[suit(c)]}</i></span><span class="cc">${SUITS[suit(c)]}</span></button>`;
+const bookHTML=r=>`<span class="book" title="Book of ${RN[r]}">${RK[r]}</span>`;
+function render(){if(!S)return;const mine=S.turn===0&&!S.busy&&!S.over;
+  $('rivalsRow').innerHTML=[...Array(S.n).keys()].slice(1).map(p=>`<button class="rival${S.turn===p?' cur':''}${mine&&S.sel>=0&&S.hands[p].length?' can':''}" data-p="${p}"${mine&&S.sel>=0&&S.hands[p].length?'':' tabindex="-1"'} aria-label="Ask ${nameOf(p)}"><b>${nameOf(p)}</b><span class="mini">${'<span class="card cback"></span>'.repeat(Math.min(S.hands[p].length,12))}</span><small>${S.hands[p].length} card${S.hands[p].length===1?'':'s'}${S.busy&&S.turn===p?' · thinking…':''}</small><span class="books">${S.books[p].map(bookHTML).join('')}</span><span class="key">${p}</span></button>`).join('');
+  $('pondN').textContent=`Pond · ${S.pond.length}`;$('say').textContent=S.say;
+  const h=S.hands[0];const firstOf=new Set();h.forEach((c,i)=>{if(!i||rk(h[i-1])!==rk(c))firstOf.add(c)});
+  $('hand').innerHTML=h.map((c,i)=>cardHTML(c,`${mine?'ok':''}${S.sel===rk(c)?' picked':''}${i&&firstOf.has(c)?' gap':''}${kb===i?' kb':''}`)).join('')||'<span class="empty">No cards in your hand.</span>';
+  $('mybooks').innerHTML=S.books[0].length?`<span>Your books</span>${S.books[0].map(bookHTML).join('')}`:'';
+  $('bar').innerHTML=S.over?'<span>Game over.</span>':mine?(S.sel>=0?`<span>Ask who for ${RN[S.sel]}?</span>${[...Array(S.n).keys()].slice(1).filter(p=>S.hands[p].length).map(p=>`<button class="btn" data-ask="${p}">${nameOf(p)}</button>`).join('')}`:'<span>Your turn: tap a card to choose the rank to ask for.</span>'):`<span>${nameOf(S.turn)}'s turn.</span>`;
+  $('scores').innerHTML=S.books.map((b,i)=>`<tr><td>${nameOf(i)}</td><td>${b.length}</td></tr>`).join('')+`<tr class="tot"><td>Books left</td><td>${13-totalBooks()}</td></tr>`;
+  $('log').innerHTML=S.log.map(x=>`<div>${x}</div>`).join('')}
+
+/* ---------- input & settings ---------- */
+$('hand').addEventListener('click',e=>{const b=e.target.closest('.card');if(!b||S.turn!==0||S.busy||S.over)return;const r=rk(+b.dataset.c);S.sel=S.sel===r?-1:r;
+  if(S.sel>=0&&S.n===2){ask(0,1,r);return}render()});
+document.addEventListener('click',e=>{const a=e.target.closest('[data-ask]')||e.target.closest('.rival.can');if(!a||S.sel<0||S.turn!==0||S.busy)return;ask(0,+(a.dataset.ask||a.dataset.p),S.sel)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select')||!$('overlay').hidden||!S||S.turn!==0||S.busy)return;const h=S.hands[0];if(!h.length)return;
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();kb=kb<0?0:(kb+(e.key==='ArrowLeft'?h.length-1:1))%h.length;S.sel=rk(h[kb]);render();return}
+  const n=+e.key;if(n>=1&&n<S.n&&S.sel>=0){ask(0,n,S.sel);return}if(e.key==='Enter'&&S.sel>=0&&S.n===2)ask(0,1,S.sel)});
+window.onAppBack=()=>{if(S&&S.sel>=0){S.sel=-1;render();return true}return false};
+function sync(){$('rivals').value=cfg.rivals;$('level').value=cfg.level}
+$('rivals').onchange=e=>{cfg.rivals=+e.target.value;store.set('parlor-gofish',cfg);newGame()};
+$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-gofish',cfg)};
+$('newgame').onclick=()=>{if(S&&totalBooks()&&!S.over&&!confirm('Start a new game?'))return;newGame()};
+if(![1,2,3,4].includes(+cfg.rivals))cfg.rivals=2;if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';
+sync();newGame();
+</script>
+</body>
+</html>
