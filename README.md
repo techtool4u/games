@@ -41,6 +41,8 @@ Self-contained HTML files. No install or build step.
 - `rummy.html` — Rummy against 1 to 3 computer players.
 - `blackjack.html` — Blackjack against the dealer with a saved chip bankroll and optional strategy hints.
 - `snap.html` — Snap, a quick-reflex card game against 1 to 3 computer players.
+- `hex.html` — Hex on 7×7 to 13×13 boards, vs the computer (easy / medium / hard) or 2 players, with an optional swap rule.
+- `shogi.html` — Shogi (Japanese chess) with drops and promotion, vs the computer (easy / medium / hard) or 2 players; unfinished games are saved.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

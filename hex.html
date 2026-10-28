@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hex</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a rhombus of hexagons with red and blue borders. Header with settings; the board with a scorecard beside it on wide screens and below it on phones.
+   On tall, narrow screens the board is drawn standing up so the cells stay big enough to tap. */
+:root{
+  --bg:#f4efe4; --fg:#22201c; --muted:#6b645a; --panel:#ffffff; --line:#e0d8c8; --chip:#f3ede2;
+  --accent:#b8321f; --accent-ink:#ffffff; --cell:#f2ead8; --cell-2:#e8dcc2; --grid:#b9a888;
+  --red:#d23a2a; --red-2:#a3261a; --blue:#2c58c4; --blue-2:#1d3d93;
+  --display:"Fraunces", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15130f; --fg:#ece6da; --muted:#a89f90; --panel:#1f1c17; --line:#363027; --chip:#2a251e; --accent:#f07a62; --accent-ink:#2a0a04;
+  --cell:#e9dfca; --cell-2:#d9cbad; --grid:#8f7f62; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#15130f; --fg:#ece6da; --muted:#a89f90; --panel:#1f1c17; --line:#363027; --chip:#2a251e; --accent:#f07a62; --accent-ink:#2a0a04;
+  --cell:#e9dfca; --cell-2:#d9cbad; --grid:#8f7f62; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1100px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,5.5vw,48px);line-height:1;margin:4px 0 0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:48ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:20px;align-items:start}
+@media (max-width:900px){.game{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;justify-content:center;min-width:0}
+.boardbox{width:100%;display:flex;justify-content:center}
+svg{display:block;width:100%;height:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none;outline:none}
+svg:focus-visible{filter:drop-shadow(0 0 4px var(--accent))}
+.cell{fill:url(#gCell);stroke:var(--grid);stroke-width:.6;cursor:default;transition:fill .15s}
+.cell.open{cursor:pointer}
+.cell.r{fill:url(#gRed)} .cell.b{fill:url(#gBlue)}
+.cell.pre-r{fill:var(--red);fill-opacity:.35} .cell.pre-b{fill:var(--blue);fill-opacity:.35}
+.cell.drop{animation:pop .22s ease-out;transform-box:fill-box;transform-origin:center}
+@keyframes pop{from{transform:scale(.5)}}
+.cur{fill:none;stroke:#ffd23f;stroke-width:2;pointer-events:none}
+.lastdot{fill:#fff;opacity:.85;pointer-events:none}
+.path{fill:none;stroke:#ffe27a;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;opacity:.95}
+.edge-r{fill:var(--red)} .edge-b{fill:var(--blue)}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.turn{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:23px;line-height:1.15}
+.dot{width:22px;height:22px;flex:none;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.dot.r{background:var(--red)} .dot.b{background:var(--blue)}
+.turn.think .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.hint{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.row label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13.5px}
+.goal{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--muted)}
+.goal div{display:flex;gap:8px;align-items:center}
+.goal .dot{width:14px;height:14px}
+.goal b{color:var(--fg)}
+.tally{display:flex;justify-content:space-between;color:var(--muted);font-size:13.5px}
+.tally b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:15;box-shadow:0 8px 20px rgba(0,0,0,.25);max-width:calc(100vw - 32px);text-align:center}
+.overlay{position:fixed;inset:0;background:rgba(20,14,8,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:34px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:8px 16px}
+  .game{display:contents}
+  .stage{grid-column:1;grid-row:1/3;position:sticky;top:8px;align-self:start}
+  header,.side{grid-column:2}
+  .sub{display:none} h1{font-size:28px}
+  .boardbox{width:auto}
+  svg{height:calc(100dvh - 16px);width:auto;max-width:62vw}
+}
+@media (prefers-reduced-motion:reduce){.cell.drop,.turn.think .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Hex</h1>
+      <p class="sub">Take turns claiming cells. Red tries to join the two red sides, blue the two blue sides. Someone always wins: there are no draws.</p>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="side" aria-label="Your color"><option value="1">You play red (first)</option><option value="2">You play blue</option></select>
+      <select id="size" aria-label="Board size"><option value="7">7×7</option><option value="9">9×9</option><option value="11">11×11</option><option value="13">13×13</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="stage" aria-label="Board">
+      <div class="boardbox"><svg id="svg" tabindex="0" aria-label="Hex board. Arrow keys move, Enter claims a cell."></svg></div>
+    </section>
+
+    <aside class="side">
+      <div class="panel" aria-live="polite">
+        <div class="turn" id="turn"><span class="dot r" id="tdot"></span><span id="turnText">Your turn</span></div>
+        <p class="hint" id="hint"></p>
+        <div class="row"><button class="btn" id="swap" hidden>Swap</button><button class="btn" id="undo">Undo</button><label><input type="checkbox" id="swapRule" checked> Swap rule</label></div>
+      </div>
+      <div class="panel">
+        <p class="label">Goals</p>
+        <div class="goal">
+          <div><span class="dot r"></span><span><b id="nr">You</b>: join the red sides</span></div>
+          <div><span class="dot b"></span><span><b id="nbl">Computer</b>: join the blue sides</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="label">Wins this session</p>
+        <div class="tally"><span id="t0l">You <b id="t0">0</b></span><span id="t1l">Computer <b id="t1">0</b></span></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Red moves first. On your turn, claim any empty cell.</li>
+            <li>Red wins by building an unbroken chain of red cells between the two red sides. Blue wins with a chain between the blue sides. Corner cells touch both.</li>
+            <li>The board can never fill up without someone winning, so there are no draws.</li>
+            <li>Swap rule: going first is a big edge, so after red's first move, blue may press Swap to take that cell for themselves (it is mirrored across the board). Then red moves again. This keeps red from opening in the center.</li>
+            <li>Tip: two of your cells with two empty cells between them form a bridge. If your rival takes one gap, take the other and they stay linked.</li>
+            <li>Keyboard: arrows move, Enter or Space claims, U undoes.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- engine (rules for this page, and Monte Carlo search in a Web Worker) ---------- */
+// The board is padded by one cell on every side: the top and bottom pad rows are red, the left and right pad columns blue,
+// so "touching your side" is just "touching a cell of your color", and edge bridges look like ordinary bridges.
+function hexEngine(){
+  let n=0,W=0,SZ=0,NB=[],cells=[];
+  function setup(N){n=N;W=n+2;SZ=W*W;NB=[-W,-W+1,1,W,W-1,-1];cells=[];for(let r=1;r<=n;r++)for(let c=1;c<=n;c++)cells.push(r*W+c)}
+  function newBoard(){const b=new Uint8Array(SZ);for(let c=1;c<=n;c++){b[c]=1;b[(n+1)*W+c]=1}for(let r=1;r<=n;r++){b[r*W]=2;b[r*W+n+1]=2}
+    b[0]=b[n+1]=b[(n+1)*W]=b[(n+1)*W+n+1]=3;return b}
+  // Chain of p's cells from one of p's sides to the other, or null. With want, returns the shortest such chain of board cells.
+  function connected(b,p,want){const prev=new Int32Array(SZ).fill(-2),q=[];
+    if(p===1){for(let c=1;c<=n;c++){const i=W+c;if(b[i]===1){prev[i]=-1;q.push(i)}}}
+    else{for(let r=1;r<=n;r++){const i=r*W+1;if(b[i]===2){prev[i]=-1;q.push(i)}}}
+    for(let h=0;h<q.length;h++){const i=q[h],r=Math.floor(i/W),c=i%W;
+      if(p===1?r===n:c===n){if(!want)return true;const out=[];for(let j=i;j>=0;j=prev[j])out.push(j);return out}
+      for(const d of NB){const j=i+d,rr=Math.floor(j/W),cc=j%W;if(rr<1||rr>n||cc<1||cc>n)continue;if(b[j]===p&&prev[j]===-2){prev[j]=i;q.push(j)}}}
+    return want?null:false}
+  // Random fill to the end. After the rival steps into one of your bridges, the reply saves it. Returns the winner.
+  function playout(b,p,last,empt,ne,pos,bridges){
+    while(ne>0){let mv=-1;
+      if(bridges&&last>=0){const s=(Math.random()*6)|0;
+        for(let k=0;k<6;k++){const i=(s+k)%6,d=last+NB[i];if(b[d]===0&&b[last+NB[(i+5)%6]]===p&&b[last+NB[(i+1)%6]]===p){mv=d;break}}}
+      if(mv<0)mv=empt[(Math.random()*ne)|0];
+      const k=pos[mv];ne--;const t=empt[ne];empt[k]=t;pos[t]=k;
+      b[mv]=p;last=mv;p=3-p}
+    return connected(b,1)?1:2}
+  function think(b0,toMove,last0,opts){
+    const t0=Date.now(),deadline=t0+(opts.ms||1000),maxP=opts.playouts||1e9,K=opts.rave||400,bridges=opts.bridges!==false;
+    const mk=b=>{const kids=[];for(const i of cells)if(!b[i])kids.push({m:i,N:0,W:0,AN:0,AW:0,node:null});return{kids,N:0}};
+    const root=mk(b0);if(!root.kids.length)return{move:-1,winrate:0};
+    const empt=new Int16Array(SZ),pos=new Int16Array(SZ);let runs=0;
+    while(runs<maxP&&(runs&63||Date.now()<deadline)){runs++;
+      const b=b0.slice();let p=toMove,node=root,last=last0;const path=[],nodes=[];
+      while(true){nodes.push(node);node.N++;
+        const lnN=Math.log(node.N+1);let best=null,bv=-1;
+        for(const k of node.kids){if(b[k.m])continue;
+          const q=k.N?k.W/k.N:.5,a=k.AN?k.AW/k.AN:.5,beta=Math.sqrt(K/(3*k.N+K));
+          const v=(1-beta)*q+beta*a+.25*Math.sqrt(lnN/(k.N+1))+Math.random()*1e-6;if(v>bv){bv=v;best=k}}
+        if(!best)break;
+        b[best.m]=p;path.push(best);last=best.m;p=3-p;
+        if(!best.node){if(best.N>=1)best.node=mk(b);break}
+        node=best.node}
+      let ne=0;for(const i of cells)if(!b[i]){pos[i]=ne;empt[ne++]=i}
+      const w=playout(b,p,last,empt,ne,pos,bridges);
+      let mover=toMove;for(const k of path){k.N++;if(mover===w)k.W++;mover=3-mover}
+      mover=toMove;for(const nd of nodes){for(const k of nd.kids)if(b[k.m]===mover){k.AN++;if(mover===w)k.AW++}mover=3-mover}}
+    root.kids.sort((x,y)=>y.N-x.N||y.AN-x.AN);const top=root.kids.slice(0,5).map(k=>({m:k.m,N:k.N,wr:k.N?k.W/k.N:0}));
+    const best=root.kids[0];return{move:best.m,winrate:best.N?best.W/best.N:.5,top,runs,ms:Date.now()-t0}}
+  return{setup,newBoard,connected,think,get n(){return n},get W(){return W},get cells(){return cells},get NB(){return NB}}
+}
+const E=hexEngine();
+
+const LEVELS={easy:{ms:400,playouts:350,bridges:false,wander:.4},medium:{ms:1500},hard:{ms:4500}};
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',level:'medium',side:1,size:11,swap:true},store.get('parlor-hex',{}));
+const wins={you:0,cpu:0,1:0,2:0};
+let S=null,cursor=-1,kb=false,hover=-1,toastT=0,geo=null,vertical=false;
+
+/* ---------- computer worker ---------- */
+let worker=null,reqId=0;const pending={};
+try{const src=`const E=(${hexEngine.toString()})();onmessage=e=>{const d=e.data;E.setup(d.n);const r=E.think(Uint8Array.from(d.b),d.toMove,d.last,d.opts);postMessage({id:d.id,move:r.move,winrate:r.winrate,top:r.top})};`;
+  worker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+  worker.onmessage=e=>{const f=pending[e.data.id];delete pending[e.data.id];if(f)f(e.data)};
+  worker.onerror=()=>{worker=null}}catch(e){worker=null}
+function ask(msg){return new Promise(res=>{const id=++reqId;msg.id=id;
+  if(worker){pending[id]=res;worker.postMessage(msg);return}
+  setTimeout(()=>{const F=hexEngine();F.setup(msg.n);res(F.think(Uint8Array.from(msg.b),msg.toMove,msg.last,Object.assign({},msg.opts,{ms:Math.min(msg.opts.ms,900)})))},30)})}
+
+/* ---------- game flow ---------- */
+const colorName=p=>p===1?'Red':'Blue';
+const isCpu=p=>cfg.mode==='cpu'&&p===S.cpu;
+const nameOf=p=>cfg.mode==='cpu'?(p===S.cpu?'Computer':'You'):colorName(p);
+const rc=i=>[Math.floor(i/E.W),i%E.W];
+const cellName=i=>{const[r,c]=rc(i);return'abcdefghijklm'[c-1]+r};
+function toast(t,ms=2200){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function newGame(){$('overlay').hidden=true;$('toast').hidden=true;E.setup(cfg.size);
+  S={n:cfg.size,swapRule:cfg.swap,b:E.newBoard(),turn:1,moves:0,last:-1,swapped:false,hist:[],over:null,busy:false,dropped:-1,winrate:null,
+     cpu:cfg.mode==='cpu'?3-(+cfg.side):0,gen:(S?S.gen:0)+1};
+  cursor=E.W*Math.ceil(cfg.size/2)+Math.ceil(cfg.size/2);build();next()}
+const canSwap=()=>S.swapRule&&!S.over&&S.moves===1&&!S.swapped&&S.turn===2;
+function snapshot(){S.hist.push({b:S.b.slice(),turn:S.turn,moves:S.moves,last:S.last,swapped:S.swapped})}
+function claim(i){if(S.over||S.b[i])return false;const[r,c]=rc(i);if(r<1||r>S.n||c<1||c>S.n)return false;
+  snapshot();S.b[i]=S.turn;S.last=i;S.dropped=i;S.moves++;
+  if(E.connected(S.b,S.turn)){finish(S.turn);return true}
+  S.turn=3-S.turn;next();return true}
+// Swap: blue takes red's opening cell, mirrored across the long diagonal, and red moves again.
+function doSwap(){if(!canSwap())return;snapshot();const i=S.last,[r,c]=rc(i),j=c*E.W+r;S.b[i]=0;S.b[j]=2;S.last=j;S.dropped=j;S.swapped=true;S.moves++;S.turn=1;
+  toast(`${nameOf(2)} ${cfg.mode==='cpu'&&!isCpu(2)?'swap':'swaps'}: the opening cell becomes blue at ${cellName(j)}.`);next()}
+function next(){render();if(S.over||!isCpu(S.turn))return;
+  const g=S.gen,L=LEVELS[cfg.level];S.busy=true;render();
+  // Openings: with the swap rule a center opening would just be swapped away, so pick something balanced.
+  if(S.moves===0){setTimeout(()=>{if(g!==S.gen)return;S.busy=false;claim(openingMove())},500);return}
+  if(canSwap()&&shouldSwap(S.last)){setTimeout(()=>{if(g!==S.gen)return;S.busy=false;doSwap()},600);return}
+  const t0=Date.now();
+  ask({n:S.n,b:Array.from(S.b),toMove:S.turn,last:S.last,opts:{ms:L.ms,playouts:L.playouts||1e9,bridges:L.bridges!==false}}).then(r=>{
+    if(g!==S.gen)return;let m=r.move;
+    if(L.wander&&r.top&&r.top.length>1&&Math.random()<L.wander)m=r.top[1+rand(Math.min(3,r.top.length-1))].m;
+    S.winrate=r.winrate;
+    setTimeout(()=>{if(g!==S.gen)return;S.busy=false;claim(m)},Math.max(0,350-(Date.now()-t0)))})}
+const ring=i=>{const[r,c]=rc(i);return Math.min(r-1,c-1,S.n-r,S.n-c)};
+function openingMove(){const cells=E.cells;
+  if(!S.swapRule)return E.W*Math.ceil(S.n/2)+Math.ceil(S.n/2);
+  const pool=cells.filter(i=>ring(i)===1||(ring(i)===0&&rc(i)[0]>1&&rc(i)[0]<S.n));return pool[rand(pool.length)]}
+// Openings away from the border are strong enough to be worth taking over; obtuse corners (a-n, n-a) are too.
+function shouldSwap(i){const[r,c]=rc(i),ob=(r===1&&c===S.n)||(r===S.n&&c===1);if(ob)return true;
+  const lim=S.n<=7?1:2;if(cfg.level==='easy')return ring(i)>=lim+1;return ring(i)>=lim}
+function finish(w){S.over={w,path:E.connected(S.b,w,true)};
+  if(cfg.mode==='cpu')wins[w===S.cpu?'cpu':'you']++;else wins[w]++;
+  render();
+  const title=cfg.mode==='cpu'?(w===S.cpu?'Computer wins':'You win!'):`${colorName(w)} wins`;
+  setTimeout(()=>{if(!S.over)return;$('modal').innerHTML=`<h2>${title}</h2><p>${colorName(w)} joined both ${colorName(w).toLowerCase()} sides in ${Math.ceil(S.moves/2)} moves.</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+    $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame},900)}
+function undo(){if(!S.hist.length)return;
+  if(S.over){const w=S.over.w;if(cfg.mode==='cpu')wins[w===S.cpu?'cpu':'you']--;else wins[w]--;S.over=null;$('overlay').hidden=true}
+  const pop=()=>{const h=S.hist.pop();S.b=h.b;S.turn=h.turn;S.moves=h.moves;S.last=h.last;S.swapped=h.swapped};
+  pop();if(cfg.mode==='cpu')while(S.hist.length&&isCpu(S.turn))pop();
+  S.busy=false;S.gen++;S.dropped=-1;S.winrate=null;next()}
+
+/* ---------- board drawing ---------- */
+const R=10,HW=Math.sqrt(3)*R;
+function build(){const n=S.n;
+  vertical=innerWidth<720&&innerHeight>innerWidth*1.1;
+  const at=(x,y)=>vertical?[y,x]:[x,y];
+  const centre=(r,c)=>[(c-1+(r-1)/2)*HW,(r-1)*1.5*R];
+  const hexPts=(x,y)=>[...Array(6)].map((_,k)=>{const a=Math.PI/180*(60*k-90);return at(x+R*Math.cos(a),y+R*Math.sin(a))});
+  // The coloured border is four triangles from the board's middle out to a rhombus a little bigger than the cells.
+  const d=1.85*R,tl=centre(1,1),tr=centre(1,n),br=centre(n,n),bl=centre(n,1);
+  const TL=[tl[0]-1.732*d,tl[1]-d],TR=[tr[0]+.577*d,tr[1]-d],BR=[br[0]+1.732*d,br[1]+d],BL=[bl[0]-.577*d,bl[1]+d],C=[(TL[0]+BR[0])/2,(TL[1]+BR[1])/2];
+  const poly=(pts,cls)=>`<polygon class="${cls}" points="${pts.map(p=>at(p[0],p[1]).map(v=>v.toFixed(2)).join(',')).join(' ')}"/>`;
+  const all=[TL,TR,BR,BL].map(p=>at(p[0],p[1]));const xs=all.map(p=>p[0]),ys=all.map(p=>p[1]);
+  const x0=Math.min(...xs)-2,y0=Math.min(...ys)-2,w=Math.max(...xs)-x0+2,h=Math.max(...ys)-y0+2;
+  geo={centre:(i)=>{const[r,c]=rc(i);const p=centre(r,c);return at(p[0],p[1])}};
+  let s=`<defs><radialGradient id="gCell" cx="50%" cy="40%" r="65%"><stop offset="0" stop-color="var(--cell)"/><stop offset="1" stop-color="var(--cell-2)"/></radialGradient>
+    <radialGradient id="gRed" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ef5a48"/><stop offset="1" stop-color="var(--red-2)"/></radialGradient>
+    <radialGradient id="gBlue" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#4f7be0"/><stop offset="1" stop-color="var(--blue-2)"/></radialGradient></defs>`;
+  s+=poly([TL,TR,C],'edge-r')+poly([BL,BR,C],'edge-r')+poly([TL,BL,C],'edge-b')+poly([TR,BR,C],'edge-b');
+  s+='<g id="cells">';
+  for(let r=1;r<=n;r++)for(let c=1;c<=n;c++){const i=r*E.W+c,[x,y]=centre(r,c);
+    s+=`<polygon class="cell" data-i="${i}" points="${hexPts(x,y).map(p=>p.map(v=>v.toFixed(2)).join(',')).join(' ')}"><title>${cellName(i)}</title></polygon>`}
+  s+='</g><polyline class="path" id="path" points=""/><circle class="lastdot" id="lastdot" r="2.6" cx="-99" cy="-99"/><polygon class="cur" id="cur" points=""/>';
+  const svg=$('svg');svg.setAttribute('viewBox',`${x0.toFixed(1)} ${y0.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);svg.innerHTML=s;
+  geo.hex=i=>{const[r,c]=rc(i),[x,y]=centre(r,c);return hexPts(x,y).map(p=>p.map(v=>v.toFixed(2)).join(',')).join(' ')};
+  sizeSvg(w/h)}
+function sizeSvg(aspect){const svg=$('svg');
+  if(matchMedia('(max-height:520px) and (orientation:landscape)').matches){svg.style.maxWidth='';return}
+  // Keep the whole board on screen: cap the width so the height fits too.
+  const room=Math.max(260,innerHeight-(innerWidth<900?190:150));svg.style.maxWidth=Math.round(room*aspect)+'px'}
+function render(){if(!S)return;
+  const me=!S.over&&!S.busy&&!isCpu(S.turn),cells=$('cells').children;
+  for(const el of cells){const i=+el.dataset.i,v=S.b[i];
+    let cls='cell'+(v===1?' r':v===2?' b':me?' open':'');
+    if(!v&&me&&i===hover)cls+=S.turn===1?' pre-r':' pre-b';
+    if(i===S.dropped)cls+=' drop';
+    el.setAttribute('class',cls);el.firstChild.textContent=`${cellName(i)}${v?': '+colorName(v).toLowerCase():''}`}
+  S.dropped=-1;
+  const ld=$('lastdot');if(S.last>=0&&!S.over){const[x,y]=geo.centre(S.last);ld.setAttribute('cx',x);ld.setAttribute('cy',y)}else{ld.setAttribute('cx',-99);ld.setAttribute('cy',-99)}
+  $('path').setAttribute('points',S.over&&S.over.path?S.over.path.map(i=>geo.centre(i).map(v=>v.toFixed(2)).join(',')).join(' '):'');
+  $('cur').setAttribute('points',kb&&cursor>=0?geo.hex(cursor):'');
+  const shown=S.over?S.over.w:S.turn;$('tdot').className='dot '+(shown===1?'r':'b');
+  $('turn').classList.toggle('think',!S.over&&isCpu(S.turn));
+  $('turnText').textContent=S.over?(cfg.mode==='cpu'?(S.over.w===S.cpu?'Computer wins':'You win'):`${colorName(S.over.w)} wins`):isCpu(S.turn)?'Computer is thinking…':cfg.mode==='cpu'?'Your turn':`${colorName(S.turn)} to move`;
+  let hint;
+  if(S.over)hint='Press New game or Play again for another round.';
+  else if(isCpu(S.turn))hint=`Computer plays ${colorName(S.turn).toLowerCase()} on ${cfg.level}.`;
+  else if(canSwap())hint=`${cfg.mode==='cpu'?'You':'Blue'} may play a cell, or press Swap to take red's opening cell.`;
+  else hint=`${cfg.mode==='cpu'?'You are '+colorName(S.turn).toLowerCase()+'.':''} Join the two ${colorName(S.turn).toLowerCase()} sides.`.trim();
+  if(!S.over&&!isCpu(S.turn)&&S.winrate!=null&&cfg.mode==='cpu'){const w=S.winrate;hint+=w>.8?' The computer likes its chances.':w<.25?' The computer looks worried.':''}
+  $('hint').textContent=hint;
+  $('swap').hidden=!canSwap()||isCpu(2);$('swap').disabled=S.busy;
+  $('nr').textContent=nameOf(1);$('nbl').textContent=nameOf(2);
+  if(cfg.mode==='cpu'){$('t0l').firstChild.textContent='You ';$('t1l').firstChild.textContent='Computer ';$('t0').textContent=wins.you;$('t1').textContent=wins.cpu}
+  else{$('t0l').firstChild.textContent='Red ';$('t1l').firstChild.textContent='Blue ';$('t0').textContent=wins[1];$('t1').textContent=wins[2]}
+  $('undo').disabled=!S.hist.length||(cfg.mode==='cpu'&&!S.hist.some(h=>!isCpu(h.turn)))}
+
+/* ---------- input & settings ---------- */
+const svg=$('svg');
+svg.addEventListener('click',e=>{const c=e.target.closest('.cell');if(!c||S.over||S.busy||isCpu(S.turn))return;kb=false;const i=+c.dataset.i;
+  if(S.b[i]){if(canSwap()&&i===S.last)toast('To take this cell, press Swap.');return}claim(i)});
+svg.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse')return;const c=e.target.closest('.cell'),i=c?+c.dataset.i:-1;if(i!==hover){hover=i;render()}});
+svg.addEventListener('pointerleave',()=>{if(hover>=0){hover=-1;render()}});
+// Arrow keys step along rows and columns of the rhombus (flipped when the board is drawn standing up).
+svg.addEventListener('keydown',e=>{let dr=0,dc=0;const k=e.key;
+  if(k==='ArrowUp')dr=-1;else if(k==='ArrowDown')dr=1;else if(k==='ArrowLeft')dc=-1;else if(k==='ArrowRight')dc=1;
+  if(dr||dc){e.preventDefault();if(vertical)[dr,dc]=[dc,dr];kb=true;const[r,c]=rc(cursor),nr=r+dr,nc=c+dc;if(nr>=1&&nr<=S.n&&nc>=1&&nc<=S.n)cursor=nr*E.W+nc;render();return}
+  if((k==='Enter'||k===' ')&&!S.over&&!S.busy&&!isCpu(S.turn)){e.preventDefault();if(S.b[cursor]&&canSwap()&&cursor===S.last)doSwap();else claim(cursor)}});
+svg.addEventListener('focus',()=>{kb=true;render()});svg.addEventListener('blur',()=>{kb=false;render()});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true;else if((e.key==='u'||e.key==='U')&&!$('undo').disabled)undo()});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+let rsT=0;addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>{if(!S)return;const v=innerWidth<720&&innerHeight>innerWidth*1.1;if(v!==vertical)build();else{const vb=$('svg').viewBox.baseVal;sizeSvg(vb.width/vb.height)}render()},120)});
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('side').value=cfg.side;$('size').value=cfg.size;$('swapRule').checked=cfg.swap;$('level').hidden=$('side').hidden=cfg.mode!=='cpu'}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-hex',cfg);sync();if(restart)newGame();else render()}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('side').onchange=e=>setCfg('side',+e.target.value,true);
+$('size').onchange=e=>setCfg('size',+e.target.value,true);
+$('swapRule').onchange=e=>{const mid=S&&S.moves>0&&!S.over;setCfg('swap',e.target.checked,false);if(mid)toast('The swap rule change applies from the next game.')};
+$('newgame').onclick=newGame;$('undo').onclick=undo;$('swap').onclick=doSwap;
+if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(![1,2].includes(+cfg.side))cfg.side=1;cfg.side=+cfg.side;if(![7,9,11,13].includes(+cfg.size))cfg.size=11;cfg.size=+cfg.size;
+sync();newGame();
+</script>
+</body>
+</html>
