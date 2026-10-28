@@ -35,6 +35,8 @@ Self-contained HTML files. No install or build step.
 - `tic-tac-toe.html` — Tic-Tac-Toe vs the computer (up to unbeatable) or 2 players.
 - `ultimate-tic-tac-toe.html` — Ultimate Tic-Tac-Toe vs the computer or 2 players.
 - `peg-solitaire.html` — Peg Solitaire on English, French and triangle boards, with hints.
+- `pig.html` — Pig, the push-your-luck dice race, vs computers or 2 to 6 players.
+- `farkle.html` — Farkle with six dice, hot dice and a scoring chart, vs computers or 2 to 6 players.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Farkle</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with players and new game; the scoreboard; a felt dice tray with six dice (tap to set scoring dice aside), the turn total and Roll / Bank buttons; a scoring chart and rules below. */
+:root{
+  --bg:#f3ece0; --fg:#2b2218; --muted:#6f6352; --panel:#fffaf2; --line:#dfd2bd; --chip:#f2e9d9;
+  --accent:#2f6b4f; --accent-ink:#ffffff; --tray:#2f6b4f; --tray-2:#1f4d38; --die:#fffaf2; --pip:#2b2218; --keep:#f2c14e;
+  --p0:#c2362f; --p1:#2f6fd6; --p2:#2b8a3e; --p3:#8d4bd6; --p4:#e08a1e; --p5:#0e7490;
+  --display:"Rye", Georgia, serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14110c; --fg:#efe6d6; --muted:#ab9e88; --panel:#1e1913; --line:#3a3023; --chip:#29221a; --accent:#7fd3a6; --accent-ink:#062214; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#14110c; --fg:#efe6d6; --muted:#ab9e88; --panel:#1e1913; --line:#3a3023; --chip:#29221a; --accent:#7fd3a6; --accent-ink:#062214; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:640px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(36px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px}
+.pl{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 10px;gap:8px}
+.pl.cur{border-color:var(--c)}
+.pl span{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px}
+.pl b{font-family:var(--display);font-weight:400;font-size:20px;font-variant-numeric:tabular-nums}
+.tray{background:radial-gradient(circle at 50% 35%,var(--tray),var(--tray-2));border-radius:20px;padding:14px;color:#fff;display:flex;flex-direction:column;gap:12px;align-items:center;box-shadow:inset 0 0 0 6px rgba(0,0,0,.12),0 16px 30px -18px rgba(10,40,25,.7)}
+.who{font-family:var(--display);font-size:22px}
+.dice{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;width:100%;max-width:460px}
+.d{aspect-ratio:1;border:0;border-radius:18%;background:var(--die);box-shadow:inset 0 -4px 0 rgba(0,0,0,.12),0 5px 8px rgba(0,0,0,.3);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:13%;cursor:pointer;transition:transform .15s}
+.d i{width:68%;aspect-ratio:1;border-radius:50%;background:var(--pip);place-self:center}
+.d.pick{transform:translateY(-6px);box-shadow:0 0 0 3px var(--keep),0 8px 12px rgba(0,0,0,.35)}
+.d.kept{opacity:.45;cursor:default;transform:scale(.86)}
+.d.dead{opacity:.55;cursor:default}
+.d.blank{opacity:.25;cursor:default}
+.d:disabled{cursor:default}
+.d.roll{animation:shake .45s ease-out}
+@keyframes shake{0%{transform:rotate(-30deg) scale(.7)}60%{transform:rotate(12deg)}100%{transform:none}}
+.turn{text-align:center;min-height:22px}
+.turn b{font-family:var(--display);font-size:34px;font-weight:400;display:block;line-height:1.1}
+.turn small{opacity:.9}
+.acts{display:flex;gap:10px;width:100%;max-width:420px}
+.acts .btn{flex:1;min-height:50px;font-size:16.5px}
+.acts .btn.primary{background:#fff;color:var(--tray-2);border-color:#fff}
+.tray .btn:not(.primary){background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.55)}
+.log{color:var(--muted);font-size:14px;text-align:center;min-height:20px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.chart{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:14px;color:var(--muted);margin-top:8px}
+.chart b{color:var(--fg);text-align:right}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.opt{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px;margin-top:10px}
+.overlay{position:fixed;inset:0;background:rgba(20,15,5,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:34px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.d.roll{animation:none}.d{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Farkle</h1>
+    </div>
+    <div class="controls">
+      <select id="players" aria-label="Players"><option value="c1">You vs computer</option><option value="c2">You vs 2 computers</option><option value="c3">You vs 3 computers</option><option value="h2">2 players</option><option value="h3">3 players</option><option value="h4">4 players</option><option value="h6">6 players</option></select>
+      <select id="level" aria-label="Computer style"><option value="easy">Cautious</option><option value="medium">Steady</option><option value="hard">Clever</option></select>
+      <select id="target" aria-label="Target"><option value="5000">To 5,000</option><option value="10000">To 10,000</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="board" id="board" aria-live="polite"></div>
+  <div class="tray" aria-live="polite">
+    <div class="who" id="who">Your turn</div>
+    <div class="dice" id="diceBox"></div>
+    <div class="turn" id="turn"></div>
+    <div class="acts"><button class="btn primary" id="roll">Roll</button><button class="btn" id="bank">Bank</button></div>
+  </div>
+  <div class="log" id="log"></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Roll six dice. Set aside at least one scoring die (tap them), then either roll the rest again or bank the points.</li>
+        <li>If a roll has nothing that scores, that's a <b>farkle</b>: you lose everything from this turn.</li>
+        <li>Score with all six dice and you get <b>hot dice</b>: roll all six again and keep building.</li>
+        <li>Each roll's scoring dice count only within that roll.</li>
+        <li>First to the target wins (everyone else gets one last turn to beat it).</li>
+        <li>Keyboard: 1–6 pick dice, R rolls, B banks.</li>
+      </ul>
+      <div class="chart"><span>Each 1</span><b>100</b><span>Each 5</span><b>50</b><span>Three 1s</span><b>1,000</b><span>Three of a kind (2–6)</span><b>face × 100</b><span>Four of a kind</span><b>1,000</b><span>Five of a kind</span><b>2,000</b><span>Six of a kind</span><b>3,000</b><span>Straight 1–6</span><b>1,500</b><span>Three pairs</span><b>1,500</b><span>Two triplets</span><b>2,500</b></div>
+    </details>
+    <label class="opt"><input type="checkbox" id="entry"> Need 500 in one turn to get on the board</label>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+const COLORS=['--p0','--p1','--p2','--p3','--p4','--p5'];
+const NAMES=['Dusty','Belle','Hank','Josie','Clem'];
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({players:'c1',level:'medium',target:10000,entry:false},store.get('parlor-farkle',{}));
+const tally=store.get('parlor-farkle-tally',{won:0,played:0});
+let S=null;
+
+/* ---------- scoring ---------- */
+// Best score for exactly these dice, or 0 if any die doesn't count.
+function scoreOf(d){if(!d.length)return 0;const c=[0,0,0,0,0,0,0];d.forEach(v=>c[v]++);const n=d.length;
+  if(n===6){if(c.slice(1).every(x=>x===1))return 1500;if(c.filter(x=>x===2).length===3)return 1500;if(c.filter(x=>x===3).length===2)return 2500}
+  let s=0;for(let v=1;v<=6;v++){let k=c[v];if(k>=3){s+=k===6?3000:k===5?2000:k===4?1000:(v===1?1000:v*100);k=0}if(v===1)s+=k*100;else if(v===5)s+=k*50;else if(k)return 0}
+  return s}
+// Does any scoring die exist in this roll?
+const anyScore=d=>d.includes(1)||d.includes(5)||[2,3,4,6].some(v=>d.filter(x=>x===v).length>=3)||scoreOf(d)>0;
+// All subsets of a roll that score, best first (for the computer and for hints).
+function keeps(d){const out=[],n=d.length;for(let m=1;m<1<<n;m++){const sub=d.filter((_,i)=>m>>i&1),s=scoreOf(sub);if(s)out.push({m,n:sub.length,s})}return out}
+
+/* ---------- game ---------- */
+function setup(){const m=cfg.players,n=+m[1];if(m[0]==='c')return[{name:'You'},...[...Array(n)].map((_,i)=>({name:NAMES[i],cpu:true}))];return[...Array(n)].map((_,i)=>({name:`Player ${i+1}`}))}
+function newGame(){$('overlay').hidden=true;S={players:setup(),turn:0,dice:[],picked:new Set(),avail:6,turnTotal:0,rolled:false,over:false,busy:false,log:'',anim:false,lastRound:-1,gen:(S?S.gen:0)+1};S.players.forEach(p=>{p.score=0;p.on=!cfg.entry});startTurn()}
+const cur=()=>S.players[S.turn];
+function startTurn(){S.dice=[];S.picked=new Set();S.avail=6;S.turnTotal=0;S.rolled=false;render();if(cur().cpu)cpuTurn()}
+const pickedDice=()=>[...S.picked].map(i=>S.dice[i]);
+const pickScore=()=>scoreOf(pickedDice());
+// Returns false when the roll farkles (the turn is then over).
+function roll(){if(S.over)return false;let hot=false;
+  if(S.rolled){const ps=pickScore();if(!ps)return false;S.turnTotal+=ps;S.avail-=S.picked.size;if(S.avail===0){S.avail=6;hot=true}}
+  S.dice=[...Array(S.avail)].map(()=>1+Math.floor(Math.random()*6));S.picked=new Set();S.rolled=true;S.anim=true;
+  if(!anyScore(S.dice)){S.log=`Farkle! ${cur().name} ${cur().name==='You'?'lose':'loses'} ${S.turnTotal} point${S.turnTotal===1?'':'s'}.`;S.turnTotal=0;render();S.anim=false;passTurn();return false}
+  S.log=hot?'Hot dice! Rolling all six again.':'';render();S.anim=false;return true}
+function canBank(){const t=S.turnTotal+pickScore();return S.rolled&&pickScore()>0&&(cur().on||t>=500)}
+function bank(){if(!canBank())return;const t=S.turnTotal+pickScore();const p=cur();p.score+=t;p.on=true;S.log=`${p.name} ${p.name==='You'?'bank':'banks'} ${t.toLocaleString()}.`;S.turnTotal=0;S.dice=[];
+  if(p.score>=cfg.target&&S.lastRound<0){S.lastRound=S.turn;S.log+=` ${p.name} ${p.name==='You'?'have':'has'} reached the target: everyone else gets one last turn.`}
+  passTurn()}
+function passTurn(){S.busy=true;render();const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;S.turn=(S.turn+1)%S.players.length;
+  if(S.lastRound>=0&&S.turn===S.lastRound){S.over=true;render();finish();return}startTurn()},1200)}
+// Computer: keep the most valuable dice per die kept (keeping fewer dice when that leaves a better reroll), and bank by a threshold that rises with more dice to roll.
+function cpuChoose(){const ks=keeps(S.dice),lv=cfg.level;if(lv==='easy'){const best=ks.reduce((a,b)=>b.s>a.s?b:a);return best.m}
+  const left=d=>S.dice.length-d.n;
+  const value=k=>{const rem=left(k)===0?6:left(k);return k.s+(rem>=3?60*(rem-2):0)-(lv==='hard'&&k.n>1&&k.s/k.n<100&&rem<3?40:0)};
+  return ks.reduce((a,b)=>value(b)>value(a)?b:a).m}
+function shouldBank(){const lv=cfg.level,t=S.turnTotal+pickScore(),rem=S.avail-S.picked.size===0?6:S.avail-S.picked.size;const me=cur();
+  if(!me.on&&t<500)return false;if(me.score+t>=cfg.target)return true;
+  const lead=Math.max(...S.players.filter(p=>p!==me).map(p=>p.score));
+  if(S.lastRound>=0)return me.score+t>lead;   // final turn: only stop once ahead
+  const table=lv==='easy'?[0,250,250,300,400,500,2000]:lv==='medium'?[0,300,350,400,600,1000,2500]:[0,300,400,500,700,1500,3000];
+  let need=table[rem];if(lv==='hard'&&lead-me.score>cfg.target*.2)need*=1.4;return t>=need}
+function cpuTurn(){const g=S.gen;S.busy=true;render();
+  // roll (or bank), then pick dice, then decide again
+  const act=()=>{if(g!==S.gen||S.over)return;if(S.rolled&&shouldBank()){S.busy=false;bank();return}
+    S.busy=false;const ok=roll();if(!ok)return;S.busy=true;render();setTimeout(pick,750)};
+  const pick=()=>{if(g!==S.gen||S.over)return;const m=cpuChoose();S.dice.forEach((_,i)=>{if(m>>i&1)S.picked.add(i)});render();setTimeout(act,700)};
+  setTimeout(act,600)}
+function finish(){const top=Math.max(...S.players.map(p=>p.score)),w=S.players.find(p=>p.score===top);const vsCpu=cfg.players[0]==='c';
+  if(vsCpu){tally.played++;if(w.name==='You')tally.won++;store.set('parlor-farkle-tally',tally)}
+  $('modal').innerHTML=`<h2>${w.name==='You'?'You win!':w.name+' wins'}</h2><p>${S.players.map(p=>`${p.name} ${p.score.toLocaleString()}`).join(' · ')}</p>${vsCpu?`<p>You've won ${tally.won} of ${tally.played}.</p>`:''}<div class="acts" style="max-width:none"><button class="btn primary" id="mnew" style="background:var(--accent);color:var(--accent-ink)">Play again</button></div>`;
+  setTimeout(()=>{$('overlay').hidden=false;$('mnew').focus();$('mnew').onclick=newGame},500)}
+
+/* ---------- drawing ---------- */
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function render(){const me=!S.over&&!S.busy&&!cur().cpu,ps=pickScore();
+  $('board').innerHTML=S.players.map((p,i)=>`<div class="pl${i===S.turn&&!S.over?' cur':''}" style="--c:var(${COLORS[i]})"><span>${p.name}${p.on?'':' ·'}</span><b>${p.score.toLocaleString()}</b></div>`).join('');
+  $('who').textContent=S.over?'Game over':cur().cpu?`${cur().name} is rolling…`:cur().name==='You'?'Your turn':`${cur().name}'s turn`;
+  const kept=6-S.avail,shown=S.dice.length?S.dice:[];
+  let h='';for(let i=0;i<6;i++){if(i<shown.length){const v=shown[i],pk=S.picked.has(i);h+=`<button class="d${pk?' pick':''}${S.anim?' roll':''}" data-i="${i}" ${me?'':'disabled'} aria-label="Die ${v}${pk?', set aside':''}">${[...Array(9)].map((_,k)=>PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</button>`}
+    else h+=`<span class="d ${i<shown.length+kept&&S.rolled?'kept':'blank'}"></span>`}
+  $('diceBox').innerHTML=h;
+  const t=S.turnTotal+ps;$('turn').innerHTML=`<b>${t.toLocaleString()}</b><small>${S.rolled?`this turn${ps?` (${ps} from the dice you picked)`:' · pick scoring dice'}`:'Roll to start your turn'}${!cur().on&&cfg.entry?' · need 500 to get on the board':''}</small>`;
+  $('roll').disabled=!me||(S.rolled&&!ps);$('roll').textContent=!S.rolled?'Roll':S.avail-S.picked.size===0?'Roll 6 (hot dice)':`Roll ${S.avail-S.picked.size}`;
+  $('bank').disabled=!me||!canBank();$('log').textContent=S.log;$('level').hidden=cfg.players[0]!=='c'}
+
+/* ---------- input & settings ---------- */
+$('diceBox').addEventListener('click',e=>{const d=e.target.closest('button.d');if(!d||d.disabled)return;const i=+d.dataset.i;if(S.picked.has(i))S.picked.delete(i);else S.picked.add(i);render()});
+$('roll').onclick=roll;$('bank').onclick=bank;
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!$('overlay').hidden||!S||S.busy||S.over||cur().cpu)return;
+  if(e.key>='1'&&e.key<='6'&&S.rolled){const i=+e.key-1;if(i<S.dice.length){if(S.picked.has(i))S.picked.delete(i);else S.picked.add(i);render()}}
+  else if(e.key==='r'||e.key==='R'){if(!$('roll').disabled)roll()}else if(e.key==='b'||e.key==='B'){bank()}});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function sync(){$('players').value=cfg.players;$('level').value=cfg.level;$('target').value=cfg.target;$('entry').checked=cfg.entry}
+const started=()=>S&&!S.over&&(S.players.some(p=>p.score)||S.rolled);
+function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-farkle',cfg);sync();if(restart)newGame();else render()}
+$('players').onchange=e=>setCfg('players',e.target.value,true);$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('target').onchange=e=>setCfg('target',+e.target.value,true);$('entry').onchange=e=>setCfg('entry',e.target.checked,true);
+$('newgame').onclick=()=>{if(started()&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+if(!['c1','c2','c3','h2','h3','h4','h6'].includes(cfg.players))cfg.players='c1';if(![5000,10000].includes(+cfg.target))cfg.target=10000;if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';
+sync();newGame();
+</script>
+</body>
+</html>
