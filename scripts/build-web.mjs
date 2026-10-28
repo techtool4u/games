@@ -69,4 +69,6 @@ for (const page of pages) {
 }
 
 for (const f of ['app-shell.css', 'app-shell.js']) await copyFile(path.join(root, 'app-shell', f), path.join(out, f));
+// Data files the pages load with <script src> (for example the Word Tiles dictionary).
+for (const f of (await readdir(root)).filter(f => f.endsWith('.js'))) await copyFile(path.join(root, f), path.join(out, f));
 console.log(`www/ ready: ${pages.length} pages, ${fontFiles.size} font files`);
