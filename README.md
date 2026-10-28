@@ -12,7 +12,7 @@ Self-contained HTML files. No install or build step.
 - `hangman.html` — Hangman with 10 word categories, three difficulties and a 2-player mode.
 - `poker.html` — Poker (Texas Hold'em) against 1 to 5 computer players, chips only.
 - `word-tiles.html` — Word Tiles, a crossword tile game vs 1 to 3 computers (easy / normal / hard) or 2 to 4 people. Needs `wordtiles-words.js` (the dictionary) in the same folder.
-- `sudoku.html` — Sudoku with Easy, Medium, Hard and Expert puzzles (each has one solution), notes, hints and best times.
+- `sudoku.html` — Sudoku on 9×9, 12×12 or 16×16 grids with Easy, Medium, Hard and Expert puzzles (each has one solution), notes, hints and best times.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
