@@ -8,6 +8,9 @@ Self-contained HTML files. No install or build step.
 - `checkers.html` — Checkers, vs the computer (easy / medium / hard) or 2 players on one device.
 - `mancala.html` — Mancala (Kalah rules), vs the computer (easy / medium / hard) or 2 players on one device.
 - `four-in-a-row.html` — Four in a Row, vs the computer (easy / medium / hard) or 2 players on one device.
+- `spider-solitaire.html` — Spider Solitaire with 1, 2 or 4 suits, tap-to-move, undo and hints.
+- `hangman.html` — Hangman with 10 word categories, three difficulties and a 2-player mode.
+- `poker.html` — Poker (Texas Hold'em) against 1 to 5 computer players, chips only.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
@@ -15,7 +18,7 @@ Open `index.html` in a browser and press **Play now** on a game. Keep all the fi
 
 Everything runs offline except the web fonts (loaded from Google Fonts); without internet the pages fall back to system fonts.
 
-Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress are saved in your browser's local storage.
+Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress, Spider game and Hangman streaks are saved in your browser's local storage.
 
 ## Android app
 

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hangman</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito+Sans:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a chalk-and-paper notebook. Header with mode/difficulty/category; the drawing beside the word and lives on wide screens (stacked on phones); an on-screen keyboard below; stats strip at the bottom. */
+:root{
+  --bg:#f5f0e2; --paper:#fffdf6; --fg:#22202a; --muted:#6a6577; --line:#e4dccb; --chip:#efe8d8;
+  --accent:#2c58c4; --accent-ink:#fff; --hit:#2f8a57; --miss:#c2473a; --ink:#22202a;
+  --display:"Patrick Hand", "Comic Sans MS", system-ui, sans-serif;
+  --body:"Nunito Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17161c; --paper:#211f28; --fg:#efeaf6; --muted:#a9a3b8; --line:#353241; --chip:#2b2834; --accent:#7d9cff; --accent-ink:#0b1230; --hit:#55c587; --miss:#ef7a6c; --ink:#efeaf6; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#17161c; --paper:#211f28; --fg:#efeaf6; --muted:#a9a3b8; --line:#353241; --chip:#2b2834; --accent:#7d9cff; --accent-ink:#0b1230; --hit:#55c587; --miss:#ef7a6c; --ink:#efeaf6; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:980px;margin:0 auto;padding-block:16px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(38px,6vw,54px);line-height:.95;margin:4px 0 0}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--paper);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--paper);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.sheet{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:clamp(14px,3vw,24px);display:grid;grid-template-columns:minmax(160px,260px) minmax(0,1fr);gap:clamp(12px,3vw,28px);align-items:center;
+  background-image:repeating-linear-gradient(transparent 0 31px,color-mix(in srgb,var(--line) 70%,transparent) 31px 32px)}
+@media (max-width:640px){.sheet{grid-template-columns:minmax(0,1fr);justify-items:center}}
+.art{width:100%;max-width:260px}
+@media (max-width:640px){.art{max-width:170px}}
+.art svg{display:block;width:100%;height:auto}
+.art .g{stroke:var(--muted);stroke-width:6;stroke-linecap:round;fill:none}
+.art .p{stroke:var(--ink);stroke-width:5;stroke-linecap:round;fill:none;opacity:0;transition:opacity .35s}
+.art .p.on{opacity:1}
+.art .p.face{stroke-width:3.5}
+.info{display:flex;flex-direction:column;gap:12px;min-width:0;width:100%}
+.cat{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.cat b{color:var(--accent)}
+.word{display:flex;flex-wrap:wrap;gap:clamp(4px,1.2vw,8px);font-family:var(--display);font-size:clamp(28px,6vw,46px);line-height:1}
+.word .w{display:flex;gap:inherit}
+.word .l{width:1.05em;text-align:center;border-bottom:4px solid var(--ink);padding-bottom:2px;min-height:1.05em}
+.word .l.sp{border:0;width:.5em}
+.word .l.miss{color:var(--miss)}
+.word .l.pop{animation:pop .35s}
+@keyframes pop{50%{transform:translateY(-6px)}}
+.lives{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:800}
+.hearts{display:flex;gap:3px}
+.hearts i{width:16px;height:16px;border-radius:50%;background:var(--miss);display:inline-block;transition:background .3s,transform .3s}
+.hearts i.lost{background:var(--line);transform:scale(.7)}
+.msg{min-height:1.5em;margin:0;font-weight:700}
+.msg.win{color:var(--hit)} .msg.lose{color:var(--miss)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+
+.keys{display:flex;flex-direction:column;gap:7px;align-items:center;width:100%}
+.krow{display:flex;gap:6px;justify-content:center;width:100%}
+.key{flex:0 1 50px;height:52px;border:1px solid var(--line);border-bottom-width:3px;background:var(--paper);border-radius:10px;font-family:var(--display);font-size:26px;cursor:pointer;min-width:0;padding:0}
+.key:hover:not(:disabled){border-color:var(--accent)}
+.key.hit{background:var(--hit);color:#fff;border-color:var(--hit)}
+.key.miss{background:var(--chip);color:var(--muted);text-decoration:line-through}
+.key:disabled{cursor:default}
+@media (max-width:420px){.krow{gap:4px}.key{height:46px;font-size:22px;border-radius:8px}}
+
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.stats div{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:6px 14px;text-align:center}
+.stats b{display:block;font-family:var(--display);font-size:26px;line-height:1.1}
+.stats small{color:var(--muted);font-size:12px;font-weight:700}
+details{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(20,18,30,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--paper);color:var(--fg);border-radius:18px;padding:22px;max-width:400px;width:100%;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:34px;margin:0;line-height:1}
+.modal p{margin:0;color:var(--muted)}
+.modal label{display:flex;flex-direction:column;gap:4px;font-weight:800;font-size:13.5px}
+.modal input{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:18px}
+.modal .err{color:var(--miss);font-weight:700;font-size:13.5px;min-height:1.2em}
+.modal .row{justify-content:flex-end}
+@media (prefers-reduced-motion:reduce){.art .p,.hearts i{transition:none}.word .l.pop{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Hangman</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Players"><option value="solo">1 player</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Difficulty"><option value="easy">Easy · 8 lives</option><option value="medium">Medium · 6 lives</option><option value="hard">Hard · 6 lives, no clue</option></select>
+      <select id="cat" aria-label="Category"></select>
+      <button class="btn primary" id="newword">New word</button>
+    </div>
+  </header>
+
+  <section class="sheet" aria-label="Game">
+    <div class="art" aria-hidden="true">
+      <svg viewBox="0 0 200 220">
+        <path class="g" d="M20 205h120M50 205V18h80v22"/>
+        <circle class="p" data-k="head" cx="130" cy="60" r="20"/>
+        <path class="p" data-k="body" d="M130 80v58"/>
+        <path class="p" data-k="armL" d="M130 95l-26 24"/>
+        <path class="p" data-k="armR" d="M130 95l26 24"/>
+        <path class="p" data-k="legL" d="M130 138l-22 36"/>
+        <path class="p" data-k="legR" d="M130 138l22 36"/>
+        <path class="p face" data-k="eyes" d="M121 54l6 6M127 54l-6 6M133 54l6 6M139 54l-6 6"/>
+        <path class="p face" data-k="mouth" d="M122 72q8-7 16 0"/>
+      </svg>
+    </div>
+    <div class="info">
+      <div class="cat" id="cat-label"></div>
+      <div class="word" id="word" aria-live="polite"></div>
+      <div class="lives"><span class="hearts" id="hearts"></span><span id="livesText"></span></div>
+      <p class="msg" id="msg" aria-live="polite"></p>
+      <div class="row"><button class="btn" id="reveal">Reveal a letter (costs a life)</button><button class="btn primary" id="next" hidden>Next word</button></div>
+    </div>
+  </section>
+
+  <div class="keys" id="keys" aria-label="Letters"></div>
+
+  <div class="stats" id="stats"></div>
+  <details>
+    <summary>How to play</summary>
+    <ul>
+      <li>Guess the hidden word one letter at a time. Tap a letter or type it on your keyboard.</li>
+      <li>Every wrong letter adds a piece to the drawing. Finish the word before the drawing is complete.</li>
+      <li><b>Easy</b>: shorter words and 8 lives. <b>Medium</b>: 6 lives. <b>Hard</b>: 6 lives and the category is hidden.</li>
+      <li>Stuck? Reveal a letter, but it costs one life.</li>
+      <li><b>2 players</b>: one player types a secret word (and an optional clue), then passes the device to the guesser. Take turns.</li>
+      <li>Wins, losses and your streak are saved on this device.</li>
+    </ul>
+  </details>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+
+<script>
+const WORDS={
+  Animals:'cat dog horse tiger zebra giraffe elephant kangaroo penguin dolphin octopus squirrel hedgehog rabbit monkey panda koala camel turtle parrot flamingo crocodile butterfly cheetah gorilla leopard raccoon beaver walrus jellyfish chameleon hippopotamus rhinoceros porcupine',
+  Food:'apple bread pizza pasta cheese banana orange tomato potato carrot sandwich pancake noodles burrito avocado broccoli cucumber pineapple strawberry blueberry chocolate popcorn pretzel mushroom spinach lasagna dumpling omelette cinnamon spaghetti watermelon croissant',
+  Countries:'india china japan france spain italy egypt kenya brazil canada mexico norway sweden poland greece turkey germany ireland portugal argentina australia indonesia nigeria vietnam thailand morocco colombia iceland finland pakistan bangladesh switzerland netherlands madagascar',
+  Sports:'golf tennis soccer hockey rugby boxing skiing rowing cycling archery cricket baseball football swimming climbing fencing surfing volleyball basketball badminton gymnastics skateboarding marathon wrestling snowboarding triathlon',
+  Nature:'river ocean forest desert island valley canyon volcano glacier meadow waterfall rainbow thunder lightning mountain sunflower blossom tornado hurricane avalanche lagoon prairie jungle coral pebble meteor',
+  Jobs:'chef nurse pilot baker farmer doctor dentist teacher plumber painter lawyer scientist firefighter astronaut architect librarian carpenter mechanic journalist engineer musician photographer electrician veterinarian pharmacist',
+  Home:'chair table lamp pillow blanket mirror window kettle toaster curtain cupboard bookshelf carpet sofa bathtub staircase doorbell wardrobe microwave refrigerator dishwasher umbrella candle teapot ladder',
+  Science:'atom magnet energy gravity oxygen planet galaxy rocket telescope microscope molecule electron fossil crystal battery circuit laboratory experiment hypothesis photosynthesis satellite asteroid eclipse nucleus dinosaur',
+  Music:'drum piano guitar violin flute trumpet cello harp banjo ukulele saxophone clarinet trombone accordion harmonica xylophone orchestra melody rhythm concert symphony chorus tambourine harmony',
+  Transport:'car bus train bicycle scooter tractor airplane helicopter submarine sailboat motorcycle ambulance taxi ferry canoe tram skateboard hovercraft caravan tugboat glider bulldozer limousine'};
+for(const k in WORDS)WORDS[k]=WORDS[k].split(' ');
+const LEVELS={easy:{lives:8,min:3,max:7,clue:true},medium:{lives:6,min:5,max:9,clue:true},hard:{lives:6,min:6,max:20,clue:false}};
+const PARTS8=['head','body','armL','armR','legL','legR','eyes','mouth'],PARTS6=['head','body','armL','armR','legL','legR'];
+const ROWS=['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'solo',level:'easy',cat:'any'},store.get('parlor-hangman',{}));
+const stats=Object.assign({won:0,lost:0,streak:0,best:0},store.get('parlor-hangman-stats',{}));
+let R=null,recent=[],setter=1;
+
+/* ---------- rounds ---------- */
+function pickWord(){const L=LEVELS[cfg.level];const cats=cfg.cat==='any'?Object.keys(WORDS):[cfg.cat];
+  let pool=[];cats.forEach(c=>WORDS[c].forEach(w=>{if(w.length>=L.min&&w.length<=L.max)pool.push([w,c])}));
+  if(!pool.length)cats.forEach(c=>WORDS[c].forEach(w=>pool.push([w,c])));
+  const fresh=pool.filter(([w])=>!recent.includes(w));const list=fresh.length?fresh:pool;const pick=list[Math.floor(Math.random()*list.length)];
+  recent.push(pick[0]);if(recent.length>40)recent.shift();return pick}
+function start(word,clue){
+  const L=LEVELS[cfg.level];const lives=cfg.mode==='two'?6:L.lives;
+  R={word:word.toUpperCase(),clue,lives,parts:lives===8?PARTS8:PARTS6,guessed:new Set(),wrong:0,over:null};
+  $('overlay').hidden=true;$('next').hidden=true;$('reveal').hidden=false;
+  buildKeys();render(true)}
+function newRound(){if(cfg.mode==='two'){askWord();return}const[w,c]=pickWord();start(w,LEVELS[cfg.level].clue?c:null)}
+const letters=()=>[...new Set(R.word.replace(/[^A-Z]/g,''))];
+function guess(ch){if(!R||R.over||R.guessed.has(ch)||!/^[A-Z]$/.test(ch))return;R.guessed.add(ch);
+  const hit=R.word.includes(ch);if(!hit)R.wrong++;
+  const k=document.querySelector(`.key[data-k="${ch}"]`);if(k){k.classList.add(hit?'hit':'miss');k.disabled=true}
+  if(letters().every(l=>R.guessed.has(l)))finish(true);else if(R.wrong>=R.lives)finish(false);
+  render(false,hit?ch:null)}
+function reveal(){if(!R||R.over||R.lives-R.wrong<=1)return;const left=letters().filter(l=>!R.guessed.has(l));if(!left.length)return;
+  R.wrong++;guess(left[Math.floor(Math.random()*left.length)]);if(!R.over)$('msg').textContent='Revealed a letter for one life.'}
+function finish(win){R.over=win?'win':'lose';
+  if(cfg.mode==='solo'){if(win){stats.won++;stats.streak++;stats.best=Math.max(stats.best,stats.streak)}else{stats.lost++;stats.streak=0}store.set('parlor-hangman-stats',stats)}
+  document.querySelectorAll('.key').forEach(k=>k.disabled=true);$('reveal').hidden=true;$('next').hidden=false;setTimeout(()=>$('next').focus(),50)}
+
+/* ---------- two players ---------- */
+function askWord(){const who=setter===1?'Player 1':'Player 2',guesser=setter===1?'Player 2':'Player 1';
+  $('modal').innerHTML=`<h2>${who}, pick a word</h2><p>Type a secret word or short phrase while ${guesser} looks away. Letters, spaces and hyphens only.</p>
+    <label>Secret word<input id="secret" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="24"></label>
+    <label>Clue (optional)<input id="clue" type="text" autocomplete="off" maxlength="30" placeholder="e.g. a fruit"></label>
+    <div class="err" id="err"></div><div class="row"><button class="btn" id="mcancel">Back to 1 player</button><button class="btn primary" id="mgo">Hand over</button></div>`;
+  $('overlay').hidden=false;$('secret').focus();
+  const go=()=>{const w=$('secret').value.trim().replace(/\s+/g,' ');
+    if(!/^[A-Za-z][A-Za-z \-]*[A-Za-z]$/.test(w)||w.replace(/[^A-Za-z]/g,'').length<2){$('err').textContent='Use at least 2 letters, and only letters, spaces or hyphens.';return}
+    const c=$('clue').value.trim();setter=3-setter;start(w,c||null);$('msg').textContent=`${guesser}, start guessing!`};
+  $('mgo').onclick=go;$('modal').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();go()}};
+  $('mcancel').onclick=()=>{cfg.mode='solo';store.set('parlor-hangman',cfg);sync();$('overlay').hidden=true;newRound()}}
+
+/* ---------- rendering ---------- */
+function buildKeys(){$('keys').innerHTML=ROWS.map(r=>`<div class="krow">${[...r].map(ch=>`<button class="key" data-k="${ch}" aria-label="${ch}">${ch}</button>`).join('')}</div>`).join('')}
+function render(fresh,popped){if(!R)return;
+  const showAll=R.over==='lose';
+  $('word').innerHTML=R.word.split(' ').map(w=>`<span class="w">${[...w].map(ch=>{
+    if(ch==='-')return'<span class="l sp">-</span>';const known=R.guessed.has(ch);
+    return `<span class="l${!known&&showAll?' miss':''}${known&&ch===popped?' pop':''}">${known||showAll?ch:''}</span>`}).join('')}</span>`).join('<span class="l sp"></span>');
+  $('word').setAttribute('aria-label',R.word.split('').map(ch=>/[A-Z]/.test(ch)?(R.guessed.has(ch)||showAll?ch:'blank'):ch===' '?'space':ch).join(' '));
+  document.querySelectorAll('.art .p').forEach(p=>{const i=R.parts.indexOf(p.dataset.k);p.classList.toggle('on',i>=0&&i<R.wrong||(R.over==='lose'&&p.dataset.k==='eyes'))});
+  const left=R.lives-R.wrong;$('hearts').innerHTML=[...Array(R.lives)].map((_,i)=>`<i class="${i<left?'':'lost'}"></i>`).join('');
+  $('livesText').textContent=`${left} ${left===1?'life':'lives'} left`;
+  $('cat-label').innerHTML=R.clue?`Clue: <b>${esc(R.clue)}</b>`:cfg.mode==='two'?'No clue':'Category hidden';
+  const m=$('msg');m.className='msg'+(R.over?' '+R.over:'');
+  if(R.over==='win')m.textContent=R.wrong===0?'Perfect! Not a single wrong letter.':`You got it with ${left} ${left===1?'life':'lives'} to spare!`;
+  else if(R.over==='lose')m.textContent=`Out of lives. The word was ${R.word}.`;
+  else if(fresh&&cfg.mode==='solo')m.textContent=`${letters().length} different letters to find.`;
+  $('reveal').disabled=!!R.over||left<=1;
+  $('stats').innerHTML=cfg.mode==='solo'?[['Won',stats.won],['Lost',stats.lost],['Streak',stats.streak],['Best streak',stats.best]].map(([k,v])=>`<div><b>${v}</b><small>${k}</small></div>`).join(''):'<div><b>2P</b><small>Stats count 1-player games</small></div>'}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- input & settings ---------- */
+$('keys').addEventListener('click',e=>{const k=e.target.closest('.key');if(k&&!k.disabled)guess(k.dataset.k)});
+document.addEventListener('keydown',e=>{if(!$('overlay').hidden||e.ctrlKey||e.metaKey||e.altKey||e.target.closest('input,select'))return;
+  const ch=e.key.toUpperCase();if(/^[A-Z]$/.test(ch)){e.preventDefault();guess(ch)}else if(e.key==='Enter'&&R&&R.over){e.preventDefault();newRound()}});
+$('reveal').onclick=reveal;$('next').onclick=newRound;$('newword').onclick=()=>{if(cfg.mode==='solo'&&R&&!R.over&&R.guessed.size){stats.lost++;stats.streak=0;store.set('parlor-hangman-stats',stats)}newRound()};
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('cat').value=cfg.cat;$('level').hidden=$('cat').hidden=cfg.mode!=='solo'}
+$('cat').innerHTML='<option value="any">Any category</option>'+Object.keys(WORDS).map(c=>`<option value="${c}">${c}</option>`).join('');
+const setCfg=(k,v)=>{cfg[k]=v;store.set('parlor-hangman',cfg);sync();newRound()};
+$('mode').onchange=e=>{setter=1;setCfg('mode',e.target.value)};$('level').onchange=e=>setCfg('level',e.target.value);$('cat').onchange=e=>setCfg('cat',e.target.value);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('overlay').hidden&&cfg.mode==='solo')$('overlay').hidden=true});
+// Android app back button (see app-shell.js): close the word-entry dialog by going back to 1 player.
+window.onAppBack=()=>{if(!$('overlay').hidden){$('mcancel')?$('mcancel').click():$('overlay').hidden=true;return true}return false};
+if(!LEVELS[cfg.level])cfg.level='easy';if(!['solo','two'].includes(cfg.mode))cfg.mode='solo';if(cfg.cat!=='any'&&!WORDS[cfg.cat])cfg.cat='any';
+sync();newRound();
+</script>
+</body>
+</html>
