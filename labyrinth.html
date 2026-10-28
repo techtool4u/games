@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Labyrinth</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with mode and new run; a strip with round, time left and best; the square maze; a direction pad on touch screens; rules below. */
+:root{
+  --bg:#efe9dc; --fg:#2a2418; --muted:#6f6552; --panel:#fffaf0; --line:#ddd2bc; --chip:#f2ead8;
+  --accent:#8a5a1e; --accent-ink:#ffffff; --floor:#f7efdd; --wall:#3d2f1c; --you:#d8453b; --goal:#2b8a3e; --trail:rgba(216,69,59,.22);
+  --display:"Cinzel Decorative", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15120d; --fg:#efe6d4; --muted:#ab9f88; --panel:#1f1a13; --line:#3a3122; --chip:#2a2419; --accent:#e0a95a; --accent-ink:#2a1a05; --floor:#231d14; --wall:#d8c7a2; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#15120d; --fg:#efe6d4; --muted:#ab9f88; --panel:#1f1a13; --line:#3a3122; --chip:#2a2419; --accent:#e0a95a; --accent-ink:#2a1a05; --floor:#231d14; --wall:#d8c7a2; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:620px;margin:0 auto;padding-block:14px 28px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,6vw,42px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.strip{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:14.5px;align-items:center}
+.strip b{color:var(--fg);font-variant-numeric:tabular-nums}
+.strip .low{color:var(--you)}
+.bar{height:6px;border-radius:99px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .25s linear}
+.mazebox{position:relative;width:min(100%,calc(100dvh - 300px));min-width:min(100%,260px);aspect-ratio:1;align-self:center;border-radius:12px;overflow:hidden;box-shadow:0 14px 30px -18px rgba(40,25,5,.6);touch-action:none;outline:none}
+.mazebox:focus-visible{box-shadow:0 0 0 4px var(--accent)}
+canvas{display:block;width:100%;height:100%}
+.msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;background:rgba(247,239,221,.82);padding:16px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .msg{background:rgba(21,18,13,.85)}}
+.msg div{display:flex;flex-direction:column;gap:10px;align-items:center}
+.msg b{font-family:var(--display);font-size:clamp(22px,5vw,30px)}
+.msg p{margin:0;color:var(--muted)}
+.pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,54px);gap:6px;justify-content:center;user-select:none;-webkit-user-select:none}
+.pad button{border:1px solid var(--line);background:var(--panel);border-radius:14px;font-size:22px;cursor:pointer;touch-action:manipulation}
+.pad .u{grid-column:2;grid-row:1}.pad .l{grid-column:1;grid-row:2}.pad .d{grid-column:2;grid-row:2}.pad .r{grid-column:3;grid-row:2}
+@media (hover:hover) and (pointer:fine){.pad{display:none}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:900px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;padding-block:8px 12px}.mazebox{grid-column:1;grid-row:1/7;width:calc(100dvh - 20px);min-width:0}h1{font-size:24px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Labyrinth</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Mode"><option value="clock">Against the clock</option><option value="relaxed">Relaxed (no timer)</option><option value="dark">In the dark</option></select>
+      <button class="btn primary" id="newgame">New run</button>
+    </div>
+  </header>
+  <div class="strip" aria-live="polite"><span>Round <b id="round">1</b></span><span>Time left <b id="left">—</b></span><span>Score <b id="score">0</b></span><span>Best <b id="best">0</b></span></div>
+  <div class="bar" id="barBox"><i id="bar" style="width:100%"></i></div>
+  <div class="mazebox" id="box" tabindex="0" role="application" aria-label="Maze. Arrow keys move."><canvas id="cv"></canvas><div class="msg" id="msg"></div></div>
+  <div class="pad"><button class="u" data-d="0" aria-label="Up">▲</button><button class="l" data-d="3" aria-label="Left">◀</button><button class="d" data-d="2" aria-label="Down">▼</button><button class="r" data-d="1" aria-label="Right">▶</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Lead the red marker from the top-left corner to the green exit in the bottom right.</li>
+        <li>Swipe, use the arrows or the arrow keys. A swipe runs along a corridor until the next turning.</li>
+        <li>Against the clock, each round's maze is a little bigger. Unused seconds add to your score, and the run ends when time runs out.</li>
+        <li>In the dark, you only see the passages close to you.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<script>
+const DX=[0,1,0,-1],DY=[-1,0,1,0];   // up, right, down, left
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'clock'},store.get('parlor-maze',{}));
+const best=store.get('parlor-maze-best',{});
+let G=null,timer=0;
+const cv=$('cv'),ctx=cv.getContext('2d');
+
+/* ---------- maze ---------- */
+// open[y][x] is a 4-bit mask of passages (bit d = passage in direction d). Built by a randomized depth-first walk.
+function makeMaze(n){const open=[...Array(n)].map(()=>Array(n).fill(0)),seen=[...Array(n)].map(()=>Array(n).fill(false));const st=[[0,0]];seen[0][0]=true;
+  while(st.length){const [x,y]=st[st.length-1];const opts=[0,1,2,3].filter(d=>{const X=x+DX[d],Y=y+DY[d];return X>=0&&Y>=0&&X<n&&Y<n&&!seen[Y][X]});
+    if(!opts.length){st.pop();continue}const d=opts[Math.floor(Math.random()*opts.length)],X=x+DX[d],Y=y+DY[d];open[y][x]|=1<<d;open[Y][X]|=1<<((d+2)%4);seen[Y][X]=true;st.push([X,Y])}
+  // a few extra openings so there's more than one way through
+  for(let k=0;k<n*n*.04;k++){const x=Math.floor(Math.random()*(n-1)),y=Math.floor(Math.random()*(n-1)),d=Math.random()<.5?1:2;open[y][x]|=1<<d;open[y+DY[d]][x+DX[d]]|=1<<((d+2)%4)}
+  return open}
+const sizeFor=r=>Math.min(30,7+r*2);
+const timeFor=n=>Math.round(n*n*.22+8);
+
+/* ---------- game ---------- */
+function newRun(){clearInterval(timer);G={round:1,score:0,state:'ready'};startRound(true)}
+function startRound(first){const n=sizeFor(G.round);Object.assign(G,{n,open:makeMaze(n),x:0,y:0,trail:new Set(['0,0']),limit:timeFor(n),t0:0,left:timeFor(n),state:'ready'});
+  size();showMsg(first?'Labyrinth':`Round ${G.round}`,first?'Find the way to the green exit.':`A ${n}×${n} maze.`,'Go');stats()}
+function begin(){$('msg').hidden=true;G.state='run';G.t0=performance.now();clearInterval(timer);
+  if(cfg.mode==='clock')timer=setInterval(()=>{if(G.state!=='run'||document.hidden)return;G.left=Math.max(0,G.limit-Math.floor((performance.now()-G.t0)/1000));stats();if(G.left<=0)timeUp()},250);
+  $('box').focus({preventScroll:true});draw()}
+function step(d){if(G.state!=='run')return false;if(!(G.open[G.y][G.x]>>d&1))return false;G.x+=DX[d];G.y+=DY[d];G.trail.add(G.x+','+G.y);if(G.x===G.n-1&&G.y===G.n-1){done();return false}return true}
+// Keep going in one direction until the corridor branches or turns.
+function run(d){if(G.state!=='run')return;let n=0;while(step(d)){n++;const m=G.open[G.y][G.x],exits=[0,1,2,3].filter(k=>m>>k&1&&k!==(d+2)%4);if(exits.length!==1||exits[0]!==d)break;if(n>60)break}draw()}
+function done(){G.state='won';clearInterval(timer);const secs=Math.floor((performance.now()-G.t0)/1000);const bonus=cfg.mode==='clock'?Math.max(0,G.limit-secs):0;G.score+=10*G.round+bonus;
+  const k=cfg.mode;if(G.score>(best[k]||0)){best[k]=G.score;store.set('parlor-maze-best',best)}draw();stats();
+  if(cfg.mode==='clock'||G.round<12){G.round++;setTimeout(()=>{startRound(false);showMsg('Out!',`Solved in ${secs}s${bonus?`, ${bonus}s left over`:''}. Next: a ${sizeFor(G.round)}×${sizeFor(G.round)} maze.`,'Next maze')},400)}
+  else showMsg('You made it through!',`Twelve mazes, score ${G.score}.`,'New run',newRun)}
+function timeUp(){G.state='over';clearInterval(timer);const k=cfg.mode,nb=G.score>=(best[k]||0)&&G.score>0;draw(true);
+  showMsg('Time\'s up',`You reached round ${G.round} with ${G.score} points.${nb?' A new best!':''}`,'New run',newRun)}
+function showMsg(t,p,b,fn){$('msg').innerHTML=`<div><b>${t}</b><p>${p}</p><button class="btn primary" id="go">${b}</button></div>`;$('msg').hidden=false;$('go').onclick=fn||begin}
+function stats(){$('round').textContent=G.round;$('score').textContent=G.score;$('best').textContent=best[cfg.mode]||0;
+  const timed=cfg.mode==='clock';$('barBox').hidden=!timed;$('left').textContent=timed?G.left+'s':'—';$('left').classList.toggle('low',timed&&G.left<=10);if(timed)$('bar').style.width=(100*G.left/G.limit)+'%'}
+
+/* ---------- drawing ---------- */
+function size(){const r=$('box').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,3);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);draw()}
+function draw(reveal){if(!G||!G.open)return;const W=cv.width,n=G.n,c=W/n,css=getComputedStyle(document.documentElement);
+  const floor=css.getPropertyValue('--floor').trim(),wall=css.getPropertyValue('--wall').trim();
+  ctx.fillStyle=floor;ctx.fillRect(0,0,W,W);
+  ctx.fillStyle='rgba(216,69,59,.22)';for(const k of G.trail){const [x,y]=k.split(',').map(Number);ctx.fillRect(x*c+c*.3,y*c+c*.3,c*.4,c*.4)}
+  ctx.fillStyle='#2b8a3e';ctx.fillRect((n-1)*c+c*.15,(n-1)*c+c*.15,c*.7,c*.7);
+  ctx.strokeStyle=wall;ctx.lineWidth=Math.max(2,c*.14);ctx.lineCap='square';ctx.beginPath();
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const m=G.open[y][x];
+    if(!(m&1)){ctx.moveTo(x*c,y*c);ctx.lineTo(x*c+c,y*c)}if(!(m&8)){ctx.moveTo(x*c,y*c);ctx.lineTo(x*c,y*c+c)}
+    if(x===n-1&&!(m&2)){ctx.moveTo(x*c+c,y*c);ctx.lineTo(x*c+c,y*c+c)}if(y===n-1&&!(m&4)){ctx.moveTo(x*c,y*c+c);ctx.lineTo(x*c+c,y*c+c)}}
+  ctx.stroke();
+  ctx.fillStyle='#d8453b';ctx.beginPath();ctx.arc((G.x+.5)*c,(G.y+.5)*c,c*.3,0,Math.PI*2);ctx.fill();
+  if(cfg.mode==='dark'&&G.state==='run'&&!reveal){const g=ctx.createRadialGradient((G.x+.5)*c,(G.y+.5)*c,c*1.2,(G.x+.5)*c,(G.y+.5)*c,c*3.6);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(10,8,4,.97)');ctx.fillStyle=g;ctx.fillRect(0,0,W,W)}}
+
+/* ---------- input ---------- */
+const KEYS={ArrowUp:0,ArrowRight:1,ArrowDown:2,ArrowLeft:3,w:0,d:1,s:2,a:3};
+document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;if(KEYS[e.key]!==undefined){e.preventDefault();if(G.state==='ready'){begin()}if(e.shiftKey)run(KEYS[e.key]);else{step(KEYS[e.key]);draw()}}
+  else if((e.key==='Enter'||e.key===' ')&&!$('msg').hidden){e.preventDefault();$('go').click()}});
+let sw=null;$('box').addEventListener('pointerdown',e=>{if(e.target.closest('#msg'))return;sw={x:e.clientX,y:e.clientY}});
+$('box').addEventListener('pointerup',e=>{if(!sw)return;const dx=e.clientX-sw.x,dy=e.clientY-sw.y;sw=null;if(Math.max(Math.abs(dx),Math.abs(dy))<18)return;if(G.state==='ready')begin();run(Math.abs(dx)>Math.abs(dy)?(dx>0?1:3):(dy>0?2:0))});
+document.querySelectorAll('.pad button').forEach(b=>b.addEventListener('pointerdown',e=>{e.preventDefault();if(G.state==='ready')begin();run(+b.dataset.d)}));
+$('newgame').onclick=newRun;
+$('mode').onchange=e=>{cfg.mode=e.target.value;store.set('parlor-maze',cfg);newRun()};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&G&&G.state==='run')draw()});
+window.onAppBack=()=>false;
+if(!['clock','relaxed','dark'].includes(cfg.mode))cfg.mode='clock';$('mode').value=cfg.mode;
+if(window.ResizeObserver)new ResizeObserver(size).observe($('box'));else addEventListener('resize',size);
+newRun();
+</script>
+</body>
+</html>

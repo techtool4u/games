@@ -31,6 +31,8 @@ Self-contained HTML files. No install or build step.
 - `snake.html` — Snake with three speeds and solid or wrap-around walls.
 - `block-drop.html` — Block Drop, a falling-blocks line clearer with hold and next pieces.
 - `merge-tiles.html` — Merge Tiles, slide and merge numbers toward 2048.
+- `labyrinth.html` — Labyrinth, random mazes against the clock, relaxed or in the dark.
+- `tic-tac-toe.html` — Tic-Tac-Toe vs the computer (up to unbeatable) or 2 players.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
