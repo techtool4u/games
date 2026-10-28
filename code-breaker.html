@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Code Breaker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a slate decoding board. Rows of guesses run top to bottom with clue pegs beside each, the hidden code under a shield on top,
+   and a color palette plus Check button under the board. A scorecard (status, stats, rules) sits beside it on wide screens and below on phones. */
+:root{
+  --bg:#e9edf3; --fg:#1d2230; --muted:#5e6678; --panel:#ffffff; --line:#d5dbe6; --chip:#eef1f6;
+  --accent:#3e56c4; --accent-ink:#ffffff; --board:#2a2f3c; --board-2:#3b4252; --hole:#1a1e28; --shield:#566079;
+  --display:"Fraunces", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f121a; --fg:#e6e9f1; --muted:#9aa2b6; --panel:#181c27; --line:#2b3242; --chip:#212736; --accent:#8fa2ff; --accent-ink:#0b1030; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0f121a; --fg:#e6e9f1; --muted:#9aa2b6; --panel:#181c27; --line:#2b3242; --chip:#212736; --accent:#8fa2ff; --accent-ink:#0b1030; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1000px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,5.5vw,48px);line-height:1;margin:4px 0 0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:820px){.game{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.board{--peg:clamp(26px,min(8.6vw,4.6dvh),42px);background:linear-gradient(160deg,var(--board-2),var(--board));border-radius:18px;padding:10px 12px;box-shadow:0 16px 30px -16px rgba(10,15,30,.6);display:flex;flex-direction:column;gap:5px;width:max-content;max-width:100%;box-sizing:border-box}
+.row{display:flex;align-items:center;gap:10px;padding:3px 6px;border-radius:12px}
+.row .n{width:18px;text-align:right;color:#8e97ad;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.row.now{background:rgba(255,255,255,.09);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.pegs{display:flex;gap:calc(var(--peg) * .22)}
+.peg{width:var(--peg);height:var(--peg);border-radius:50%;border:0;padding:0;background:var(--hole);box-shadow:inset 0 2px 3px rgba(0,0,0,.6);position:relative;display:grid;place-items:center;flex:none}
+.peg.f{box-shadow:inset -3px -4px 6px rgba(0,0,0,.35),inset 2px 2px 4px rgba(255,255,255,.35),0 2px 3px rgba(0,0,0,.4)}
+.peg.f::after{content:attr(data-s);font-size:calc(var(--peg) * .42);font-weight:800;color:rgba(0,0,0,.42);line-height:1}
+.peg.pick{outline:3px solid #ffe27a;outline-offset:1px}
+.row.now .peg{cursor:pointer}
+.peg.pop{animation:pop .16s ease-out}
+@keyframes pop{from{transform:scale(.6)}}
+.clue{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;width:calc(var(--peg) * 1.05)}
+.clue.c4{grid-template-columns:repeat(2,1fr)}
+.clue i{width:calc(var(--peg) * .26);height:calc(var(--peg) * .26);border-radius:50%;background:var(--hole);box-shadow:inset 0 1px 2px rgba(0,0,0,.6);place-self:center}
+.clue i.b{background:#111;box-shadow:0 0 0 1.5px #c8ceda}
+.clue i.w{background:#f4f6fa;box-shadow:0 1px 1px rgba(0,0,0,.4)}
+.secret{display:flex;align-items:center;gap:10px;padding:6px;margin-bottom:4px;border-bottom:2px dashed rgba(255,255,255,.18)}
+.secret .n{width:18px}
+.shield{flex:1;height:var(--peg);border-radius:10px;background:repeating-linear-gradient(135deg,var(--shield) 0 10px,#4d5770 10px 20px);display:grid;place-items:center;color:#dfe4ef;font-weight:800;letter-spacing:.2em;font-size:12px}
+
+.palette{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px 12px;max-width:100%;box-sizing:border-box}
+.palette .peg{--peg:40px;cursor:pointer}
+.palette .peg:disabled{opacity:.3;cursor:not-allowed}
+.acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.status{font-family:var(--display);font-weight:600;font-size:22px;line-height:1.2;margin:0}
+.hint{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.stats div{background:var(--chip);border-radius:10px;padding:8px 4px}
+.stats b{display:block;font-family:var(--display);font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stats small{color:var(--muted);font-size:12px}
+.dist{display:flex;align-items:flex-end;gap:3px;height:54px;margin-top:10px}
+.dist span{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;position:relative;opacity:.85}
+.dist em{position:absolute;bottom:-16px;left:0;right:0;text-align:center;font-style:normal;font-size:10.5px;color:var(--muted)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+.lab{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13.5px;margin-top:10px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:15;box-shadow:0 8px 20px rgba(0,0,0,.25);max-width:calc(100vw - 32px);text-align:center}
+.overlay{position:fixed;inset:0;background:rgba(8,10,20,.6);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:30px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .pegs{justify-content:center;--peg:38px}
+.modal .row2{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:8px 16px}
+  .game{display:contents}
+  .stage{grid-column:1;grid-row:1/3;position:sticky;top:8px;align-self:start;flex-direction:row;align-items:flex-start}
+  header,.side{grid-column:2}
+  .sub{display:none} h1{font-size:28px}
+  .board{--peg:clamp(18px,calc((100dvh - 110px) / 12.5),30px);gap:2px;padding:6px 8px}
+  .row{padding:1px 4px}
+  .palette{flex-direction:column;flex-wrap:nowrap;width:auto;padding:6px}
+  .palette .peg{--peg:min(34px,calc((100dvh - 60px) / 9))}
+  .stage .side-acts{flex-direction:column}
+}
+@media (prefers-reduced-motion:reduce){.peg.pop{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Code Breaker</h1>
+      <p class="sub">A secret row of colors is hidden under the shield. Guess it, read the clue pegs, and crack it in as few tries as you can.</p>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Mode"><option value="solo">Crack the computer's code</option><option value="two">2 players: one sets, one cracks</option><option value="cpu">Computer cracks your code</option></select>
+      <select id="diff" aria-label="Difficulty"><option value="classic">Classic: 4 pegs, 6 colors</option><option value="hard">Hard: 5 pegs, 8 colors</option><option value="kids">Easy: 3 pegs, 5 colors</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="stage" aria-label="Decoding board">
+      <div class="board" id="board"></div>
+      <div class="palette" id="palette" aria-label="Colors"></div>
+      <div class="acts side-acts"><button class="btn" id="clear">Clear row</button><button class="btn primary" id="check">Check</button></div>
+    </section>
+
+    <aside class="side">
+      <div class="panel" aria-live="polite">
+        <p class="status" id="status"></p>
+        <p class="hint" id="hint"></p>
+        <label class="lab"><input type="checkbox" id="dupes" checked> Colors may repeat in the code</label>
+      </div>
+      <div class="panel">
+        <p class="label">Your record (<span id="recName"></span>)</p>
+        <div class="stats"><div><b id="sPlayed">0</b><small>Played</small></div><div><b id="sWon">0</b><small>Cracked</small></div><div><b id="sAvg">–</b><small>Avg tries</small></div></div>
+        <div class="dist" id="dist"></div>
+        <div style="height:16px"></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Tap colors to fill the glowing row, then press Check. Tap a filled hole to clear it (or to pick which hole the next color goes in).</li>
+            <li>For each guess you get clue pegs, in no particular order: a <b>black</b> peg for every color in the right spot, and a <b>white</b> peg for every right color in the wrong spot.</li>
+            <li>Crack the code within the rows on the board to win. Each color also has a letter, so you can tell them apart without relying on color.</li>
+            <li><b>2 players:</b> one player secretly sets the code, then hands the device to the code breaker.</li>
+            <li><b>Computer cracks your code:</b> set a code and watch the computer work it out from the clues.</li>
+            <li>Keyboard: number keys or the color letters add a color, Backspace removes, Enter checks.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+const COLORS=[['#e5484d','R','red'],['#f59e0b','O','orange'],['#facc15','Y','yellow'],['#22c55e','G','green'],['#3b82f6','B','blue'],['#a855f7','P','purple'],['#f8fafc','W','white'],['#ec4899','K','pink']];
+const DIFFS={classic:{pegs:4,colors:6,rows:10,label:'classic'},hard:{pegs:5,colors:8,rows:12,label:'hard'},kids:{pegs:3,colors:5,rows:8,label:'easy'}};
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'solo',diff:'classic',dupes:true},store.get('parlor-code',{}));
+const stats=store.get('parlor-code-stats',{});
+let S=null,toastT=0;
+
+/* ---------- rules ---------- */
+function score(code,guess){let b=0,w=0;const cc={},gc={};
+  for(let i=0;i<code.length;i++){if(code[i]===guess[i])b++;else{cc[code[i]]=(cc[code[i]]||0)+1;gc[guess[i]]=(gc[guess[i]]||0)+1}}
+  for(const k in gc)w+=Math.min(gc[k],cc[k]||0);return[b,w]}
+function allCodes(p,c,dupes){const out=[];const rec=(a)=>{if(a.length===p){out.push(a.slice());return}for(let k=0;k<c;k++){if(!dupes&&a.includes(k))continue;a.push(k);rec(a);a.pop()}};rec([]);return out}
+function randomCode(){const D=DIFFS[cfg.diff],out=[];while(out.length<D.pegs){const k=rand(D.colors);if(!cfg.dupes&&out.includes(k))continue;out.push(k)}return out}
+
+/* ---------- computer code breaker ---------- */
+// Keep every code that agrees with all the clues so far. For the smaller games, pick the guess that leaves the fewest
+// possibilities in the worst case (Knuth's method); for the big one, a random code that still fits.
+function cpuGuess(){const D=DIFFS[cfg.diff];
+  if(!S.cands)S.cands=allCodes(D.pegs,D.colors,cfg.dupes);
+  for(const g of S.guesses){const[b,w]=g.clue;S.cands=S.cands.filter(c=>{const[x,y]=score(c,g.code);return x===b&&y===w})}
+  const C=S.cands;if(C.length<=2||D.pegs*D.colors>24)return C[rand(C.length)];
+  if(!S.guesses.length)return D.pegs===4&&cfg.dupes?[0,0,1,1]:D.pegs===3?[0,1,2]:C[rand(C.length)];
+  const pool=C.length>300?C:allCodes(D.pegs,D.colors,cfg.dupes);let best=null,bestWorst=1e9,bestIn=false;
+  for(const g of pool){const buckets={};let worst=0;for(const c of C){const k=score(c,g).join();const n=(buckets[k]=(buckets[k]||0)+1);if(n>worst)worst=n;if(worst>bestWorst)break}
+    const inC=C.length===pool.length||C.some(c=>c.join()===g.join());
+    if(worst<bestWorst||(worst===bestWorst&&inC&&!bestIn)){best=g;bestWorst=worst;bestIn=inC}}
+  return best}
+
+/* ---------- game flow ---------- */
+function toast(t,ms=2000){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function newGame(){$('overlay').hidden=true;const D=DIFFS[cfg.diff];
+  S={D,code:null,guesses:[],cur:new Array(D.pegs).fill(-1),pick:0,over:null,phase:cfg.mode==='solo'?'guess':'set',gen:(S?S.gen:0)+1,cands:null,justAdded:-1};
+  if(cfg.mode==='solo')S.code=randomCode();
+  render()}
+function addColor(k){if(S.over||S.phase==='watch')return;const D=S.D;
+  if(!cfg.dupes&&S.phase==='set'&&S.cur.includes(k)){toast('Repeats are off: each color only once.');return}
+  let i=S.cur[S.pick]===-1?S.pick:S.cur.indexOf(-1);if(i<0)i=S.pick;
+  S.cur[i]=k;S.justAdded=i;const nxt=S.cur.indexOf(-1,i+1),any=S.cur.indexOf(-1);S.pick=nxt>=0?nxt:any>=0?any:i;render()}
+function removeLast(){let i=-1;for(let k=S.cur.length-1;k>=0;k--)if(S.cur[k]>=0){i=k;break}if(i<0)return;S.cur[i]=-1;S.pick=i;render()}
+function check(){if(S.over||S.cur.includes(-1))return;
+  if(S.phase==='set'){S.code=S.cur.slice();S.cur=new Array(S.D.pegs).fill(-1);S.pick=0;
+    if(cfg.mode==='two'){S.phase='handoff';render();
+      $('modal').innerHTML=`<h2>Code set</h2><p>Hand the device to the code breaker. No peeking!</p><div class="row2"><button class="btn primary" id="mgo">I'm the code breaker</button></div>`;$('overlay').hidden=false;$('mgo').focus();
+      $('mgo').onclick=()=>{$('overlay').hidden=true;S.phase='guess';render()};return}
+    S.phase='watch';render();cpuStep();return}
+  submit(S.cur.slice())}
+function submit(code){const clue=score(S.code,code);S.guesses.push({code,clue});S.cur=new Array(S.D.pegs).fill(-1);S.pick=0;
+  if(clue[0]===S.D.pegs)S.over={won:true};else if(S.guesses.length>=S.D.rows)S.over={won:false};
+  if(S.over&&cfg.mode!=='cpu')record(S.over.won?S.guesses.length:0);
+  render();if(S.over)setTimeout(endModal,700)}
+function cpuStep(){const g=S.gen;if(S.over)return;setTimeout(()=>{if(g!==S.gen)return;const guess=cpuGuess();S.cur=guess.slice();render();
+  setTimeout(()=>{if(g!==S.gen)return;submit(guess);if(!S.over)cpuStep()},650)},500)}
+function record(n){const k=cfg.diff+(cfg.dupes?'':'-nodup'),st=stats[k]||(stats[k]={played:0,won:0,tries:0,dist:{}});st.played++;if(n){st.won++;st.tries+=n;st.dist[n]=(st.dist[n]||0)+1}store.set('parlor-code-stats',stats)}
+function endModal(){if(!S.over)return;const n=S.guesses.length,won=S.over.won;let title,msg;
+  if(cfg.mode==='cpu'){title=won?`Cracked in ${n}`:'You stumped it!';msg=won?`The computer read the clues and found your code in ${n} ${n===1?'try':'tries'}.`:'The computer ran out of rows.'}
+  else{title=won?(n===1?'First try!':`Cracked in ${n}`):'Out of rows';msg=won?(n<=4?'Brilliant deduction.':n<=6?'Nicely done.':'Got there in the end.'):'Here was the code:'}
+  $('modal').innerHTML=`<h2>${title}</h2><p>${msg}</p><div class="pegs">${S.code.map(k=>pegHTML(k)).join('')}</div><div class="row2"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+  $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame}
+
+/* ---------- drawing ---------- */
+const pegHTML=(k,extra='',attrs='')=>k>=0?`<span class="peg f${extra}" style="background:${COLORS[k][0]}" data-s="${COLORS[k][1]}" ${attrs}></span>`:`<span class="peg${extra}" ${attrs}></span>`;
+function render(){if(!S)return;const D=S.D,rows=D.rows;let h='';
+  // secret on top: hidden while playing, shown when over (or to the person who set it, while the computer works)
+  const showCode=S.over||cfg.mode==='cpu'&&S.code;
+  h+=`<div class="secret"><span class="n"></span>${showCode?`<div class="pegs">${S.code.map(k=>pegHTML(k)).join('')}</div>`:`<div class="shield">${S.phase==='set'?'SET A CODE BELOW':'SECRET CODE'}</div>`}</div>`;
+  const active=S.phase==='set'?-1:S.over?-2:S.guesses.length;
+  for(let r=rows-1;r>=0;r--){const g=S.guesses[r];const isNow=r===active,isSet=S.phase==='set'&&r===0;
+    const code=g?g.code:(isNow||isSet)?S.cur:new Array(D.pegs).fill(-1);
+    const pegs=code.map((k,i)=>{const pick=(isNow||isSet)&&!S.over&&S.phase!=='watch'&&i===S.pick;return pegHTML(k,(pick?' pick':'')+((isNow||isSet)&&i===S.justAdded?' pop':''),(isNow||isSet)?`data-i="${i}" role="button" aria-label="Hole ${i+1}${k>=0?': '+COLORS[k][2]:''}" tabindex="-1"`:'')}).join('');
+    let clue='';if(g){const[b,w]=g.clue;const arr=[...Array(b).fill('b'),...Array(w).fill('w')];while(arr.length<D.pegs)arr.push('');clue=arr.map(c=>`<i class="${c}"></i>`).join('')}
+    else clue=[...Array(D.pegs)].map(()=>'<i></i>').join('');
+    h+=`<div class="row${isNow||isSet?' now':''}"><span class="n">${isSet?'':r+1}</span><div class="pegs">${pegs}</div><div class="clue${D.pegs===4?' c4':''}" aria-label="${g?`${g.clue[0]} black, ${g.clue[1]} white`:''}">${clue}</div></div>`}
+  $('board').innerHTML=h;S.justAdded=-1;
+  const can=!S.over&&S.phase!=='watch'&&S.phase!=='handoff';
+  $('palette').innerHTML=COLORS.slice(0,D.colors).map(([c,s,n],k)=>`<button class="peg f" style="background:${c}" data-s="${s}" data-k="${k}" aria-label="${n} (${k+1})"${can?'':' disabled'}></button>`).join('');
+  $('check').disabled=!can||S.cur.includes(-1);$('clear').disabled=!can||S.cur.every(k=>k<0);
+  $('check').textContent=S.phase==='set'?(cfg.mode==='cpu'?'Set code and watch':'Set code'):'Check';
+  let st,hint;const left=D.rows-S.guesses.length;
+  if(S.over){st=S.over.won?(cfg.mode==='cpu'?`The computer cracked it in ${S.guesses.length}.`:`Cracked in ${S.guesses.length}!`):(cfg.mode==='cpu'?'The computer is stumped.':'Out of rows.');hint='Press New game for another code.'}
+  else if(S.phase==='set'){st=cfg.mode==='cpu'?'Make a code for the computer':'Player 1: set the secret code';hint=`Pick ${D.pegs} colors${cfg.dupes?' (repeats allowed)':', all different'}, then press ${cfg.mode==='cpu'?'Set code and watch':'Set code'}.`}
+  else if(S.phase==='watch'){st='The computer is thinking…';hint=S.cands?`${S.cands.length} code${S.cands.length===1?'':'s'} still fit the clues.`:'Making a first guess.'}
+  else{st=`Guess ${S.guesses.length+1} of ${D.rows}`;hint=S.guesses.length?`${left} row${left===1?'':'s'} left. Black = right color, right spot. White = right color, wrong spot.`:`Find the ${D.pegs}-color code. ${cfg.dupes?'Colors may repeat.':'No color repeats.'}`}
+  $('status').textContent=st;$('hint').textContent=hint;
+  const k=cfg.diff+(cfg.dupes?'':'-nodup'),s=stats[k]||{played:0,won:0,tries:0,dist:{}};
+  $('recName').textContent=D.label+(cfg.dupes?'':', no repeats');$('sPlayed').textContent=s.played;$('sWon').textContent=s.won;$('sAvg').textContent=s.won?(s.tries/s.won).toFixed(1):'–';
+  const mx=Math.max(1,...Object.values(s.dist));$('dist').innerHTML=[...Array(D.rows)].map((_,i)=>`<span style="height:${(100*(s.dist[i+1]||0)/mx).toFixed(0)}%" title="${s.dist[i+1]||0} in ${i+1}"><em>${i+1}</em></span>`).join('');
+  $('dupes').disabled=S.guesses.length>0||S.phase==='watch'}
+
+/* ---------- input & settings ---------- */
+$('palette').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b&&!b.disabled)addColor(+b.dataset.k)});
+$('board').addEventListener('click',e=>{const p=e.target.closest('.row.now [data-i]');if(!p||S.over||S.phase==='watch')return;const i=+p.dataset.i;
+  if(S.cur[i]>=0&&S.pick===i)S.cur[i]=-1;S.pick=i;render()});
+$('check').onclick=check;$('clear').onclick=()=>{S.cur.fill(-1);S.pick=0;render()};
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!S)return;
+  if(!$('overlay').hidden){if(e.key==='Escape'&&S.phase!=='handoff')$('overlay').hidden=true;return}
+  const n=+e.key;if(n>=1&&n<=S.D.colors){addColor(n-1);return}
+  const li=COLORS.slice(0,S.D.colors).findIndex(c=>c[1]===e.key.toUpperCase());if(li>=0&&e.key.length===1){addColor(li);return}
+  if(e.key==='Backspace'){e.preventDefault();removeLast()}else if(e.key==='Enter'&&!e.target.closest('button')){e.preventDefault();check()}
+  else if(e.key==='ArrowLeft'){S.pick=Math.max(0,S.pick-1);render()}else if(e.key==='ArrowRight'){S.pick=Math.min(S.D.pegs-1,S.pick+1);render()}});
+window.onAppBack=()=>{if(!$('overlay').hidden&&S.phase!=='handoff'){$('overlay').hidden=true;return true}return false};
+function sync(){$('mode').value=cfg.mode;$('diff').value=cfg.diff;$('dupes').checked=cfg.dupes}
+function setCfg(k,v){cfg[k]=v;store.set('parlor-code',cfg);sync();newGame()}
+$('mode').onchange=e=>setCfg('mode',e.target.value);
+$('diff').onchange=e=>setCfg('diff',e.target.value);
+$('dupes').onchange=e=>setCfg('dupes',e.target.checked);
+$('newgame').onclick=newGame;
+if(!DIFFS[cfg.diff])cfg.diff='classic';if(!['solo','two','cpu'].includes(cfg.mode))cfg.mode='solo';
+sync();newGame();
+</script>
+</body>
+</html>

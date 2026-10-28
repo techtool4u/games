@@ -47,6 +47,8 @@ Self-contained HTML files. No install or build step.
 - `star-checkers.html` — Star Checkers (Chinese checkers) for 2, 3, 4 or 6 players, any mix of people and computers.
 - `ludo.html` — Ludo for 2 to 4 players (people or computers at three levels), with captures, safe squares and bonus rolls.
 - `snakes-and-ladders.html` — Snakes and Ladders on three boards for 2 to 4 players, people or computers.
+- `twenty-questions.html` — Twenty Questions: the computer guesses your thing (and learns), you guess its secret, or a party tracker for groups.
+- `code-breaker.html` — Code Breaker, the color-code deduction game, solo, 2 players, or watch the computer crack your code.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
