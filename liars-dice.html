@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Liar's Dice</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Rubik:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a tavern table. Rival cups across the top (dice counts, their last bid), the current bid in the middle, your own dice and the bidding controls at the bottom, with a log and rules beside it on wide screens. */
+:root{
+  --bg:#ece6da; --fg:#231b2e; --muted:#6a6175; --panel:#fffcf6; --line:#ddd3c3; --chip:#f2ecdf;
+  --accent:#3a2a4f; --accent-ink:#ffffff; --table:#3a2a4f; --table-2:#271c36; --die:#f4efe4; --pip:#231b2e; --gold:#e8b64c; --red:#d8453b;
+  --display:"Pirata One", Georgia, serif;
+  --body:"Rubik", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#110d16; --fg:#ece6f3; --muted:#a69db3; --panel:#1b1622; --line:#30283c; --chip:#251f2e; --accent:#b9a2e0; --accent-ink:#1a1026; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#110d16; --fg:#ece6f3; --muted:#a69db3; --panel:#1b1622; --line:#30283c; --chip:#251f2e; --accent:#b9a2e0; --accent-ink:#1a1026; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1100px;margin:0 auto;padding-block:16px 36px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(38px,6.5vw,58px);line-height:1;margin:4px 0 0}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.liar{background:var(--red);color:#fff;border-color:var(--red)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.table{background:radial-gradient(ellipse at 50% 40%,var(--table),var(--table-2));border-radius:24px;padding:16px;color:#f4efe4;display:flex;flex-direction:column;gap:14px;box-shadow:inset 0 0 0 6px rgba(255,255,255,.06),0 18px 34px -18px rgba(20,10,40,.8)}
+.rivals{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+.rv{background:rgba(255,255,255,.07);border-radius:14px;padding:8px;text-align:center;border:2px solid transparent;display:flex;flex-direction:column;gap:4px;align-items:center;min-width:0}
+.rv.cur{border-color:var(--gold)}
+.rv.out{opacity:.35}
+.rv b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cup{width:44px;height:38px;background:linear-gradient(180deg,#8a5a34,#5c3a1f);clip-path:polygon(12% 0,88% 0,100% 100%,0 100%);border-radius:4px}
+.rv small{font-size:12.5px;opacity:.85}
+.rv .said{font-size:13px;color:var(--gold);min-height:18px}
+.minidice{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}
+.bidbox{text-align:center;padding:6px 0}
+.bidbox .lbl{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.bidbox .bid{font-family:var(--display);font-size:42px;line-height:1.1;display:flex;align-items:center;justify-content:center;gap:12px;min-height:56px}
+.bidbox .by{font-size:14px;opacity:.85;min-height:20px}
+.mine{background:rgba(0,0,0,.18);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.mine .who{display:flex;justify-content:space-between;font-weight:700;font-size:14px}
+.mydice{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.d{display:inline-grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:var(--s,44px);height:var(--s,44px);padding:calc(var(--s,44px)*.13);box-sizing:border-box;border-radius:22%;background:var(--die);box-shadow:inset 0 -3px 0 rgba(0,0,0,.15);flex:none}
+.d i{width:70%;aspect-ratio:1;border-radius:50%;background:var(--pip);place-self:center}
+.d.hidden{background:linear-gradient(180deg,#8a5a34,#5c3a1f)}
+.d.hidden i,.d.hidden span{display:none}
+.d.match{box-shadow:0 0 0 3px var(--gold)}
+.d.wild{background:#ffe9b0}
+.d.dim{opacity:.4}
+.roll .d{animation:shake .5s ease-out}
+@keyframes shake{0%{transform:rotate(-30deg) scale(.7)}60%{transform:rotate(12deg)}100%{transform:none}}
+.bidder{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center}
+.qty{display:flex;align-items:center;gap:6px}
+.qty button{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;font-size:22px;cursor:pointer;font-weight:700}
+.qty button:disabled{opacity:.35;cursor:default}
+.qty output{font-family:var(--display);font-size:34px;min-width:46px;text-align:center}
+.faces{display:flex;gap:6px;flex-wrap:wrap}
+.faces button{border:0;padding:0;background:none;cursor:pointer;border-radius:22%}
+.faces button:disabled{opacity:.3;cursor:default}
+.faces button.on .d{box-shadow:0 0 0 3px var(--gold)}
+.acts{display:flex;gap:8px}
+.acts .btn{flex:1;min-height:46px;font-size:16px}
+.reveal{display:flex;flex-direction:column;gap:6px}
+.reveal .line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.reveal .line b{min-width:90px;font-size:14px}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.log{max-height:240px;overflow:auto;display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted)}
+.log b{color:var(--fg)}
+.log .end{color:var(--fg);font-weight:600;border-top:1px dashed var(--line);padding-top:4px;margin-top:2px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.opt{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px;margin-top:10px}
+.tally{color:var(--muted);font-size:14px;margin-top:8px}
+
+.overlay{position:fixed;inset:0;background:rgba(15,8,25,.6);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:40px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center}
+
+@media (max-height:520px) and (orientation:landscape){.wrap{padding-block:8px 16px}.sub{display:none}h1{font-size:32px}.game{grid-template-columns:minmax(0,1fr) 260px}.table{padding:10px;gap:8px}.bidbox .bid{font-size:32px;min-height:40px}}
+@media (prefers-reduced-motion:reduce){.roll .d{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Liar's Dice</h1>
+      <p class="sub">Everyone shakes their dice under a cup. Bid on how many of a number are on the whole table, raise, or call your rival a liar.</p>
+    </div>
+    <div class="controls">
+      <select id="rivals" aria-label="Rivals"><option value="1">You vs 1</option><option value="2">You vs 2</option><option value="3">You vs 3</option><option value="4">You vs 4</option><option value="5">You vs 5</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="table" aria-live="polite">
+      <div class="rivals" id="rivalsBox"></div>
+      <div class="bidbox"><div class="lbl" id="bidLbl">Current bid</div><div class="bid" id="bid">—</div><div class="by" id="bidBy"></div></div>
+      <div class="mine" id="mine"></div>
+    </section>
+    <aside class="side">
+      <div class="panel"><p class="label">This round</p><div class="log" id="log"></div></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Everyone starts with five dice and rolls them in secret. You see only your own.</li>
+            <li>Players take turns bidding on the whole table, like “four 5s” (at least four dice show a 5). Each bid must raise the last: more dice, or the same number of dice on a higher face.</li>
+            <li>Instead of raising, call <b>Liar!</b> All dice are shown. If the bid was wrong the bidder loses a die; if it was right, the caller loses one.</li>
+            <li>With <b>ones are wild</b> on, every 1 also counts as the face being bid, and nobody bids on 1s.</li>
+            <li>Whoever lost a die starts the next round. Lose all your dice and you're out; the last player with dice wins.</li>
+          </ul>
+        </details>
+        <label class="opt"><input type="checkbox" id="wild" checked> Ones are wild</label>
+        <p class="tally" id="tally"></p>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- model ---------- */
+const START_DICE=5,NAMES=['Captain Rook','Old Meg','One-Eyed Sal','Barnaby','Quill'];
+const LEVELS={easy:{call:.3,bluff:.25,read:0},medium:{call:.45,bluff:.15,read:.5},hard:{call:.5,bluff:.12,read:1}};
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({rivals:2,level:'medium',wild:true},store.get('parlor-liars',{}));
+const tally=store.get('parlor-liars-tally',{won:0,played:0});
+let S=null;
+
+const minFace=()=>cfg.wild?2:1;
+// Is bid b (quantity q, face f) higher than a?
+const higher=(b,a)=>!a||b.q>a.q||(b.q===a.q&&b.f>a.f);
+const counts=(dice,f)=>dice.filter(v=>v===f||(cfg.wild&&v===1&&f!==1)).length;
+function binomAtLeast(n,p,k){if(k<=0)return 1;if(k>n)return 0;let s=0,c=1;for(let i=0;i<=n;i++){if(i>0)c=c*(n-i+1)/i;if(i>=k)s+=c*Math.pow(p,i)*Math.pow(1-p,n-i)}return s}
+
+/* ---------- computer ---------- */
+// The chance a bid is true, from what this player can see plus (on harder levels) hints from earlier bids.
+function chance(pl,bid){const mine=counts(pl.dice,bid.f),hidden=S.players.reduce((n,p)=>n+(p===pl?0:p.dice.length),0);
+  const L=LEVELS[cfg.level];let extra=0;
+  // other players who bid this face probably hold some of it
+  if(L.read)for(const h of S.bids)if(h.p!==S.players.indexOf(pl)&&h.f===bid.f)extra+=.6*L.read;
+  const p=cfg.wild?1/3:1/6;return binomAtLeast(hidden,p,Math.ceil(bid.q-mine-extra))}
+function cpuAct(i){const pl=S.players[i],L=LEVELS[cfg.level],last=S.bids[S.bids.length-1],total=S.players.reduce((n,p)=>n+p.dice.length,0);
+  if(last&&chance(pl,last)<L.call+(Math.random()-.5)*.2)return{call:true};
+  // candidate raises: the next few quantities on every face
+  const cands=[];for(let f=minFace();f<=6;f++)for(let q=1;q<=total;q++){const b={q,f};if(!higher(b,last))continue;if(last&&q>last.q+2)break;cands.push(b)}
+  if(!cands.length)return{call:true};
+  let scored=cands.map(b=>{const own=counts(pl.dice,b.f);return{b,v:chance(pl,b)+own*.04-(b.q-(last?last.q:0))*.03}});
+  if(Math.random()<L.bluff){const bl=scored.filter(x=>x.v>.2);if(bl.length)return{bid:bl[rand(bl.length)].b}}
+  scored.sort((a,b)=>b.v-a.v);const best=scored[0];
+  if(last&&best.v<.35&&chance(pl,last)<.6)return{call:true};
+  return{bid:best.b}}
+
+/* ---------- game flow ---------- */
+function newGame(){$('overlay').hidden=true;const names=NAMES.slice().sort(()=>Math.random()-.5);
+  S={players:[{name:'You',cpu:false,dice:[]},...[...Array(+cfg.rivals)].map((_,i)=>({name:names[i],cpu:true,dice:[]}))],turn:0,bids:[],log:[],phase:'bid',reveal:null,gen:(S?S.gen:0)+1,fresh:false};
+  S.players.forEach(p=>p.count=START_DICE);startRound(rand(S.players.length));}
+const alive=()=>S.players.map((p,i)=>i).filter(i=>S.players[i].count>0);
+function startRound(first){S.players.forEach(p=>p.dice=[...Array(p.count)].map(()=>1+rand(6)).sort());S.bids=[];S.log=[];S.phase='bid';S.reveal=null;S.turn=first;S.fresh=true;
+  S.pick={q:1,f:minFace()};S.log.push({t:`New round: ${alive().reduce((n,i)=>n+S.players[i].count,0)} dice on the table.`});render();S.fresh=false;next()}
+function nextAlive(i){let j=i;do j=(j+1)%S.players.length;while(S.players[j].count===0);return j}
+function next(){render();const p=S.players[S.turn];if(S.phase!=='bid'||!p.cpu)return;const g=S.gen;
+  setTimeout(()=>{if(g!==S.gen)return;const a=cpuAct(S.turn);if(a.call)callLiar(S.turn);else makeBid(S.turn,a.bid)},900+rand(700))}
+function makeBid(i,b){S.bids.push({p:i,q:b.q,f:b.f});S.log.push({t:`<b>${S.players[i].name}</b> ${i===0?'bid':'bids'} ${b.q} × ${b.f}s`});S.turn=nextAlive(i);
+  // set your picker to the smallest legal raise
+  const last=S.bids[S.bids.length-1];S.pick=last.f<6?{q:last.q,f:last.f+1}:{q:last.q+1,f:minFace()};next()}
+function callLiar(i){const last=S.bids[S.bids.length-1];if(!last)return;const all=S.players.flatMap(p=>p.dice),n=counts(all,last.f);
+  const truthful=n>=last.q,loser=truthful?i:last.p;
+  S.log.push({t:`<b>${S.players[i].name}</b> ${i===0?'call':'calls'} <b>Liar!</b>`});
+  S.log.push({t:`There ${n===1?'is':'are'} ${n} × ${last.f}s${cfg.wild&&last.f!==1?' (counting wild 1s)':''}. ${S.players[loser].name} ${loser===0?'lose':'loses'} a die.`,end:true});
+  S.players[loser].count--;S.phase='reveal';S.reveal={bid:last,n,loser,caller:i};render();
+  if(S.players[0].count===0||alive().length===1){setTimeout(finish,1400);return}}
+function nextRound(){const r=S.reveal;const first=S.players[r.loser].count>0?r.loser:nextAlive(r.loser);startRound(first)}
+function finish(){const won=S.players[0].count>0;tally.played++;if(won)tally.won++;store.set('parlor-liars-tally',tally);
+  const w=alive()[0];render();
+  $('modal').innerHTML=`<h2>${won?'You win!':S.players[0].count===0?'You\'re out':S.players[w].name+' wins'}</h2><p>${won?'Last one standing with dice in the cup.':'Your cup is empty.'}</p><p>You've won ${tally.won} of ${tally.played} games.</p><div class="row"><button class="btn" id="mview">View table</button><button class="btn primary" id="magain">Play again</button></div>`;
+  $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame}
+
+/* ---------- drawing ---------- */
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+const die=(v,cls='',s=44)=>`<span class="d ${cls}" style="--s:${s}px">${[...Array(9)].map((_,k)=>PIPS[v]&&PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</span>`;
+function render(){if(!S)return;const last=S.bids[S.bids.length-1],rev=S.phase==='reveal';
+  const isMatch=(v,f)=>v===f||(cfg.wild&&v===1&&f!==1);
+  $('rivalsBox').innerHTML=S.players.slice(1).map((p,k)=>{const i=k+1,said=[...S.bids].reverse().find(b=>b.p===i);
+    return`<div class="rv${S.turn===i&&!rev?' cur':''}${p.count===0&&!(rev&&S.reveal.loser===i&&p.dice.length)?' out':''}"><b>${p.name}</b>${rev?`<div class="minidice">${p.dice.map(v=>die(v,isMatch(v,S.reveal.bid.f)?(v===1&&S.reveal.bid.f!==1?'match wild':'match'):'dim',20)).join('')}</div>`:p.count?'<div class="cup"></div>':''}<small>${p.count} ${p.count===1?'die':'dice'}</small><span class="said">${said?`${said.q} × ${said.f}s`:''}</span></div>`}).join('');
+  $('bidLbl').textContent=rev?'Called':'Current bid';
+  $('bid').innerHTML=last?`${last.q} ×${die(last.f,'',40)}`:'—';
+  $('bidBy').textContent=rev?`${S.reveal.n} found · ${S.players[S.reveal.loser].name} ${S.reveal.loser===0?'lose':'loses'} a die`:last?`by ${S.players[last.p].name}`:S.players[S.turn].cpu?`${S.players[S.turn].name} opens the bidding`:'You open the bidding';
+  const me=S.players[0],myTurn=S.phase==='bid'&&S.turn===0&&me.count>0;
+  let h=`<div class="who"><span>Your dice</span><span>${me.count} left</span></div><div class="mydice${S.fresh?' roll':''}">${me.dice.length&&(me.count>0||rev)?me.dice.map(v=>die(v,rev?(isMatch(v,S.reveal.bid.f)?(v===1&&S.reveal.bid.f!==1?'match wild':'match'):'dim'):'',46)).join(''):'<span>Out of dice</span>'}</div>`;
+  if(rev){h+=`<div class="acts">${S.players[0].count>0&&alive().length>1?`<button class="btn primary" id="nextR">Next round</button>`:''}</div>`}
+  else if(myTurn){const total=alive().reduce((n,i)=>n+S.players[i].count,0),pk=S.pick;const ok=higher(pk,last);
+    h+=`<div class="bidder"><div class="qty"><button id="qm" aria-label="Fewer">−</button><output id="qv">${pk.q}</output><button id="qp" aria-label="More">+</button></div>
+      <div class="faces">${[1,2,3,4,5,6].map(f=>`<button data-f="${f}" class="${pk.f===f?'on':''}" ${f<minFace()?'disabled':''} aria-label="Face ${f}">${die(f,'',38)}</button>`).join('')}</div></div>
+      <div class="acts"><button class="btn primary" id="bidBtn" ${ok&&pk.q<=total?'':'disabled'}>Bid ${pk.q} × ${pk.f}s</button><button class="btn liar" id="liarBtn" ${last?'':'disabled'}>Liar!</button></div>`}
+  else h+=`<div class="acts"><span style="opacity:.8;font-size:14px">${me.count===0?'You are out of the game.':S.players[S.turn].name+' is thinking…'}</span></div>`;
+  $('mine').innerHTML=h;
+  if(myTurn){const total=alive().reduce((n,i)=>n+S.players[i].count,0);
+    $('qm').disabled=S.pick.q<=1;$('qp').disabled=S.pick.q>=total;
+    $('qm').onclick=()=>{S.pick.q--;render()};$('qp').onclick=()=>{S.pick.q++;render()};
+    document.querySelectorAll('.faces button').forEach(b=>b.onclick=()=>{S.pick.f=+b.dataset.f;render()});
+    $('bidBtn').onclick=()=>{if(higher(S.pick,last))makeBid(0,Object.assign({},S.pick))};
+    $('liarBtn').onclick=()=>callLiar(0)}
+  if(rev&&$('nextR'))$('nextR').onclick=nextRound;
+  $('log').innerHTML=S.log.map(l=>`<div class="${l.end?'end':''}">${l.t}</div>`).join('');$('log').scrollTop=1e6;
+  $('tally').textContent=tally.played?`You've won ${tally.won} of ${tally.played} games.`:''}
+
+/* ---------- settings ---------- */
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function sync(){$('rivals').value=cfg.rivals;$('level').value=cfg.level;$('wild').checked=cfg.wild}
+const started=()=>S&&alive().length>1&&S.players[0].count>0&&(S.bids.length||S.players.some(p=>p.count<START_DICE));
+function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-liars',cfg);sync();if(restart)newGame();else render()}
+$('rivals').onchange=e=>setCfg('rivals',+e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('wild').onchange=e=>setCfg('wild',e.target.checked,true);
+$('newgame').onclick=()=>{if(started()&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true});
+if(!(cfg.rivals>=1&&cfg.rivals<=5))cfg.rivals=2;if(!LEVELS[cfg.level])cfg.level='medium';
+sync();newGame();
+</script>
+</body>
+</html>

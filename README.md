@@ -11,6 +11,8 @@ Self-contained HTML files. No install or build step.
 - `morris.html` — Nine Men's Morris, vs the computer (easy / medium / hard) or 2 players on one device.
 - `dots-and-boxes.html` — Dots and Boxes for 2 to 4 players, or against 1 or 3 computer players.
 - `fleet-hunt.html` — Fleet Hunt, a hide-and-seek naval battle vs the computer or 2 players with a hand-over screen.
+- `five-dice.html` — Five Dice, a 13-round dice scorecard game, solo, 2 to 4 players or vs computers.
+- `liars-dice.html` — Liar's Dice, bidding and bluffing against 1 to 5 computer players.
 - `checkers.html` — Checkers, vs the computer (easy / medium / hard) or 2 players on one device.
 - `mancala.html` — Mancala (Kalah rules), vs the computer (easy / medium / hard) or 2 players on one device.
 - `four-in-a-row.html` — Four in a Row, vs the computer (easy / medium / hard) or 2 players on one device.
@@ -26,7 +28,7 @@ Open `index.html` in a browser and press **Play now** on a game. Keep all the fi
 
 Everything runs offline except the web fonts (loaded from Google Fonts); without internet the pages fall back to system fonts.
 
-Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress, Spider game, Hangman streaks, Word Tiles game, Sudoku puzzle and best times, Backgammon and Go games in progress are saved in your browser's local storage.
+Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress, Spider game, Hangman streaks, Word Tiles game, Sudoku puzzle and best times, Backgammon, Go and Five Dice games in progress are saved in your browser's local storage.
 
 The Word Tiles dictionary is built from [SCOWL](http://wordlist.aspell.net/) (via the `wordlist-english` package); its copyright notice is at the top of `wordtiles-words.js`.
 

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Five Dice</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Work+Sans:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a red felt dice tray with five big dice and the roll button, then the scorecard (one column per player). On wide screens the tray sits beside the scorecard. */
+:root{
+  --bg:#f5efe2; --fg:#1d1d22; --muted:#67635c; --panel:#fffcf5; --line:#e3dac8; --chip:#f3ecdd;
+  --accent:#c2362f; --accent-ink:#ffffff; --felt:#b8322c; --felt-2:#8e231f; --die:#fbf6ea; --pip:#1d1d22; --held:#f2c14e;
+  --display:"Bowlby One", Impact, system-ui, sans-serif;
+  --body:"Work Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141210; --fg:#efe9de; --muted:#a59f94; --panel:#1d1a17; --line:#35302a; --chip:#27231e; --accent:#ff6f61; --accent-ink:#2a0805; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#141210; --fg:#efe9de; --muted:#a59f94; --panel:#1d1a17; --line:#35302a; --chip:#27231e; --accent:#ff6f61; --accent-ink:#2a0805; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1100px;margin:0 auto;padding-block:16px 36px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,6vw,52px);line-height:1;margin:4px 0 0}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:18px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.tray{background:radial-gradient(circle at 50% 35%,var(--felt),var(--felt-2));border-radius:20px;padding:18px;box-shadow:inset 0 0 0 8px rgba(0,0,0,.12),0 16px 30px -18px rgba(80,10,10,.7);color:#fff;display:flex;flex-direction:column;gap:14px;position:sticky;top:10px}
+.who{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-weight:700}
+.who b{font-family:var(--display);font-weight:400;font-size:24px}
+.who span{opacity:.85;font-size:14px}
+.dice{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.die{aspect-ratio:1;border:0;border-radius:18%;background:var(--die);box-shadow:inset 0 -5px 0 rgba(0,0,0,.12),0 6px 10px rgba(0,0,0,.3);cursor:pointer;position:relative;padding:12%;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);transition:transform .15s}
+.die i{width:68%;aspect-ratio:1;border-radius:50%;background:var(--pip);place-self:center}
+.die.held{transform:translateY(-6px);box-shadow:0 0 0 4px var(--held),0 10px 14px rgba(0,0,0,.35)}
+.die.held::after{content:"HELD";position:absolute;left:0;right:0;bottom:-26px;text-align:center;font:700 11px var(--body);letter-spacing:.1em;color:var(--held)}
+.die.blank{opacity:.35;cursor:default}
+.die.roll{animation:shake .45s ease-out}
+@keyframes shake{0%{transform:rotate(-25deg) scale(.8)}50%{transform:rotate(15deg)}100%{transform:none}}
+.die:disabled{cursor:default}
+.trayrow{display:flex;gap:10px;align-items:center;margin-top:12px}
+.trayrow .btn{flex:1;min-height:48px;font-size:17px}
+.trayrow .btn.primary{background:#fff;color:var(--felt-2);border-color:#fff}
+.pips{display:flex;gap:6px}
+.pips i{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.3)}
+.pips i.on{background:#fff}
+.msg{min-height:22px;font-size:14.5px;opacity:.95}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:center;font-size:14.5px}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:13px;color:var(--muted);font-weight:700;position:sticky;top:0;background:var(--panel)}
+thead th.cur{color:var(--accent)}
+td.cat{font-weight:600}
+td.cat small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+td.sum{font-weight:700;background:var(--chip)}
+tr.total td{font-family:var(--display);font-weight:400;font-size:18px;background:var(--chip)}
+td.cell{min-width:44px}
+td.cell.open{cursor:pointer;color:var(--accent);opacity:.75;font-style:italic}
+td.cell.open:hover,td.cell.open.kb{background:rgba(194,54,47,.1);opacity:1}
+td.cell.zero{color:var(--muted)}
+td.cell.just{animation:flash 1s}
+@keyframes flash{30%{background:#ffe58a}}
+td.cur{background:rgba(194,54,47,.05)}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.best{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+
+.overlay{position:fixed;inset:0;background:rgba(30,10,10,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:32px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center}
+
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{padding-block:8px 16px}.sub{display:none}h1{font-size:28px}
+  .game{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .tray{padding:12px;gap:8px}.dice{gap:8px}
+}
+@media (prefers-reduced-motion:reduce){.die.roll,td.cell.just{animation:none}.die{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Five Dice</h1>
+      <p class="sub">Roll five dice up to three times a turn, keep the ones you like, and score them in one box of your card. Thirteen turns, highest total wins.</p>
+    </div>
+    <div class="controls">
+      <select id="players" aria-label="Players"><option value="s1">Solo</option><option value="c1">You vs computer</option><option value="c2">You vs 2 computers</option><option value="c3">You vs 3 computers</option><option value="h2">2 players</option><option value="h3">3 players</option><option value="h4">4 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section>
+      <div class="tray" aria-live="polite">
+        <div class="who"><b id="who">Your turn</b><span id="round">Round 1 of 13</span></div>
+        <div class="dice" id="dice"></div>
+        <div class="trayrow"><button class="btn primary" id="roll">Roll</button><div class="pips" id="rollPips" aria-label="Rolls left"><i></i><i></i><i></i></div></div>
+        <div class="msg" id="msg"></div>
+      </div>
+      <p class="best" id="best"></p>
+    </section>
+    <div class="side">
+      <div class="card"><table id="card"></table></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Each turn, roll up to three times. Tap dice to hold them between rolls; held dice stay put.</li>
+            <li>Then tap one empty box in your column to score the dice there. Every box is used once, so sometimes you must take a zero.</li>
+            <li><b>Upper section:</b> add up the dice of that number. Reach 63 or more across the six boxes for a 35-point bonus.</li>
+            <li><b>Lower section:</b> three or four of a kind (sum of all dice), full house (25), small straight of four (30), large straight of five (40), five of a kind (50) and chance (any dice, sum).</li>
+            <li>Every extra five of a kind after scoring 50 earns a 100-point bonus, and can fill a lower box as a wild card when its number's upper box is used.</li>
+            <li>Keyboard: Space or R rolls, 1–5 hold dice, arrows pick a box, Enter scores.</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- scoring ---------- */
+const CATS=[
+  {k:'1',name:'Ones',up:1},{k:'2',name:'Twos',up:2},{k:'3',name:'Threes',up:3},{k:'4',name:'Fours',up:4},{k:'5',name:'Fives',up:5},{k:'6',name:'Sixes',up:6},
+  {k:'3k',name:'Three of a kind',hint:'sum of dice'},{k:'4k',name:'Four of a kind',hint:'sum of dice'},{k:'fh',name:'Full house',hint:'25'},
+  {k:'ss',name:'Small straight',hint:'30'},{k:'ls',name:'Large straight',hint:'40'},{k:'y',name:'Five of a kind',hint:'50'},{k:'ch',name:'Chance',hint:'sum of dice'}];
+// Rough average a good player gets from each box: spending a box costs about this much.
+const PAR={'1':2.1,'2':5.3,'3':8.6,'4':12.2,'5':15.7,'6':19.2,'3k':21.7,'4k':13.1,fh:22.6,ss:29.5,ls:32.7,y:16.9,ch:22};
+const counts=d=>{const c=[0,0,0,0,0,0,0];d.forEach(v=>c[v]++);return c};
+const sum=d=>d.reduce((a,b)=>a+b,0);
+// Points for dice d in box k. `joker` lets an extra five of a kind fill full house / straights.
+function points(k,d,joker){const c=counts(d),mx=Math.max(...c);
+  if(+k)return c[+k]*+k;
+  const run=n=>{let r=0;for(let v=1;v<=6;v++){r=c[v]?r+1:0;if(r>=n)return true}return false};
+  switch(k){case'3k':return mx>=3?sum(d):0;case'4k':return mx>=4?sum(d):0;
+    case'fh':return joker||(c.includes(3)&&c.includes(2))?25:0;case'ss':return joker||run(4)?30:0;case'ls':return joker||run(5)?40:0;
+    case'y':return mx===5?50:0;case'ch':return sum(d)}}
+const upperSum=sc=>CATS.slice(0,6).reduce((a,c)=>a+(sc[c.k]||0),0);
+const bonus=sc=>upperSum(sc)>=63?35:0;
+const total=sc=>CATS.reduce((a,c)=>a+(sc[c.k]||0),0)+bonus(sc)+(sc.yb||0);
+// Which boxes are allowed for these dice (forced-joker rule) and what each would score.
+function options(sc,d){const isY=Math.max(...counts(d))===5,face=d[0];const open=CATS.filter(c=>sc[c.k]==null);
+  let joker=false,allowed=open;
+  if(isY&&sc.y!=null){if(sc[String(face)]==null)allowed=open.filter(c=>c.k===String(face));else{joker=true;const lower=open.filter(c=>!c.up);if(lower.length)allowed=lower}}
+  return allowed.map(c=>({k:c.k,pts:points(c.k,d,joker&&!c.up)}))}
+
+/* ---------- computer ---------- */
+// All 252 sorted dice states; for each, the possible holds and the chance of each reroll outcome.
+const STATES=[];(function g(a,min){if(a.length===5){STATES.push(a.slice());return}for(let v=min;v<=6;v++){a.push(v);g(a,v);a.pop()}})([],1);
+const KEY=d=>d.slice().sort().join('');const SIDX=new Map(STATES.map((s,i)=>[KEY(s),i]));
+const ROLLS=[[[]]];for(let n=1;n<=5;n++){const out=new Map();(function g(a,min){if(a.length===n){const k=a.join('');out.set(k,(out.get(k)||0)+1);return}for(let v=1;v<=6;v++){a.push(v);g(a,1);a.pop()}})([],1);
+  const tot=Math.pow(6,n);ROLLS.push([...out].map(([k,c])=>[k.split('').map(Number),c/tot]))}
+// collapse equal multisets (the generator above counts ordered outcomes)
+for(let n=1;n<=5;n++){const m=new Map();for(const [d,p] of ROLLS[n]){const k=KEY(d);m.set(k,[d.slice().sort(),(m.has(k)?m.get(k)[1]:0)+p])}ROLLS[n]=[...m.values()]}
+const HOLDS=STATES.map(s=>{const seen=new Map();for(let mask=0;mask<32;mask++){const keep=s.filter((_,i)=>mask&1<<i);const k=keep.join('');if(!seen.has(k))seen.set(k,{keep,mask})}return[...seen.values()]});
+// For each state and hold: the states it can turn into and their chances (built once, on first use).
+let TRANS=null;
+function trans(){if(TRANS)return TRANS;TRANS=STATES.map((s,i)=>HOLDS[i].map(h=>{const n=5-h.keep.length;return ROLLS[n].map(([roll,p])=>[SIDX.get(KEY(h.keep.concat(roll))),p])}));return TRANS}
+// How good it is to finish the turn with dice d: best box score minus that box's par (so good boxes aren't wasted).
+function finishValue(sc,d,lv){let best=-1e9;for(const o of options(sc,d)){let v=o.pts-(lv==='easy'?0:PAR[o.k]);
+    const c=CATS.find(x=>x.k===o.k);
+    if(c.up&&lv!=='easy'){const need=63-upperSum(sc);if(need>0)v+=(o.pts-3*c.up)*.9+(o.pts>=need?20:0)}
+    if(o.k==='y'&&o.pts)v+=10;
+    if(v>best)best=v}
+  if(Math.max(...counts(d))===5&&sc.y===50)best+=100;
+  return best}
+// Expected value of each dice state with r rolls still to come, filled in from 0 rolls upward.
+function valueTables(sc,lv,rolls){const V=[STATES.map(s=>finishValue(sc,s,lv))];
+  const T=trans();
+  for(let r=1;r<=rolls;r++){const prev=V[r-1];V.push(STATES.map((s,i)=>{let best=-1e9;for(const out of T[i]){let ev=0;for(const [j,p] of out)ev+=p*prev[j];if(ev>best)best=ev}return best}))}
+  return V}
+function bestHold(sc,dice,rollsLeft,lv){const i=SIDX.get(KEY(dice));
+  if(lv==='easy'){// keep the most common number
+    const c=counts(dice);let f=1;for(let v=2;v<=6;v++)if(c[v]>=c[f])f=v;return dice.map(v=>v===f)}
+  const depth=lv==='medium'?0:rollsLeft-1;
+  const V=valueTables(sc,lv,depth),prev=V[depth];
+  const T=trans()[i];let best=null,bv=-1e9;HOLDS[i].forEach((h,hi)=>{let ev=0;for(const [j,p] of T[hi])ev+=p*prev[j];if(ev>bv+1e-9){bv=ev;best=h}});
+  // also compare with stopping now
+  const stop=finishValue(sc,dice,lv);if(stop>=bv)return dice.map(()=>true);
+  // map the kept multiset back onto the actual dice positions
+  const want=counts(best.keep);return dice.map(v=>{if(want[v]>0){want[v]--;return true}return false})}
+function bestBox(sc,dice,lv){let best=null,bv=-1e9;for(const o of options(sc,dice)){const c=CATS.find(x=>x.k===o.k);
+    let v=lv==='easy'?o.pts:o.pts-PAR[o.k];if(c.up&&lv!=='easy'){const need=63-upperSum(sc);if(need>0)v+=(o.pts-3*c.up)*.9+(o.pts>=need?20:0)}
+    if(v>bv){bv=v;best=o.k}}return best}
+
+/* ---------- game flow ---------- */
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const cfg=Object.assign({players:'c1',level:'medium'},store.get('parlor-fivedice',{}));
+const best=store.get('parlor-fivedice-best',{high:0,games:0});
+let S=null,kbRow=-1;
+function setupPlayers(){const m=cfg.players,n=+m[1];
+  if(m[0]==='s')return[{name:'You',cpu:false}];
+  if(m[0]==='c')return[{name:'You',cpu:false},...[...Array(n)].map((_,i)=>({name:n===1?'Computer':`Computer ${i+1}`,cpu:true}))];
+  return[...Array(n)].map((_,i)=>({name:`Player ${i+1}`,cpu:false}))}
+function newGame(){$('overlay').hidden=true;const ps=setupPlayers();
+  S={players:ps,scores:ps.map(()=>({})),turn:0,round:1,dice:[1,2,3,4,5],held:[false,false,false,false,false],rolls:0,busy:false,just:null,gen:(S?S.gen:0)+1,anim:false};
+  save();render();startTurn()}
+const cur=()=>S.players[S.turn];
+function save(){if(S&&S.round<=13)store.set('parlor-fivedice-game',Object.assign({},S,{busy:false,cfgp:cfg.players}));else store.del('parlor-fivedice-game')}
+function load(){const o=store.get('parlor-fivedice-game',null);if(!o||o.cfgp!==cfg.players||!Array.isArray(o.scores))return false;S=Object.assign(o,{busy:false,gen:(S?S.gen:0)+1});render();startTurn(true);return true}
+function startTurn(resume){if(!resume){S.held=[false,false,false,false,false];S.rolls=0}render();
+  if(cur().cpu)cpuTurn()}
+function roll(){if(S.rolls>=3||S.busy&&!cur().cpu)return;S.dice=S.dice.map((v,i)=>S.rolls&&S.held[i]?v:1+Math.floor(Math.random()*6));S.rolls++;S.anim=true;if(S.rolls===1)S.held=[false,false,false,false,false];save();render();S.anim=false}
+function score(k){const sc=S.scores[S.turn];if(!S.rolls||sc[k]!=null)return;const o=options(sc,S.dice).find(x=>x.k===k);if(!o)return;
+  if(Math.max(...counts(S.dice))===5&&sc.y===50)sc.yb=(sc.yb||0)+100;
+  sc[k]=o.pts;S.just={p:S.turn,k};
+  // next player; a full round ends when everyone has played
+  S.turn=(S.turn+1)%S.players.length;if(S.turn===0)S.round++;
+  save();
+  if(S.round>13){render();finish();return}
+  kbRow=-1;startTurn()}
+function cpuTurn(){S.busy=true;render();const g=S.gen,lv=cfg.level;
+  const step=()=>{if(g!==S.gen)return;
+    if(S.rolls<3&&(S.rolls===0||!S.held.every(Boolean))){roll();setTimeout(()=>{if(g!==S.gen)return;
+        if(S.rolls<3){S.held=bestHold(S.scores[S.turn],S.dice,3-S.rolls,lv);render()}setTimeout(step,650)},700);return}
+    const k=bestBox(S.scores[S.turn],S.dice,lv);S.busy=false;score(k)};
+  setTimeout(step,500)}
+function finish(){const tots=S.players.map((_,i)=>total(S.scores[i])),top=Math.max(...tots),win=tots.map((t,i)=>t===top?i:-1).filter(i=>i>=0);
+  const me=S.players.findIndex(p=>p.name==='You');
+  if(me>=0){best.games++;if(tots[me]>best.high)best.high=tots[me];store.set('parlor-fivedice-best',best)}
+  store.del('parlor-fivedice-game');
+  const title=S.players.length===1?`${tots[0]} points`:win.length>1?'A tie!':S.players[win[0]].name==='You'?'You win!':`${S.players[win[0]].name} wins`;
+  $('modal').innerHTML=`<h2>${title}</h2><p>${S.players.map((p,i)=>`${p.name} ${tots[i]}`).join(' · ')}</p>${me>=0?`<p>Your best score: ${best.high}</p>`:''}<div class="row"><button class="btn" id="mview">View card</button><button class="btn primary" id="magain">Play again</button></div>`;
+  $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame}
+
+/* ---------- drawing ---------- */
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function render(){if(!S)return;const over=S.round>13,me=!over&&!cur().cpu&&!S.busy;
+  $('dice').innerHTML=S.dice.map((v,i)=>`<button class="die${S.held[i]&&S.rolls?' held':''}${!S.rolls?' blank':''}${S.anim&&!(S.held[i]&&S.rolls>1)?' roll':''}" data-i="${i}" aria-label="Die ${i+1}: ${v}${S.held[i]?', held':''}" ${!me||!S.rolls||S.rolls>=3?'disabled':''}>${[...Array(9)].map((_,k)=>PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</button>`).join('');
+  $('who').textContent=over?'Game over':cur().cpu?`${cur().name} is rolling…`:S.players.length===1||cur().name==='You'?'Your turn':`${cur().name}'s turn`;
+  $('round').textContent=`Round ${Math.min(S.round,13)} of 13`;
+  $('roll').disabled=!me||S.rolls>=3;$('roll').textContent=S.rolls===0?'Roll':S.rolls>=3?'Pick a box':`Roll again`;
+  [...$('rollPips').children].forEach((p,i)=>p.classList.toggle('on',i<3-S.rolls));
+  $('msg').textContent=over?'':cur().cpu?'':!S.rolls?'Roll the dice to start your turn.':S.rolls<3?'Tap dice to hold them, roll again, or pick a box.':'Pick a box on the scorecard.';
+  // scorecard
+  const ps=S.players,opts=me&&S.rolls?new Map(options(S.scores[S.turn],S.dice).map(o=>[o.k,o.pts])):new Map();
+  let h=`<thead><tr><th>Box</th>${ps.map((p,i)=>`<th class="${i===S.turn&&!over?'cur':''}">${p.name.replace('Computer','CPU').replace('Player ','P')}</th>`).join('')}</tr></thead><tbody>`;
+  const row=(c,ri)=>`<tr><td class="cat">${c.name}${c.hint?`<small>${c.hint}</small>`:''}</td>${ps.map((p,i)=>{const v=S.scores[i][c.k];
+      if(v!=null)return`<td class="cell${v===0?' zero':''}${S.just&&S.just.p===i&&S.just.k===c.k?' just':''}${i===S.turn&&!over?' cur':''}">${v}</td>`;
+      if(i===S.turn&&opts.has(c.k))return`<td class="cell open${kbRow===ri?' kb':''}" data-k="${c.k}">${opts.get(c.k)}</td>`;
+      return`<td class="cell${i===S.turn&&!over?' cur':''}"></td>`}).join('')}</tr>`;
+  CATS.slice(0,6).forEach((c,i)=>h+=row(c,i));
+  h+=`<tr><td class="cat sum">Upper bonus<small>63+ earns 35</small></td>${ps.map((_,i)=>`<td class="sum">${bonus(S.scores[i])?35:`${upperSum(S.scores[i])}/63`}</td>`).join('')}</tr>`;
+  CATS.slice(6).forEach((c,i)=>h+=row(c,i+6));
+  h+=`<tr><td class="cat sum">Extra five-of-a-kind</td>${ps.map((_,i)=>`<td class="sum">${S.scores[i].yb||0}</td>`).join('')}</tr>`;
+  h+=`<tr class="total"><td>Total</td>${ps.map((_,i)=>`<td>${total(S.scores[i])}</td>`).join('')}</tr></tbody>`;
+  $('card').innerHTML=h;
+  $('best').textContent=best.games?`Your best: ${best.high} points over ${best.games} game${best.games>1?'s':''}.`:''}
+
+/* ---------- input & settings ---------- */
+$('dice').addEventListener('click',e=>{const d=e.target.closest('.die');if(!d||d.disabled)return;const i=+d.dataset.i;S.held[i]=!S.held[i];save();render()});
+$('roll').onclick=roll;
+$('card').addEventListener('click',e=>{const c=e.target.closest('td.open');if(!c||S.busy||cur().cpu)return;score(c.dataset.k)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!S||S.busy||S.round>13||cur().cpu)return;
+  if(e.key===' '||e.key==='r'||e.key==='R'){e.preventDefault();roll();return}
+  if(e.key>='1'&&e.key<='5'&&S.rolls&&S.rolls<3){const i=+e.key-1;S.held[i]=!S.held[i];render();return}
+  const open=CATS.map((c,i)=>i).filter(i=>S.scores[S.turn][CATS[i].k]==null&&options(S.scores[S.turn],S.dice).some(o=>o.k===CATS[i].k));
+  if((e.key==='ArrowDown'||e.key==='ArrowUp')&&S.rolls&&open.length){e.preventDefault();const j=open.indexOf(kbRow);kbRow=open[(j+(e.key==='ArrowDown'?1:open.length-1+(j<0?1:0)))%open.length];render();return}
+  if(e.key==='Enter'&&kbRow>=0){e.preventDefault();score(CATS[kbRow].k)}});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function sync(){$('players').value=cfg.players;$('level').value=cfg.level;$('level').hidden=cfg.players[0]!=='c'}
+const started=()=>S&&S.round<=13&&(S.round>1||S.turn>0||S.rolls>0);
+$('players').onchange=e=>{if(started()&&!confirm('Start a new game with these players?')){sync();return}cfg.players=e.target.value;store.set('parlor-fivedice',cfg);sync();newGame()};
+$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-fivedice',cfg)};
+$('newgame').onclick=()=>{if(started()&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+if(!['s1','c1','c2','c3','h2','h3','h4'].includes(cfg.players))cfg.players='c1';if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';
+sync();if(!load())newGame();
+</script>
+</body>
+</html>
