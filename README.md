@@ -29,6 +29,8 @@ Self-contained HTML files. No install or build step.
 - `sliding-fifteen.html` — Sliding Fifteen in 3×3, 4×4 or 5×5.
 - `memory-match.html` — Memory Match, solo, 2 to 4 players or vs the computer.
 - `snake.html` — Snake with three speeds and solid or wrap-around walls.
+- `block-drop.html` — Block Drop, a falling-blocks line clearer with hold and next pieces.
+- `merge-tiles.html` — Merge Tiles, slide and merge numbers toward 2048.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
