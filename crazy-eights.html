@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crazy Eights</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a bright card table. Rivals in a row along the top (name, card count, score), the draw pile and discard pile in the middle, your hand fanned along the bottom. Scores and rules sit beside the table on wide screens and below it on phones. */
+:root{
+  --bg:#13294b; --felt:#1f4f8f; --felt-2:#173c6d; --fg:#f2f6fc; --muted:#b7c7e2; --panel:rgba(255,255,255,.08); --line:rgba(255,255,255,.16);
+  --accent:#ffb93b; --accent-ink:#2a1800; --card:#fffdf8; --red:#d0302f; --black:#1d1d22; --back-1:#d0302f; --back-2:#a92524;
+  --display:"Bungee", Impact, system-ui, sans-serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0b1830;--felt:#173c6d;--felt-2:#10294d;--card:#f1ece2}}
+:root[data-theme="dark"]{--bg:#0b1830;--felt:#173c6d;--felt-2:#10294d;--card:#f1ece2}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4;min-height:100vh}
+.wrap{max-width:1120px;margin:0 auto;padding-block:10px 20px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(24px,4.5vw,36px);line-height:1.05;margin:2px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:#1a3a66;color:var(--fg);padding:7px 10px;border-radius:999px;min-height:38px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:700;min-height:38px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.table{background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--felt-2) 75%);border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset 0 10px 40px rgba(0,0,0,.3);padding:12px;display:flex;flex-direction:column;gap:12px;--cw:clamp(48px,9vw,76px);user-select:none;-webkit-user-select:none}
+.rivals{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px}
+.rv{background:rgba(255,255,255,.07);border-radius:12px;padding:8px;text-align:center;border:2px solid transparent;display:flex;flex-direction:column;gap:4px;align-items:center;min-width:0}
+.rv.cur{border-color:var(--accent)}
+.rv b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rv small{color:var(--muted);font-size:12.5px}
+.rv .backs{display:flex;height:26px}
+.rv .backs i{width:17px;height:25px;border-radius:3px;background:repeating-linear-gradient(45deg,var(--back-1) 0 3px,var(--back-2) 3px 6px);box-shadow:0 0 0 1px #fff;margin-left:-11px}
+.rv .backs i:first-child{margin-left:0}
+.rv .last{font-size:12.5px;color:var(--accent);min-height:17px}
+.mid{display:flex;justify-content:center;align-items:center;gap:22px;min-height:calc(var(--cw)*1.6)}
+.pile{position:relative;width:var(--cw);height:calc(var(--cw)*1.42)}
+.pile .card{position:absolute;left:0;top:0}
+.stock{border:0;padding:0;background:none;cursor:pointer;border-radius:calc(var(--cw)*.09)}
+.stock:disabled{cursor:default}
+.stock .back{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:repeating-linear-gradient(45deg,var(--back-1) 0 6%,var(--back-2) 6% 12%);box-shadow:0 2px 0 rgba(0,0,0,.3),inset 0 0 0 calc(var(--cw)*.05) #fff}
+.stock.glow .back{box-shadow:0 0 0 3px var(--accent),inset 0 0 0 calc(var(--cw)*.05) #fff}
+.stock small{display:block;text-align:center;color:var(--muted);font-size:12.5px;margin-top:4px}
+.suitnow{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:12.5px;min-width:56px}
+.suitnow b{font-size:34px;line-height:1}
+.suitnow b.r{color:#ff7b7a} .suitnow b.k{color:#fff}
+.south{display:flex;flex-direction:column;align-items:center;gap:8px}
+.hand{display:flex;flex-wrap:wrap;justify-content:center;padding-top:14px;row-gap:8px;min-height:calc(var(--cw)*1.42 + 14px);max-width:100%}
+.hand .card{position:relative;margin-left:calc(var(--cw)*-.45);transition:transform .15s}
+.hand .card:first-child{margin-left:0}
+.hand .card.ok{cursor:pointer}
+.hand .card.ok:hover,.hand .card.kb{transform:translateY(-10px)}
+.hand .card.ok{box-shadow:0 0 0 2px var(--accent),0 2px 4px rgba(0,0,0,.35)}
+.hand .card.no{filter:brightness(.72)}
+.hand .card.new{animation:pop .35s ease-out}
+@keyframes pop{from{transform:translateY(-30px);opacity:.2}}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;min-height:40px}
+.bar span{color:var(--muted);font-size:14.5px;text-align:center}
+.card{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.12);overflow:hidden;flex:none;border:0;padding:0;font:inherit;position:relative}
+.card .ix{position:absolute;left:7%;top:3%;font-weight:800;font-size:calc(var(--cw)*.3);line-height:1;letter-spacing:-.04em;display:flex;flex-direction:column;align-items:center}
+.card .ix i{font-style:normal;font-size:.85em}
+.card .cc{position:absolute;right:7%;bottom:5%;font-size:calc(var(--cw)*.5);line-height:1}
+.card.r{color:var(--red)} .card.k{color:var(--black)}
+.card.eight::after{content:"WILD";position:absolute;left:0;right:0;top:44%;text-align:center;font:400 calc(var(--cw)*.15) var(--display);color:var(--accent)}
+.disc .card.fresh{animation:land .3s ease-out}
+@keyframes land{from{transform:translate(0,-40px) rotate(-10deg);opacity:.4}}
+
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.label{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.sc{display:flex;flex-direction:column;gap:4px}
+.sc div{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
+.sc div.lead b{color:var(--accent)}
+.log{max-height:160px;overflow:auto;display:flex;flex-direction:column;gap:3px;font-size:13.5px;color:var(--muted)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+.opt{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13.5px;margin-top:10px}
+
+.overlay{position:fixed;inset:0;background:rgba(0,5,20,.6);display:grid;place-items:center;padding:16px;z-index:1000}
+.modal{background:#fffdf8;color:#1d2433;border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px}
+.modal h2{font-family:var(--display);font-weight:400;font-size:28px;margin:0}
+.modal p{margin:0;color:#5b6475}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.modal .btn{background:#f1efe8;color:#1d2433;border-color:#ddd7ca}
+.modal .btn.primary{background:#1f4f8f;color:#fff;border-color:#1f4f8f}
+.suits{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.suits button{font-size:40px;line-height:1;padding:12px 0;border-radius:14px;border:2px solid #ddd7ca;background:#fff;cursor:pointer}
+.suits button.r{color:#d0302f} .suits button.k{color:#1d1d22}
+.suits button:hover{border-color:#1f4f8f}
+@media (max-width:520px){.table{padding:8px;--cw:clamp(44px,14vw,62px)}.hand .card{margin-left:calc(var(--cw)*-.55)}}
+@media (max-height:520px) and (orientation:landscape){.wrap{padding-block:6px 12px}h1{font-size:22px}.table{--cw:clamp(40px,6vw,58px);gap:6px}.mid{min-height:0}}
+@media (prefers-reduced-motion:reduce){.hand .card,.hand .card.new,.disc .card.fresh{animation:none;transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Crazy Eights</h1>
+    </div>
+    <div class="controls">
+      <select id="rivals" aria-label="Opponents"><option value="1">You vs 1</option><option value="2">You vs 2</option><option value="3">You vs 3</option><option value="4">You vs 4</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="target" aria-label="Game length"><option value="0">Single round</option><option value="100">Game to 100</option><option value="200">Game to 200</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="game">
+    <section class="table" aria-live="polite">
+      <div class="rivals" id="rivalsBox"></div>
+      <div class="mid">
+        <button class="stock" id="stock" aria-label="Draw a card"><div class="back"></div><small id="stockN"></small></button>
+        <div class="pile disc" id="disc"></div>
+        <div class="suitnow" id="suitnow"></div>
+      </div>
+      <div class="south"><div class="hand" id="hand" aria-label="Your hand"></div><div class="bar" id="bar"></div></div>
+    </section>
+    <aside class="side">
+      <div class="panel"><p class="label">Scores</p><div class="sc" id="scores"></div></div>
+      <div class="panel"><p class="label">Last plays</p><div class="log" id="log"></div></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Get rid of all your cards first. With two players everyone gets seven cards, otherwise five.</li>
+            <li>On your turn, play a card that matches the top of the discard pile by <b>suit or rank</b>.</li>
+            <li><b>Eights are wild:</b> play one any time and choose the suit the next player must follow.</li>
+            <li>Can't play? Tap the draw pile. If the card you draw fits, you may play it; otherwise your turn ends.</li>
+            <li>The winner of a round scores the cards left in everyone else's hand: 50 for an eight, 10 for a face card, 1 for an ace, and face value for the rest.</li>
+            <li>Keyboard: ← → choose a card, Enter plays it, D draws.</li>
+          </ul>
+        </details>
+        <label class="opt"><input type="checkbox" id="untilPlay"> Keep drawing until you can play</label>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- cards ---------- */
+// A card is 0-51: suit = floor(c/13) (0 ♠, 1 ♥, 2 ♦, 3 ♣), rank = c%13 + 1 (1 = ace … 13 = king).
+const SUITS=['♠','♥','♦','♣'],SN=['spades','hearts','diamonds','clubs'],RK=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const suit=c=>Math.floor(c/13),rank=c=>c%13+1,red=s=>s===1||s===2;
+const value=c=>rank(c)===8?50:rank(c)>=11?10:rank(c);
+const NAMES=['Rosa','Teddy','Kit','Mo'];
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({rivals:2,level:'medium',target:100,until:false},store.get('parlor-eights',{}));
+let S=null,kb=-1;
+
+/* ---------- rules ---------- */
+const topCard=()=>S.disc[S.disc.length-1];
+const canPlay=c=>rank(c)===8||suit(c)===S.suit||rank(c)===rank(topCard());
+const playable=p=>S.hands[p].filter(canPlay);
+function drawOne(p){if(!S.stock.length){if(S.disc.length<2)return null;const t=S.disc.pop();S.stock=shuffle(S.disc);S.disc=[t];log('The discard pile is shuffled into a new draw pile.')}
+  const c=S.stock.pop();S.hands[p].push(c);return c}
+function log(t){S.log.push(t);if(S.log.length>30)S.log.shift()}
+
+/* ---------- computer ---------- */
+// Picks a card to play (or null to draw), and the suit to call with an eight.
+function bestSuit(p,exclude){const n=[0,0,0,0];S.hands[p].forEach(c=>{if(c!==exclude&&rank(c)!==8)n[suit(c)]++});
+  let s=0;for(let i=1;i<4;i++)if(n[i]>n[s])s=i;
+  // hard: call a suit the next player has shown they can't follow, if we hold some of it
+  if(cfg.level==='hard'){const v=S.voids[(p+1)%S.players.length];if(!v.has(s)){const alt=[0,1,2,3].filter(x=>v.has(x)&&n[x]>0).sort((a,b)=>n[b]-n[a]);if(alt.length)s=alt[0]}}
+  return s}
+function cpuChoose(p){const opts=playable(p);if(!opts.length)return null;const lv=cfg.level;
+  if(lv==='easy')return Math.random()<.3?null:opts[rand(opts.length)];   // easy sometimes draws instead of playing
+  const nonEight=opts.filter(c=>rank(c)!==8);
+  const nextLow=S.hands[(p+1)%S.players.length].length<=2;
+  if(nonEight.length){// play from the suit we hold most, highest value first (sheds points); hard switches suit when the next player is nearly out
+    const cnt=[0,0,0,0];S.hands[p].forEach(c=>cnt[suit(c)]++);
+    const score=c=>cnt[suit(c)]*10+value(c)+(lv==='hard'&&nextLow&&suit(c)!==S.suit?25:0);
+    return nonEight.sort((a,b)=>score(b)-score(a))[0]}
+  // only eights: hold them unless we must
+  return opts[0]}
+
+/* ---------- game flow ---------- */
+function newGame(){$('overlay').hidden=true;const names=shuffle(NAMES.slice());
+  S={players:[{name:'You',cpu:false},...[...Array(+cfg.rivals)].map((_,i)=>({name:names[i],cpu:true}))],scores:[],round:0,gen:(S?S.gen:0)+1};
+  S.scores=S.players.map(()=>0);deal()}
+function deal(){const n=S.players.length,deck=shuffle([...Array(52).keys()]),hand=n===2?7:5;
+  Object.assign(S,{hands:S.players.map((_,i)=>deck.splice(0,hand)),stock:deck,disc:[],log:[],voids:S.players.map(()=>new Set()),drew:null,busy:false,over:false,fresh:-1,lastBy:S.players.map(()=>'')});
+  // the first face-up card can't be an eight: tuck those back into the pile
+  for(;;){const s=S.stock.pop();if(rank(s)!==8){S.disc.push(s);break}S.stock.unshift(s)}
+  S.suit=suit(topCard());S.turn=S.round%n;S.round++;S.hands[0].sort((a,b)=>suit(a)-suit(b)||rank(a)-rank(b));
+  log(`New round. ${S.players[S.turn].name} ${S.turn===0?'go':'goes'} first.`);next()}
+function next(){render();if(S.over)return;const p=S.turn,pl=S.players[p];if(!pl.cpu)return;S.busy=true;render();const g=S.gen;
+  const act=()=>{if(g!==S.gen)return;let c=cpuChoose(p);
+    if(c==null){let drawn=drawOne(p),n=drawn==null?0:1;
+      while(drawn!=null&&cfg.until&&!canPlay(drawn)){drawn=drawOne(p);if(drawn!=null)n++}
+      S.voids[p].add(S.suit);log(`${pl.name} drew ${n} card${n===1?'':'s'}.`);S.lastBy[p]=`drew ${n}`;
+      if(drawn!=null&&canPlay(drawn)&&(cfg.level!=='hard'||rank(drawn)!==8||S.hands[p].length===1)){render();setTimeout(()=>{if(g!==S.gen)return;S.busy=false;doPlay(p,drawn,rank(drawn)===8?bestSuit(p,drawn):null)},550);return}
+      S.busy=false;endTurn();return}
+    S.busy=false;doPlay(p,c,rank(c)===8?bestSuit(p,c):null)};
+  setTimeout(act,750)}
+function doPlay(p,c,called){S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c);S.fresh=c;S.drew=null;
+  S.suit=rank(c)===8?called:suit(c);const nm=S.players[p].name;
+  const txt=`${RK[rank(c)-1]}${SUITS[suit(c)]}${rank(c)===8?` → ${SN[called]}`:''}`;log(`${nm} played ${txt}.`);S.lastBy[p]=`played ${txt}`;
+  if(!S.hands[p].length){roundOver(p);return}
+  if(S.hands[p].length===1)log(`${nm} ${p===0?'have':'has'} one card left!`);
+  endTurn()}
+function endTurn(){S.turn=(S.turn+1)%S.players.length;S.drew=null;next()}
+// You: tap a playable card, or draw. After drawing a playable card you may play it or pass.
+function humanPlay(c){if(S.turn!==0||S.busy||S.over||!canPlay(c))return;if(S.drew!=null&&c!==S.drew)return;
+  if(rank(c)===8){pickSuit(s=>doPlay(0,c,s));return}doPlay(0,c,null)}
+function humanDraw(){if(S.turn!==0||S.busy||S.over||S.drew!=null)return;
+  if(playable(0).length&&!confirm('You have a card you can play. Draw anyway?'))return;
+  let c=drawOne(0);if(c==null){log('No cards left to draw. You pass.');endTurn();return}
+  while(cfg.until&&!canPlay(c)){const d=drawOne(0);if(d==null)break;c=d}
+  S.hands[0].sort((a,b)=>suit(a)-suit(b)||rank(a)-rank(b));S.fresh=c;
+  if(canPlay(c)){S.drew=c;render();return}
+  log('You drew and pass.');S.lastBy[0]='drew';endTurn()}
+function pickSuit(cb){$('modal').innerHTML=`<h2>Call a suit</h2><p>Your eight is wild. Which suit must the next player follow?</p><div class="suits">${SUITS.map((s,i)=>`<button class="${red(i)?'r':'k'}" data-s="${i}" aria-label="${SN[i]}">${s}</button>`).join('')}</div>`;
+  $('overlay').hidden=false;document.querySelector('.suits button').focus();
+  document.querySelectorAll('.suits button').forEach(b=>b.onclick=()=>{$('overlay').hidden=true;cb(+b.dataset.s)})}
+function roundOver(w){S.over=true;const gained=S.hands.reduce((n,h,i)=>i===w?n:n+h.reduce((a,c)=>a+value(c),0),0);S.scores[w]+=gained;render();
+  const target=+cfg.target,done=!target||S.scores[w]>=target;const nm=S.players[w].name;
+  const title=done?(w===0?'You win!':`${nm} wins`):(w===0?'You won the round':`${nm} won the round`);
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><p>${w===0?'You':nm} went out and scored ${gained} from the cards left in other hands.</p><p>${S.players.map((p,i)=>`${p.name} ${S.scores[i]}`).join(' · ')}${target?` · playing to ${target}`:''}</p><div class="row"><button class="btn" id="mview">View table</button><button class="btn primary" id="mnext">${done?'New game':'Next round'}</button></div>`;
+    $('overlay').hidden=false;$('mnext').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('mnext').onclick=()=>{$('overlay').hidden=true;if(done)newGame();else deal()}},700)}
+
+/* ---------- drawing ---------- */
+const cardHTML=(c,cls='')=>`<button class="card ${red(suit(c))?'r':'k'}${rank(c)===8?' eight':''} ${cls}" data-c="${c}" aria-label="${RK[rank(c)-1]} of ${SN[suit(c)]}"><span class="ix">${RK[rank(c)-1]}<i>${SUITS[suit(c)]}</i></span><span class="cc">${SUITS[suit(c)]}</span></button>`;
+function render(){if(!S)return;const me=S.turn===0&&!S.busy&&!S.over;
+  $('rivalsBox').innerHTML=S.players.slice(1).map((p,k)=>{const i=k+1,n=S.hands[i].length;return`<div class="rv${S.turn===i&&!S.over?' cur':''}"><b>${p.name}</b><div class="backs">${'<i></i>'.repeat(Math.min(n,10))}</div><small>${n} card${n===1?'':'s'}${n===1?' · last one!':''}</small><span class="last">${S.lastBy[i]||''}</span></div>`}).join('');
+  $('disc').innerHTML=cardHTML(topCard(),topCard()===S.fresh?'fresh':'');
+  $('stockN').textContent=`${S.stock.length} left`;$('stock').disabled=!me||S.drew!=null;$('stock').classList.toggle('glow',me&&S.drew==null&&!playable(0).length);
+  $('suitnow').innerHTML=`<span>Play</span><b class="${red(S.suit)?'r':'k'}">${SUITS[S.suit]}</b><span>or ${RK[rank(topCard())-1]}</span>`;
+  const h=S.hands[0],opts=me?playable(0):[];
+  $('hand').innerHTML=h.map((c,i)=>cardHTML(c,`${opts.includes(c)&&(S.drew==null||c===S.drew)?'ok':'no'}${c===S.fresh&&S.drew!=null?' new':''}${kb===i?' kb':''}`)).join('');
+  $('bar').innerHTML=S.over?'<span>Round over.</span>':!me?`<span>${S.players[S.turn].name} is thinking…</span>`:S.drew!=null?`<span>You drew a card that fits. Play it, or pass.</span><button class="btn" id="passBtn">Pass</button>`:opts.length?`<span>Your turn: play a highlighted card${h.length===1?' (your last!)':''}.</span>`:`<span>Nothing fits. Tap the draw pile.</span>`;
+  if($('passBtn'))$('passBtn').onclick=()=>{log('You drew and pass.');S.lastBy[0]='drew';endTurn()};
+  const top=Math.max(...S.scores);
+  $('scores').innerHTML=S.players.map((p,i)=>`<div class="${S.scores[i]===top&&top>0?'lead':''}"><span>${p.name} <small style="color:var(--muted)">${S.hands[i].length} cards</small></span><b>${S.scores[i]}</b></div>`).join('')+`<div><span style="color:var(--muted)">${+cfg.target?`First to ${cfg.target}`:'Single round'}</span><span></span></div>`;
+  $('log').innerHTML=S.log.slice(-12).map(t=>`<div>${t}</div>`).join('');$('log').scrollTop=1e6}
+
+/* ---------- input & settings ---------- */
+$('hand').addEventListener('click',e=>{const b=e.target.closest('.card');if(b)humanPlay(+b.dataset.c)});
+$('stock').onclick=humanDraw;
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!$('overlay').hidden||!S)return;const h=S.hands[0];
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();kb=kb<0?0:(kb+(e.key==='ArrowLeft'?h.length-1:1))%h.length;render();return}
+  if(e.key==='Enter'&&kb>=0&&h[kb]!=null){e.preventDefault();humanPlay(h[kb]);kb=-1}
+  if(e.key==='d'||e.key==='D')humanDraw()});
+window.onAppBack=()=>{if(!$('overlay').hidden&&!document.querySelector('.suits')){$('overlay').hidden=true;return true}return false};
+function sync(){$('rivals').value=cfg.rivals;$('level').value=cfg.level;$('target').value=cfg.target;$('untilPlay').checked=cfg.until}
+const started=()=>S&&!S.over&&(S.log.length>1||S.scores.some(x=>x));
+function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-eights',cfg);sync();if(restart)newGame();else render()}
+$('rivals').onchange=e=>setCfg('rivals',+e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('target').onchange=e=>setCfg('target',+e.target.value,false);
+$('untilPlay').onchange=e=>setCfg('until',e.target.checked,false);
+$('newgame').onclick=()=>{if(started()&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+if(!(cfg.rivals>=1&&cfg.rivals<=4))cfg.rivals=2;if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';if(![0,100,200].includes(+cfg.target))cfg.target=100;
+sync();newGame();
+</script>
+</body>
+</html>

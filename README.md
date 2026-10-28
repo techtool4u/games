@@ -18,6 +18,8 @@ Self-contained HTML files. No install or build step.
 - `four-in-a-row.html` — Four in a Row, vs the computer (easy / medium / hard) or 2 players on one device.
 - `klondike.html` — Klondike Solitaire (Draw 1 or Draw 3) with tap-to-move, undo, hints and auto-finish.
 - `hearts.html` — Hearts against three computer players, with passing and shooting the moon.
+- `crazy-eights.html` — Crazy Eights against 1 to 4 computer players.
+- `word-ladder.html` — Word Ladder: change one letter at a time to reach the goal word. Needs `ladder-words.js` (the dictionary) in the same folder.
 - `spider-solitaire.html` — Spider Solitaire with 1, 2 or 4 suits, tap-to-move, undo and hints.
 - `hangman.html` — Hangman with 10 word categories, three difficulties and a 2-player mode.
 - `poker.html` — Poker (Texas Hold'em) against 1 to 5 computer players, chips only.
@@ -32,7 +34,7 @@ Everything runs offline except the web fonts (loaded from Google Fonts); without
 
 Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress, Spider game, Hangman streaks, Word Tiles game, Sudoku puzzle and best times, Backgammon, Go, Five Dice and Klondike games in progress are saved in your browser's local storage.
 
-The Word Tiles dictionary is built from [SCOWL](http://wordlist.aspell.net/) (via the `wordlist-english` package); its copyright notice is at the top of `wordtiles-words.js`.
+The Word Tiles and Word Ladder dictionaries are built from [SCOWL](http://wordlist.aspell.net/) (via the `wordlist-english` package); its full copyright notice is at the top of `wordtiles-words.js` and `ladder-words.js`.
 
 ## Android app
 

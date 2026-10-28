@@ -5,6 +5,7 @@ on:
     branches: [main, 'claude/**']
     paths:
       - '*.html'
+      - '*.js'
       - 'app-shell/**'
       - 'scripts/**'
       - 'android/**'
