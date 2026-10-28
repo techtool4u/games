@@ -55,6 +55,8 @@ Self-contained HTML files. No install or build step.
 - `pyramid-solitaire.html` — Pyramid Solitaire: pair cards that add up to 13, with 1, 3 or unlimited passes.
 - `spades.html` — Spades: you and a computer partner against two computers, with bidding, nil, bags and sets.
 - `cribbage.html` — Cribbage vs the computer or 2 players, with full pegging and automatic counting.
+- `gin-rummy.html` — Gin Rummy vs the computer or 2 players, with knocking, gin, undercuts and layoffs.
+- `go-fish.html` — Go Fish against 1 to 4 computer players with different memories.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

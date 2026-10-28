@@ -116,9 +116,9 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
 .stack{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--muted);font-weight:700}
 .stack .card{position:relative;--cw:clamp(38px,7vw,58px)}
 .slotc{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);border:2px dashed rgba(255,255,255,.25);box-sizing:border-box}
-.card.back{background:repeating-linear-gradient(45deg,var(--back-1) 0 6%,var(--back-2) 6% 12%);box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 0 0 calc(var(--cw)*.05) #fff}
-.card.back>*{display:none}
-.mini{display:flex;justify-content:center}.mini .card{position:relative;--cw:clamp(30px,5.5vw,42px);margin-left:-18px}.mini .card:first-child{margin-left:0}
+.card.cback{background:repeating-linear-gradient(45deg,var(--back-1) 0 6%,var(--back-2) 6% 12%);box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 0 0 calc(var(--cw)*.05) #fff}
+.card.cback>*{display:none}
+.mini{display:flex;justify-content:center;align-items:flex-start;min-height:calc(clamp(30px,5.5vw,42px) * 1.42)}.mini .card{position:relative;--cw:clamp(30px,5.5vw,42px);margin-left:-18px}.mini .card:first-child{margin-left:0}
 .board{width:100%;height:auto;display:block}
 .brk{font-size:13.5px;color:var(--muted);display:flex;flex-direction:column;gap:3px;max-height:260px;overflow:auto}
 .brk b{color:var(--fg)}
@@ -237,7 +237,7 @@ const isCpu=p=>cfg.mode==='cpu'&&p===1;
 const NAME=p=>cfg.mode==='cpu'?(p===0?'You':'Computer'):`Player ${p+1}`;
 function newGame(){$('overlay').hidden=true;S={score:[0,0],prev:[0,0],dealer:rand(2),gen:(S?S.gen:0)+1,over:false,log:[],viewer:0};deal()}
 function deal(){const deck=[...Array(52).keys()].sort(()=>Math.random()-.5);S.gen++;
-  Object.assign(S,{hands:[deck.slice(0,6),deck.slice(6,12)],kept:[[],[]],crib:[],deckRest:deck.slice(12),starter:-1,pile:[],old:[],count:0,turn:-1,phase:'discard',picked:[],discarded:[false,false],last:-1,busy:false});
+  Object.assign(S,{hands:[deck.slice(0,6),deck.slice(6,12)],kept:[[],[]],crib:[],deckRest:deck.slice(12),starter:-1,pile:[],old:[],count:0,turn:-1,phase:'discard',picked:[],discarded:[false,false],last:-1,busy:false,seq:0});
   S.hands.forEach(sortHand);S.log=[`${NAME(S.dealer)} ${S.dealer===0&&cfg.mode==='cpu'?'deal':'deals'}. The crib is ${S.dealer===0&&cfg.mode==='cpu'?'yours':NAME(S.dealer)+"'s"}.`];
   if(isCpu(1)){const t=cpuDiscard(1);discard(1,t)}
   firstViewer()}
@@ -257,16 +257,18 @@ function cut(){S.starter=S.deckRest[rand(S.deckRest.length)];S.kept=S.hands.map(
   S.phase='peg';S.turn=other(S.dealer);S.count=0;S.pile=[];if(S.over)return;showTo(S.turn,advance)}
 const canPlay=p=>S.hands[p].some(c=>val(c)+S.count<=31);
 function advance(){if(S.over)return;render();
-  if(!S.hands[0].length&&!S.hands[1].length){if(S.count&&S.count<31)addPoints(S.last,1,'last card');setTimeout(()=>{if(!S.over)startShow()},900);return}
+  if(!S.hands[0].length&&!S.hands[1].length){if(S.count&&S.count<31)addPoints(S.last,1,'last card');S.count=0;S.seq++;setTimeout(()=>{if(!S.over)startShow()},900);return}
   const p=S.turn;
   if(canPlay(p)){if(isCpu(p)){S.busy=true;render();const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;playCard(p,cpuPeg(p))},800)}else showTo(p);return}
-  if(canPlay(other(p))){if(S.hands[p].length)S.log.unshift(`${NAME(p)} ${p===0&&cfg.mode==='cpu'?'say':'says'} go.`);S.turn=other(p);setTimeout(advance,isCpu(p)?500:300);return}
+  if(canPlay(other(p))){if(S.hands[p].length)S.log.unshift(`${NAME(p)} ${p===0&&cfg.mode==='cpu'?'say':'says'} go.`);S.turn=other(p);later(isCpu(p)?500:300);return}
   // nobody can play: the last card scores 1 and the count starts again
-  if(S.count<31)addPoints(S.last,1,'go');S.old.push(...S.pile);S.pile=[];S.count=0;S.turn=other(S.last);setTimeout(advance,700)}
+  if(S.count<31)addPoints(S.last,1,'go');S.old.push(...S.pile);S.pile=[];S.count=0;S.turn=other(S.last);later(700)}
+// Run advance after a pause, unless something (a card being played) has moved the hand on in the meantime.
+function later(ms){const s=++S.seq;setTimeout(()=>{if(s===S.seq)advance()},ms)}
 function playCard(p,c){if(S.phase!=='peg'||S.turn!==p||!S.hands[p].includes(c)||val(c)+S.count>31)return;
-  const items=pegPoints(S.pile,c,S.count);S.hands[p]=S.hands[p].filter(x=>x!==c);S.pile.push(c);S.count+=val(c);S.last=p;kb=-1;
+  S.seq++;const items=pegPoints(S.pile,c,S.count);S.hands[p]=S.hands[p].filter(x=>x!==c);S.pile.push(c);S.count+=val(c);S.last=p;kb=-1;
   for(const[w,n]of items)addPoints(p,n,`${w} (${S.count})`);if(S.over)return;
-  if(S.count===31){S.old.push(...S.pile);S.pile=[];S.count=0;S.turn=other(p);setTimeout(advance,900);render();return}
+  if(S.count===31){S.old.push(...S.pile);S.pile=[];S.count=0;S.turn=other(p);later(900);render();return}
   S.turn=other(p);advance()}
 function startShow(){S.phase='show';S.turn=-1;S.viewer=0;S.showStep=0;render();showNext()}
 function showNext(){if(S.over)return;const pone=other(S.dealer),steps=[[pone,S.kept[pone],false,`${NAME(pone)}'s hand`],[S.dealer,S.kept[S.dealer],false,`${NAME(S.dealer)}'s hand`],[S.dealer,S.crib,true,`${NAME(S.dealer)}'s crib`]];
@@ -281,7 +283,7 @@ function gameOver(){const w=S.winner,lose=other(w),skunk=S.score[lose]<(+cfg.tar
 
 /* ---------- drawing ---------- */
 const cardHTML=(c,cls='',attrs='')=>`<button class="card ${red(c)?'r':'k'} ${cls}" data-c="${c}" ${attrs} aria-label="${RK[c%13]} of ${SN[suit(c)]}"><span class="ix">${RK[c%13]}<i>${SUITS[suit(c)]}</i></span><span class="cc">${SUITS[suit(c)]}</span></button>`;
-const backHTML=()=>`<span class="card back" aria-hidden="true"></span>`;
+const backHTML=()=>`<span class="card cback" aria-hidden="true"></span>`;
 function drawBoard(){const T=+cfg.target,W=280,x0=10,y=[28,64],col=['#f3c246','#7fd1ff'];let s='<rect x="2" y="4" width="296" height="84" rx="14" fill="#8a5a2b"/><rect x="6" y="8" width="288" height="76" rx="11" fill="#a8743e"/>';
   for(let p=0;p<2;p++){for(let k=0;k<=T;k+=5){const x=x0+W*k/T;s+=`<line x1="${x}" y1="${y[p]-5}" x2="${x}" y2="${y[p]+5}" stroke="#5a3a1a" stroke-width="${k%30===0?1.4:.6}"/>`}
     s+=`<line x1="${x0}" y1="${y[p]}" x2="${x0+W}" y2="${y[p]}" stroke="#5a3a1a" stroke-width="1"/>`;
@@ -291,8 +293,8 @@ function drawBoard(){const T=+cfg.target,W=280,x0=10,y=[28,64],col=['#f3c246','#
 function render(){if(!S)return;const v=S.viewer,opp=v>=0?other(v):1,me=v>=0?v:0;
   const oppCards=S.hands[opp].length;$('opp').className='opp'+(S.turn===opp?' cur':'');
   $('opp').innerHTML=`<b>${NAME(opp)}${S.dealer===opp?' · dealer':''}</b><div class="mini">${backHTML().repeat(oppCards)}</div><small>${S.phase==='discard'?(S.discarded[opp]?'Put two cards in the crib.':'Choosing cards for the crib…'):S.phase==='peg'?(S.busy&&S.turn===opp?'Thinking…':`${oppCards} card${oppCards===1?'':'s'} left`):''}</small>`;
-  $('starter').innerHTML=`<span>Starter</span>${S.starter>=0?cardHTML(S.starter,'','tabindex="-1"'):'<span class="card back"></span>'}`;
-  $('crib').innerHTML=`<span>Crib · ${NAME(S.dealer)}</span>${S.crib.length?'<span class="card back"></span>':'<span class="slotc"></span>'}<span>${S.crib.length}/4</span>`;
+  $('starter').innerHTML=`<span>Starter</span>${S.starter>=0?cardHTML(S.starter,'','tabindex="-1"'):'<span class="card cback"></span>'}`;
+  $('crib').innerHTML=`<span>Crib · ${NAME(S.dealer)}</span>${S.crib.length?'<span class="card cback"></span>':'<span class="slotc"></span>'}<span>${S.crib.length}/4</span>`;
   $('pile').innerHTML=S.old.slice(-4).map(c=>cardHTML(c,'old','tabindex="-1"')).join('')+S.pile.map(c=>cardHTML(c,'','tabindex="-1"')).join('');
   $('count').innerHTML=S.phase==='peg'?`${S.count}<small>count</small>`:S.phase==='discard'?'<small>Choose two cards for the crib</small>':'';
   const myTurn=v>=0&&!S.over&&$('overlay').hidden,h=S.hands[me];
