@@ -25,6 +25,8 @@ Self-contained HTML files. No install or build step.
 - `poker.html` — Poker (Texas Hold'em) against 1 to 5 computer players, chips only.
 - `word-tiles.html` — Word Tiles, a crossword tile game vs 1 to 3 computers (easy / normal / hard) or 2 to 4 people. Needs `wordtiles-words.js` (the dictionary) in the same folder.
 - `sudoku.html` — Sudoku on 9×9, 12×12 or 16×16 grids with Easy, Medium, Hard and Expert puzzles (each has one solution), notes, hints and best times.
+- `mine-sweep.html` — Mine Sweep with three board sizes and optional no-guess boards.
+- `sliding-fifteen.html` — Sliding Fifteen in 3×3, 4×4 or 5×5.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

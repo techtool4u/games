@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mine Sweep</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a steel-grey minefield. Header with level and new game; a status bar (mines left, reveal/flag switch, timer); the field (scrolls inside its frame if it is wider than the screen); rules below. */
+:root{
+  --bg:#e7eaee; --fg:#1d242c; --muted:#5f6b78; --panel:#ffffff; --line:#cfd6de; --chip:#eef1f4;
+  --accent:#2f6fd6; --accent-ink:#ffffff; --cover:#9ea9b6; --cover-2:#8794a3; --open:#dfe4ea; --mine:#d8453b; --flag:#e0532f;
+  --n1:#2f6fd6; --n2:#2b8a3e; --n3:#d8453b; --n4:#5a3aa8; --n5:#9a3412; --n6:#0e7490; --n7:#1d242c; --n8:#6b7280;
+  --display:"Chakra Petch", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161b; --fg:#e4e9ef; --muted:#9aa6b4; --panel:#1a2027; --line:#2c3540; --chip:#222a33; --accent:#7aa7ff; --accent-ink:#071833;
+  --cover:#4c5866; --cover-2:#3f4a57; --open:#232b34; --n1:#7aa7ff; --n2:#5fd08a; --n3:#ff7a6c; --n4:#b79bff; --n5:#f4a261; --n6:#5ad1e6; --n7:#e4e9ef; --n8:#9aa6b4; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#12161b; --fg:#e4e9ef; --muted:#9aa6b4; --panel:#1a2027; --line:#2c3540; --chip:#222a33; --accent:#7aa7ff; --accent-ink:#071833;
+  --cover:#4c5866; --cover-2:#3f4a57; --open:#232b34; --n1:#7aa7ff; --n2:#5fd08a; --n3:#ff7a6c; --n4:#b79bff; --n5:#f4a261; --n6:#5ad1e6; --n7:#e4e9ef; --n8:#9aa6b4; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1000px;margin:0 auto;padding-block:14px 30px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,6vw,44px);line-height:1;margin:4px 0 0;letter-spacing:.02em}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.status{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 12px}
+.count{font-family:var(--display);font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;min-width:70px}
+.count small{font-family:var(--body);font-size:12px;color:var(--muted);font-weight:600;display:block;margin-top:-2px}
+.toggle{display:flex;background:var(--chip);border-radius:999px;padding:3px}
+.toggle button{border:0;background:none;padding:7px 14px;border-radius:999px;font-weight:700;cursor:pointer;min-height:38px;display:flex;gap:6px;align-items:center}
+.toggle button.on{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.field{overflow:auto;border-radius:12px;max-width:100%;align-self:center;-webkit-overflow-scrolling:touch;box-shadow:0 10px 24px -16px rgba(20,30,50,.6)}
+.grid{display:grid;grid-template-columns:repeat(var(--c),var(--s));grid-auto-rows:var(--s);gap:2px;padding:6px;background:var(--line);width:max-content;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.c{border:0;padding:0;border-radius:4px;background:linear-gradient(160deg,var(--cover),var(--cover-2));box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.12);font-family:var(--display);font-weight:700;font-size:calc(var(--s)*.58);display:grid;place-items:center;cursor:pointer;line-height:1}
+.c.o{background:var(--open);box-shadow:none;cursor:default}
+.c.o.n{cursor:pointer}
+.c.f::after{content:"⚑";color:var(--flag);font-size:calc(var(--s)*.6)}
+.c.boom{background:var(--mine)}
+.c.m::after{content:"✹";color:var(--fg);font-size:calc(var(--s)*.62)}
+.c.boom.m::after{color:#fff}
+.c.wrong::after{content:"✕";color:var(--mine)}
+.c.kb{outline:3px solid var(--accent);outline-offset:-2px}
+.c.press{background:var(--open)}
+.c.reveal{animation:open .18s ease-out}
+@keyframes open{from{transform:scale(.8)}}
+.n1{color:var(--n1)}.n2{color:var(--n2)}.n3{color:var(--n3)}.n4{color:var(--n4)}.n5{color:var(--n5)}.n6{color:var(--n6)}.n7{color:var(--n7)}.n8{color:var(--n8)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.opt{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px;margin-top:10px}
+.best{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.overlay{position:fixed;inset:0;background:rgba(10,15,25,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:32px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center}
+@media (prefers-reduced-motion:reduce){.c.reveal{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Mine Sweep</h1>
+    </div>
+    <div class="controls">
+      <select id="level" aria-label="Level"><option value="easy">Beginner · 9×9</option><option value="medium">Intermediate · 16×16</option><option value="hard">Expert · 30×16</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="status" aria-live="polite">
+    <div class="count" id="left">10<small>mines left</small></div>
+    <div class="toggle" role="group" aria-label="Tap mode"><button id="mDig" class="on" aria-pressed="true">⛏ Dig</button><button id="mFlag" aria-pressed="false">⚑ Flag</button></div>
+    <div class="count" id="time" style="text-align:right">0:00<small>time</small></div>
+  </div>
+  <div class="field" id="field"><div class="grid" id="grid" role="grid" tabindex="0" aria-label="Minefield. Arrow keys move, Space digs, F flags."></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Clear every square that isn't a mine. A number tells you how many of the eight squares around it hide mines.</li>
+        <li>Your first dig is always safe and opens up an area.</li>
+        <li>Mark mines with flags: switch to <b>Flag</b> mode, long-press a square, or right-click it.</li>
+        <li>Tap a number whose mines are all flagged to dig all its other neighbors at once.</li>
+        <li>With <b>No-guess boards</b> on, every board can be solved by logic alone.</li>
+        <li>Keyboard: arrows move, Space or Enter digs, F flags.</li>
+      </ul>
+    </details>
+    <label class="opt"><input type="checkbox" id="noguess" checked> No-guess boards</label>
+    <p class="best" id="best"></p>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+const LEVELS={easy:{w:9,h:9,m:10,label:'Beginner'},medium:{w:16,h:16,m:40,label:'Intermediate'},hard:{w:30,h:16,m:99,label:'Expert'}};
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({level:'easy',noguess:true},store.get('parlor-mines',{}));
+const best=store.get('parlor-mines-best',{});
+let G=null,flagMode=false,cursor=0,kb=false,timer=0;
+
+/* ---------- board ---------- */
+// On phones in portrait, the expert board is turned on its side (16 wide, 30 tall) so it fits.
+function dims(){const L=LEVELS[cfg.level];const portrait=innerWidth<innerHeight&&innerWidth<700;return portrait&&L.w>L.h?{w:L.h,h:L.w,m:L.m}:{w:L.w,h:L.h,m:L.m}}
+const nbrs=(i,w,h)=>{const x=i%w,y=Math.floor(i/w),o=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const X=x+dx,Y=y+dy;if(X>=0&&Y>=0&&X<w&&Y<h)o.push(Y*w+X)}return o};
+function place(w,h,m,safe){const n=w*h,ban=new Set([safe,...nbrs(safe,w,h)]);const pool=[...Array(n).keys()].filter(i=>!ban.has(i));
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+  const mine=new Uint8Array(n);pool.slice(0,m).forEach(i=>mine[i]=1);return mine}
+const counts=(mine,w,h)=>Array.from(mine,(_,i)=>nbrs(i,w,h).reduce((a,j)=>a+mine[j],0));
+// Can logic alone clear this board from the first click? Single-square rules plus the subset rule.
+function solvable(mine,w,h,start){const n=w*h,cnt=counts(mine,w,h),open=new Uint8Array(n),flag=new Uint8Array(n);const nb=[...Array(n)].map((_,i)=>nbrs(i,w,h));
+  const flood=s=>{const st=[s];while(st.length){const i=st.pop();if(open[i])continue;open[i]=1;if(!cnt[i])for(const j of nb[i])if(!open[j]&&!mine[j])st.push(j)}};
+  flood(start);let total=n-mine.reduce((a,b)=>a+b,0);
+  for(let guard=0;guard<2000;guard++){let progress=false;
+    const frontier=[];for(let i=0;i<n;i++)if(open[i]&&cnt[i]){const hid=nb[i].filter(j=>!open[j]&&!flag[j]);if(hid.length)frontier.push({i,hid,need:cnt[i]-nb[i].filter(j=>flag[j]).length})}
+    for(const f of frontier){if(f.need===0){for(const j of f.hid)if(!open[j]){flood(j);progress=true}}else if(f.need===f.hid.length){for(const j of f.hid)if(!flag[j]){flag[j]=1;progress=true}}}
+    if(!progress)for(const a of frontier)for(const b of frontier){if(a===b||a.hid.length>=b.hid.length)continue;if(!a.hid.every(j=>b.hid.includes(j)))continue;
+      const rest=b.hid.filter(j=>!a.hid.includes(j)),need=b.need-a.need;
+      if(need===0){for(const j of rest)if(!open[j]&&!flag[j]){flood(j);progress=true}}else if(need===rest.length){for(const j of rest)if(!flag[j]){flag[j]=1;progress=true}}}
+    let opened=0;for(let i=0;i<n;i++)opened+=open[i];if(opened===total)return true;if(!progress)return false}
+  return false}
+function newGame(){$('overlay').hidden=true;const d=dims();G={w:d.w,h:d.h,m:d.m,mine:null,cnt:null,open:new Uint8Array(d.w*d.h),flag:new Uint8Array(d.w*d.h),started:false,over:false,won:false,elapsed:0,boom:-1,fresh:new Set()};
+  cursor=Math.floor(d.h/2)*d.w+Math.floor(d.w/2);clearInterval(timer);build();render()}
+function start(i){const t0=performance.now();let mine;
+  do{mine=place(G.w,G.h,G.m,i)}while(cfg.noguess&&!solvable(mine,G.w,G.h,i)&&performance.now()-t0<2500);
+  G.mine=mine;G.cnt=counts(mine,G.w,G.h);G.started=true;G.t0=Date.now();
+  timer=setInterval(()=>{if(G.over||document.hidden)return;G.elapsed=Math.floor((Date.now()-G.t0)/1000);showTime()},500)}
+function dig(i){if(G.over||G.flag[i])return;if(!G.started)start(i);
+  if(G.open[i]){chord(i);return}
+  if(G.mine[i]){G.boom=i;lose();return}
+  const st=[i];while(st.length){const k=st.pop();if(G.open[k]||G.flag[k])continue;G.open[k]=1;G.fresh.add(k);if(!G.cnt[k])for(const j of nbrs(k,G.w,G.h))if(!G.open[j])st.push(j)}
+  checkWin();render()}
+function chord(i){const nb=nbrs(i,G.w,G.h);if(!G.cnt[i]||nb.filter(j=>G.flag[j]).length!==G.cnt[i])return;
+  for(const j of nb)if(!G.open[j]&&!G.flag[j]){if(G.mine[j]){G.boom=j;lose();return}}
+  for(const j of nb)if(!G.open[j]&&!G.flag[j])dig(j)}
+function toggleFlag(i){if(G.over||G.open[i])return;G.flag[i]^=1;if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}render()}
+function checkWin(){let opened=0;for(let i=0;i<G.open.length;i++)opened+=G.open[i];if(opened!==G.w*G.h-G.m)return;
+  G.over=G.won=true;clearInterval(timer);G.elapsed=Math.floor((Date.now()-G.t0)/1000);for(let i=0;i<G.mine.length;i++)if(G.mine[i])G.flag[i]=1;
+  const b=best[cfg.level]=best[cfg.level]||{wins:0,best:0,played:0};b.wins++;b.played++;if(!b.best||G.elapsed<b.best)b.best=G.elapsed;store.set('parlor-mines-best',best);
+  setTimeout(()=>finish(true),500)}
+function lose(){G.over=true;clearInterval(timer);const b=best[cfg.level]=best[cfg.level]||{wins:0,best:0,played:0};b.played++;store.set('parlor-mines-best',best);render();setTimeout(()=>finish(false),900)}
+function finish(won){const L=LEVELS[cfg.level],b=best[cfg.level];
+  $('modal').innerHTML=`<h2>${won?'Cleared!':'Boom!'}</h2><p>${won?`${L.label} in ${fmt(G.elapsed)}.${b.best===G.elapsed?' A new best time!':''}`:'You hit a mine. The rest are shown on the board.'}</p><p>${b.wins} win${b.wins===1?'':'s'} of ${b.played} at ${L.label}${b.best?` · best ${fmt(b.best)}`:''}</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="mnew">New game</button></div>`;
+  $('overlay').hidden=false;$('mnew').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('mnew').onclick=newGame;render()}
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+function showTime(){$('time').firstChild.nodeValue=fmt(G.elapsed)}
+
+/* ---------- drawing ---------- */
+function build(){const g=$('grid');const avail=document.querySelector('.status').clientWidth;
+  // cell size that fits the width (minus the grid's 6px padding and 2px gaps), but never too small to tap
+  const s=Math.max(28,Math.min(44,Math.floor((avail-12-2*(G.w-1))/G.w)));g.style.setProperty('--c',G.w);g.style.setProperty('--s',s+'px');
+  g.innerHTML=[...Array(G.w*G.h)].map((_,i)=>`<button class="c" data-i="${i}" tabindex="-1"></button>`).join('')}
+function render(){const cells=$('grid').children;let flags=0;
+  for(let i=0;i<cells.length;i++){const c=cells[i],o=G.open[i];flags+=G.flag[i];let cls='c',txt='';
+    if(o){cls+=' o';const n=G.cnt[i];if(n){cls+=` n n${n}`;txt=n}if(G.fresh.has(i))cls+=' reveal'}
+    else if(G.over&&G.mine&&G.mine[i]&&!G.flag[i])cls+=' m'+(i===G.boom?' boom':'');
+    else if(G.flag[i])cls+=G.over&&G.mine&&!G.mine[i]?' wrong':' f';
+    if(kb&&i===cursor)cls+=' kb';
+    if(c.className!==cls)c.className=cls;if(c.textContent!==String(txt))c.textContent=txt;
+    c.setAttribute('aria-label',o?(G.cnt[i]?`${G.cnt[i]} nearby`:'clear'):G.flag[i]?'flagged':'hidden')}
+  G.fresh.clear();
+  $('left').firstChild.nodeValue=G.m-flags;showTime();
+  $('mDig').classList.toggle('on',!flagMode);$('mFlag').classList.toggle('on',flagMode);$('mDig').setAttribute('aria-pressed',!flagMode);$('mFlag').setAttribute('aria-pressed',flagMode);
+  const b=best[cfg.level];$('best').textContent=b&&b.played?`${LEVELS[cfg.level].label}: ${b.wins} won of ${b.played}${b.best?`, best time ${fmt(b.best)}`:''}`:'';$('level').value=cfg.level}
+
+/* ---------- input ---------- */
+// Long-press flags on touch screens; right-click flags with a mouse.
+let press=null;
+$('grid').addEventListener('pointerdown',e=>{const c=e.target.closest('.c');if(!c||e.button===2)return;const i=+c.dataset.i;
+  press={i,long:false,t:setTimeout(()=>{press.long=true;toggleFlag(i)},420)}});
+$('grid').addEventListener('pointerup',e=>{if(!press)return;clearTimeout(press.t);const p=press;press=null;if(p.long)return;const c=e.target.closest('.c');if(!c||+c.dataset.i!==p.i)return;kb=false;
+  if(flagMode&&!G.open[p.i])toggleFlag(p.i);else dig(p.i)});
+$('grid').addEventListener('pointercancel',()=>{if(press){clearTimeout(press.t);press=null}});
+$('grid').addEventListener('pointerleave',()=>{if(press){clearTimeout(press.t);press=null}});
+$('grid').addEventListener('contextmenu',e=>{e.preventDefault();const c=e.target.closest('.c');if(c)toggleFlag(+c.dataset.i)});
+$('grid').addEventListener('keydown',e=>{const mv={ArrowUp:-G.w,ArrowDown:G.w,ArrowLeft:-1,ArrowRight:1}[e.key];
+  if(mv){e.preventDefault();kb=true;const n=cursor+mv;if(n>=0&&n<G.w*G.h&&!(Math.abs(mv)===1&&Math.floor(n/G.w)!==Math.floor(cursor/G.w)))cursor=n;render();
+    $('grid').children[cursor].scrollIntoView({block:'nearest',inline:'nearest'});return}
+  if(e.key===' '||e.key==='Enter'){e.preventDefault();dig(cursor)}else if(e.key==='f'||e.key==='F')toggleFlag(cursor)});
+$('grid').addEventListener('focus',()=>{kb=true;render()});$('grid').addEventListener('blur',()=>{kb=false;render()});
+$('mDig').onclick=()=>{flagMode=false;render()};$('mFlag').onclick=()=>{flagMode=true;render()};
+$('newgame').onclick=newGame;
+$('level').onchange=e=>{if(G&&G.started&&!G.over&&!confirm('Abandon this game?')){$('level').value=cfg.level;return}cfg.level=e.target.value;store.set('parlor-mines',cfg);newGame()};
+$('noguess').onchange=e=>{cfg.noguess=e.target.checked;store.set('parlor-mines',cfg)};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+// Rebuild the board shape if the phone is rotated before the first dig.
+addEventListener('resize',()=>{if(!G)return;const d=dims();if(!G.started&&(d.w!==G.w||d.h!==G.h))newGame();else{build();render()}});
+if(!LEVELS[cfg.level])cfg.level='easy';$('noguess').checked=cfg.noguess;
+newGame();
+</script>
+</body>
+</html>
