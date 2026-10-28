@@ -33,6 +33,8 @@ Self-contained HTML files. No install or build step.
 - `merge-tiles.html` — Merge Tiles, slide and merge numbers toward 2048.
 - `labyrinth.html` — Labyrinth, random mazes against the clock, relaxed or in the dark.
 - `tic-tac-toe.html` — Tic-Tac-Toe vs the computer (up to unbeatable) or 2 players.
+- `ultimate-tic-tac-toe.html` — Ultimate Tic-Tac-Toe vs the computer or 2 players.
+- `peg-solitaire.html` — Peg Solitaire on English, French and triangle boards, with hints.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ultimate Tic-Tac-Toe</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with opponent, strength and new game; a scoreboard and status line; the big 3×3 board of 3×3 boards, with the boards you may play in highlighted; rules below. */
+:root{
+  --bg:#f0f2f7; --fg:#1a2033; --muted:#5d6580; --panel:#ffffff; --line:#d7dbe8; --chip:#eef0f6;
+  --accent:#3355d6; --accent-ink:#ffffff; --x:#e2483a; --o:#2f8fd6; --live:#fff6c7;
+  --display:"Space Grotesk", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10131d; --fg:#e7eaf5; --muted:#a0a7c2; --panel:#191d2b; --line:#2b3145; --chip:#21263a; --accent:#8aa2ff; --accent-ink:#0c1433; --x:#ff7a6c; --o:#6fbfff; --live:#3a3720; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#10131d; --fg:#e7eaf5; --muted:#a0a7c2; --panel:#191d2b; --line:#2b3145; --chip:#21263a; --accent:#8aa2ff; --accent-ink:#0c1433; --x:#ff7a6c; --o:#6fbfff; --live:#3a3720; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--display);font-size:15px;line-height:1.45}
+.wrap{max-width:600px;margin:0 auto;padding-block:16px 30px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:500;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-weight:700;font-size:clamp(26px,6vw,40px);line-height:1;margin:4px 0 0;letter-spacing:-.02em}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.status{flex:1;font-weight:700;min-width:180px}
+.status.think{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.5}}
+.tally{color:var(--muted);font-size:14px}
+.tally b{color:var(--fg)}
+.big{display:grid;grid-template-columns:repeat(3,1fr);gap:2.2%;width:min(100%,calc(100dvh - 230px));min-width:min(100%,280px);aspect-ratio:1;align-self:center;background:var(--fg);padding:2.2%;border-radius:14px;box-sizing:border-box}
+.small{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:4%;background:var(--panel);padding:5%;border-radius:8px;transition:background .2s}
+.small.live{background:var(--live);box-shadow:inset 0 0 0 3px var(--accent)}
+.small.won::before{content:"";position:absolute;inset:0;background:var(--panel);opacity:.8;border-radius:8px}
+.small.won::after{content:attr(data-w);position:absolute;inset:0;display:grid;place-items:center;font-weight:700;font-size:calc(min(100vw,600px)*.22);line-height:1}
+.small.won.x::after{color:var(--x)} .small.won.o::after{color:var(--o)}
+.small.won.draw::after{content:"–";color:var(--muted)}
+.c{border:0;background:var(--chip);border-radius:16%;padding:0;cursor:pointer;font-weight:700;font-size:calc(min(100vw,600px)*.055);line-height:1;display:grid;place-items:center;min-width:0}
+.c:disabled{cursor:default}
+.c.x{color:var(--x)} .c.o{color:var(--o)}
+.c.last{box-shadow:0 0 0 2px var(--accent)}
+.c.kb{outline:3px solid var(--accent);outline-offset:1px}
+.big.win .small{opacity:.55}.big.win .small.line{opacity:1}
+.row{display:flex;gap:8px;justify-content:center}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:900px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;padding-block:8px 12px}.big{grid-column:1;grid-row:1/7;width:calc(100dvh - 20px);min-width:0}h1{font-size:24px}}
+@media (prefers-reduced-motion:reduce){.status.think{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Ultimate Tic-Tac-Toe</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="side" aria-label="Your mark"><option value="X">You play X (first)</option><option value="O">You play O</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="top"><div class="status" id="status" aria-live="polite"></div><span class="tally">You <b id="t0">0</b> · Draws <b id="td">0</b> · <span id="tn1">Computer</span> <b id="t1">0</b></span></div>
+  <div class="big" id="big" role="grid" aria-label="Nine small boards"></div>
+  <div class="row"><button class="btn" id="undo">Undo</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>The big board is made of nine small tic-tac-toe boards. Win a small board by getting three in a row on it.</li>
+        <li>Win the game by winning three small boards in a row on the big board.</li>
+        <li>The catch: the square you play in sends your opponent to the matching small board. Play top-right in a small board, and they must play in the top-right board next.</li>
+        <li>If you're sent to a board that's already won or full, you can play in any open board. Highlighted boards are where you may play.</li>
+        <li>A won board can't be played in any more.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<script>
+const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const LEVELS={easy:{ms:120},medium:{ms:700},hard:{ms:2000}};
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',level:'medium',side:'X'},store.get('parlor-uttt',{}));
+const wins={0:0,1:0,d:0};
+let S=null,kb=-1;
+
+/* ---------- rules ---------- */
+// Position: cells[81] (board*9 + square; 0 empty, 1 X, 2 O), boards[9] (0 open, 1 X, 2 O, 3 drawn), next (board you must play in, or -1), turn.
+const line3=(get)=>{for(const l of LINES){const a=get(l[0]);if(a&&a!==3&&a===get(l[1])&&a===get(l[2]))return a}return 0};
+function smallResult(cells,b){const w=line3(i=>cells[b*9+i]);if(w)return w;for(let i=0;i<9;i++)if(!cells[b*9+i])return 0;return 3}
+function bigResult(boards){const w=line3(i=>boards[i]);if(w)return w;return boards.every(Boolean)?3:0}
+function moves(P){const out=[];const zone=P.next>=0&&!P.boards[P.next]?[P.next]:[0,1,2,3,4,5,6,7,8].filter(b=>!P.boards[b]);
+  for(const b of zone)for(let i=0;i<9;i++)if(!P.cells[b*9+i])out.push(b*9+i);return out}
+function play(P,m){const b=Math.floor(m/9),i=m%9;P.cells[m]=P.turn;if(!P.boards[b])P.boards[b]=smallResult(P.cells,b);P.next=i;P.turn=3-P.turn;P.result=bigResult(P.boards)}
+const clone=P=>({cells:P.cells.slice(),boards:P.boards.slice(),next:P.next,turn:P.turn,result:P.result});
+
+/* ---------- computer: Monte Carlo tree search, thought about in short slices so the page stays responsive ---------- */
+function rollout(P){const Q=clone(P);let guard=0;while(!Q.result&&guard++<90){const ms=moves(Q);
+    // a little sense in the random games: take a small board if one move wins it
+    let m=ms[Math.floor(Math.random()*ms.length)];for(let k=0;k<ms.length&&k<12;k++){const c=ms[Math.floor(Math.random()*ms.length)],b=Math.floor(c/9);Q.cells[c]=Q.turn;const w=smallResult(Q.cells,b);Q.cells[c]=0;if(w===Q.turn){m=c;break}}
+    play(Q,m)}
+  return Q.result}
+function think(P,ms,done){const root={n:0,w:0,kids:null,P:clone(P)};const me=P.turn;const deadline=Date.now()+ms;
+  const expand=nd=>{nd.kids=moves(nd.P).map(m=>{const Q=clone(nd.P);play(Q,m);return{m,n:0,w:0,kids:null,P:Q}})};
+  expand(root);if(root.kids.length===1){done(root.kids[0].m);return}
+  // a move that wins the whole game right away
+  const win=root.kids.find(k=>k.P.result===me);if(win){done(win.m);return}
+  const slice=()=>{const end=Math.min(deadline,Date.now()+40);
+    while(Date.now()<end){let nd=root;const path=[root];
+      while(nd.kids&&nd.kids.length&&!nd.P.result){const ln=Math.log(nd.n+1);let best=null,bv=-1;for(const k of nd.kids){const v=k.n?k.w/k.n+1.3*Math.sqrt(ln/k.n):1e9+Math.random();if(v>bv){bv=v;best=k}}nd=best;path.push(nd)}
+      if(!nd.P.result&&nd.n>0&&!nd.kids){expand(nd);if(nd.kids.length){nd=nd.kids[0];path.push(nd)}}
+      const r=nd.P.result||rollout(nd.P);
+      for(const x of path){x.n++;const mover=3-x.P.turn;x.w+=r===3?.5:r===mover?1:0}}
+    if(Date.now()<deadline)setTimeout(slice,0);else{let best=root.kids[0];for(const k of root.kids)if(k.n>best.n)best=k;done(best.m)}};
+  slice()}
+
+/* ---------- game flow ---------- */
+const isCpu=()=>cfg.mode==='cpu'&&S.P.turn===S.cpu&&!S.P.result;
+const mark=p=>p===1?'X':'O';
+function newGame(){S={P:{cells:Array(81).fill(0),boards:Array(9).fill(0),next:-1,turn:1,result:0},cpu:cfg.mode==='cpu'?(cfg.side==='X'?2:1):0,hist:[],last:-1,busy:false,gen:(S?S.gen:0)+1};build();render();next()}
+function next(){render();if(!isCpu())return;S.busy=true;render();const g=S.gen;
+  setTimeout(()=>think(S.P,LEVELS[cfg.level].ms,m=>{if(g!==S.gen)return;S.busy=false;doMove(m)}),60)}
+function doMove(m){if(S.P.result||!moves(S.P).includes(m))return;S.hist.push({P:clone(S.P),last:S.last});play(S.P,m);S.last=m;
+  if(S.P.result){const r=S.P.result;wins[r===3?'d':cfg.mode==='cpu'?(r===S.cpu?1:0):(r===1?0:1)]++;render();return}next()}
+function undo(){if(S.busy||!S.hist.length)return;if(S.P.result){const r=S.P.result;wins[r===3?'d':cfg.mode==='cpu'?(r===S.cpu?1:0):(r===1?0:1)]--}
+  let h=S.hist.pop();if(cfg.mode==='cpu'){while(S.hist.length&&h.P.turn===S.cpu)h=S.hist.pop();if(h.P.turn===S.cpu){S.P=h.P;S.last=h.last;S.gen++;next();return}}
+  S.P=h.P;S.last=h.last;S.gen++;render()}
+
+/* ---------- drawing ---------- */
+function build(){$('big').innerHTML=[...Array(9)].map((_,b)=>`<div class="small" data-b="${b}">${[...Array(9)].map((_,i)=>`<button class="c" data-m="${b*9+i}" aria-label="Board ${b+1}, square ${i+1}"></button>`).join('')}</div>`).join('')}
+function render(){const P=S.P,legal=new Set(!S.busy&&!isCpu()?moves(P):[]),zone=P.result?[]:(P.next>=0&&!P.boards[P.next]?[P.next]:[0,1,2,3,4,5,6,7,8].filter(b=>!P.boards[b]));
+  const winLine=P.result&&P.result!==3?LINES.find(l=>l.every(i=>P.boards[i]===P.result)):null;
+  $('big').classList.toggle('win',!!winLine);
+  document.querySelectorAll('.small').forEach(el=>{const b=+el.dataset.b,r=P.boards[b];el.className=`small${zone.includes(b)?' live':''}${r?' won '+(r===3?'draw':mark(r).toLowerCase()):''}${winLine&&winLine.includes(b)?' line':''}`;el.dataset.w=r&&r!==3?mark(r):''});
+  document.querySelectorAll('.c').forEach(c=>{const m=+c.dataset.m,v=P.cells[m];c.textContent=v?mark(v):'';c.className=`c${v?' '+mark(v).toLowerCase():''}${m===S.last?' last':''}${kb===m?' kb':''}`;c.disabled=!legal.has(m)});
+  const r=P.result;$('status').className='status'+(S.busy?' think':'');
+  $('status').textContent=r?(r===3?'A draw.':cfg.mode==='cpu'?(r===S.cpu?'The computer wins.':'You win!'):`${mark(r)} wins!`):S.busy?'Computer is thinking…':cfg.mode==='cpu'?`Your move (${mark(P.turn)})${P.next>=0&&!P.boards[P.next]?'':' · play in any open board'}.`:`${mark(P.turn)} to move${P.next>=0&&!P.boards[P.next]?'':' · any open board'}.`;
+  $('t0').textContent=wins[0];$('t1').textContent=wins[1];$('td').textContent=wins.d;$('tn1').textContent=cfg.mode==='cpu'?'Computer':'O';
+  $('t0').previousSibling.textContent=cfg.mode==='cpu'?'You ':'X ';
+  $('undo').disabled=S.busy||!S.hist.length||(cfg.mode==='cpu'&&!S.hist.some(h=>h.P.turn!==S.cpu));
+  $('level').hidden=$('side').hidden=cfg.mode!=='cpu'}
+
+/* ---------- input & settings ---------- */
+$('big').addEventListener('click',e=>{const c=e.target.closest('.c');if(!c||c.disabled)return;kb=-1;doMove(+c.dataset.m)});
+document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];
+  if(d){e.preventDefault();if(kb<0){const l=moves(S.P);kb=l.length?l[0]:0}else{const b=Math.floor(kb/9),i=kb%9;let X=(b%3)*3+i%3+d[0],Y=Math.floor(b/3)*3+Math.floor(i/3)+d[1];X=Math.max(0,Math.min(8,X));Y=Math.max(0,Math.min(8,Y));kb=(Math.floor(Y/3)*3+Math.floor(X/3))*9+(Y%3)*3+X%3}render();return}
+  if((e.key==='Enter'||e.key===' ')&&kb>=0){e.preventDefault();const c=document.querySelector(`.c[data-m="${kb}"]`);if(c&&!c.disabled)doMove(kb)}
+  else if(e.key==='u'||e.key==='U')undo()});
+$('undo').onclick=undo;$('newgame').onclick=newGame;
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('side').value=cfg.side}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-uttt',cfg);sync();if(restart){wins[0]=wins[1]=wins.d=0;newGame()}else render()}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);$('level').onchange=e=>setCfg('level',e.target.value,false);$('side').onchange=e=>setCfg('side',e.target.value,true);
+window.onAppBack=()=>false;
+if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!LEVELS[cfg.level])cfg.level='medium';if(!['X','O'].includes(cfg.side))cfg.side='X';
+sync();newGame();
+</script>
+</body>
+</html>
