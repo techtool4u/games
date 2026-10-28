@@ -37,6 +37,8 @@ Self-contained HTML files. No install or build step.
 - `peg-solitaire.html` — Peg Solitaire on English, French and triangle boards, with hints.
 - `pig.html` — Pig, the push-your-luck dice race, vs computers or 2 to 6 players.
 - `farkle.html` — Farkle with six dice, hot dice and a scoring chart, vs computers or 2 to 6 players.
+- `nim.html` — Nim with matchsticks, vs a perfect computer or 2 players.
+- `rummy.html` — Rummy against 1 to 3 computer players.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

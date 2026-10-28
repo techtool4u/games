@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nim</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Inter:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a single column. Header with opponent, rules and layout; a status line and scoreboard; rows of matchsticks on a wooden table (tap a stick to take it and everything to its right in that row); Take button and rules below. */
+:root{
+  --bg:#f3eee4; --fg:#2a2219; --muted:#6f6455; --panel:#fffaf2; --line:#dfd4c1; --chip:#f1e9da;
+  --accent:#b5432b; --accent-ink:#ffffff; --table:#4d6b4f; --table-2:#3b5540; --stick:#f0d9a8; --head:#c93a2a;
+  --display:"Fraunces", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14110d; --fg:#efe7d8; --muted:#ab9f8c; --panel:#1e1a14; --line:#3a3226; --chip:#2a241b; --accent:#ff8a6c; --accent-ink:#2a0c05; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#14110d; --fg:#efe7d8; --muted:#ab9f8c; --panel:#1e1a14; --line:#3a3226; --chip:#2a241b; --accent:#ff8a6c; --accent-ink:#2a0c05; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:620px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(40px,8vw,58px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.status{font-family:var(--display);font-weight:700;font-size:21px}
+.status.think{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.5}}
+.tally{color:var(--muted);font-size:14px}.tally b{color:var(--fg)}
+.table{background:linear-gradient(160deg,var(--table),var(--table-2));border-radius:18px;padding:16px 12px;display:flex;flex-direction:column;gap:10px;box-shadow:inset 0 0 0 6px rgba(0,0,0,.12),0 16px 30px -18px rgba(10,30,15,.7);user-select:none;-webkit-user-select:none}
+.row{display:flex;align-items:center;gap:8px;min-height:84px;border-radius:12px;padding:4px 8px}
+.row.sel{background:rgba(255,255,255,.08)}
+.row .n{width:30px;color:rgba(255,255,255,.7);font-weight:700;font-size:13px;text-align:center}
+.sticks{display:flex;gap:clamp(6px,2.4vw,14px);flex:1;justify-content:center;flex-wrap:nowrap}
+.s{width:clamp(12px,3.6vw,18px);height:76px;border:0;padding:0;background:none;cursor:pointer;position:relative;transition:transform .25s,opacity .25s}
+.s::before{content:"";position:absolute;left:28%;right:28%;top:12%;bottom:0;border-radius:3px;background:linear-gradient(90deg,#d9bd84,var(--stick),#d9bd84)}
+.s::after{content:"";position:absolute;left:10%;right:10%;top:0;height:20%;border-radius:50% 50% 45% 45%;background:radial-gradient(circle at 40% 35%,#ef6a55,var(--head))}
+.s.pick{transform:translateY(-10px) rotate(8deg)}
+.s.pick::before{box-shadow:0 0 0 2px #ffd36b}
+.s.gone{opacity:0;transform:translateY(-30px) rotate(40deg);pointer-events:none}
+.s:disabled{cursor:default}
+.acts{display:flex;gap:8px;justify-content:center}
+.acts .btn{min-width:140px;min-height:46px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.opt{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px;margin-top:10px}
+@media (prefers-reduced-motion:reduce){.s{transition:none}.status.think{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Nim</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Perfect</option></select>
+      <select id="layout" aria-label="Layout"><option value="1,3,5,7">Classic 1·3·5·7</option><option value="3,4,5">Small 3·4·5</option><option value="2,4,6,8,10">Big 2·4·6·8·10</option><option value="random">Random rows</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="top"><div class="status" id="status" aria-live="polite"></div><span class="tally" id="tally"></span></div>
+  <div class="table" id="table" role="group" aria-label="Rows of matchsticks"></div>
+  <div class="acts"><button class="btn primary" id="take">Take</button><button class="btn" id="clear">Clear</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>On your turn, take one or more sticks, all from a single row.</li>
+        <li>Tap a stick to pick it and every stick to its right in that row, then press <b>Take</b>.</li>
+        <li>In the usual rule, whoever is forced to take the <b>last stick loses</b>. Turn on "last stick wins" for normal play.</li>
+        <li>Nim has a perfect strategy based on adding the row sizes in binary without carrying. The Perfect computer knows it, so you need to start from a winning position and never slip.</li>
+        <li>Keyboard: ↑ ↓ choose a row, ← → change how many, Enter takes.</li>
+      </ul>
+    </details>
+    <label class="opt"><input type="checkbox" id="normal"> Last stick wins</label>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({mode:'cpu',level:'medium',layout:'1,3,5,7',normal:false,first:0},store.get('parlor-nim',{}));
+const wins={0:0,1:0};
+let S=null,round=0;
+
+/* ---------- strategy ---------- */
+// Normal play: move to a position whose nim-sum (XOR of row sizes) is 0.
+// Last-stick-loses play: the same, except when every row would be 0 or 1 sticks: then leave an odd number of 1-stick rows.
+function bestMove(rows,misere){const x=rows.reduce((a,b)=>a^b,0);const big=rows.filter(r=>r>1).length;
+  if(misere&&big<=1){
+    if(big===0){const i=rows.findIndex(r=>r>0);return{i,n:1}}
+    // one row is bigger than 1: shrink it to 0 or 1 so an odd count of single sticks remains
+    const i=rows.findIndex(r=>r>1),ones=rows.filter(r=>r===1).length;return{i,n:ones%2===0?rows[i]-1:rows[i]}}
+  if(x===0)return null;
+  for(let i=0;i<rows.length;i++){const t=rows[i]^x;if(t<rows[i])return{i,n:rows[i]-t}}return null}
+function cpuMove(rows){const misere=!cfg.normal,lv=cfg.level;const opts=[];rows.forEach((r,i)=>{for(let n=1;n<=r;n++)opts.push({i,n})});
+  const rnd=()=>opts[Math.floor(Math.random()*opts.length)];
+  if(lv==='easy'&&Math.random()<.7)return rnd();
+  if(lv==='medium'&&Math.random()<.3)return rnd();
+  return bestMove(rows,misere)||{i:rows.findIndex(r=>r>0),n:1}}
+
+/* ---------- game ---------- */
+const isCpu=()=>cfg.mode==='cpu'&&S.turn===1;
+const nameOf=p=>cfg.mode==='cpu'?(p===0?'You':'Computer'):`Player ${p+1}`;
+function makeRows(){if(cfg.layout!=='random')return cfg.layout.split(',').map(Number);const n=3+Math.floor(Math.random()*3);return[...Array(n)].map(()=>1+Math.floor(Math.random()*8))}
+function newGame(){round++;const rows=makeRows();S={rows,orig:rows.slice(),turn:cfg.mode==='cpu'?(round%2?0:1):0,pick:null,over:null,busy:false,last:null,gen:(S?S.gen:0)+1};build();render();next()}
+function next(){render();if(S.over||!isCpu())return;S.busy=true;render();const g=S.gen;
+  setTimeout(()=>{if(g!==S.gen)return;const m=cpuMove(S.rows);S.pick={i:m.i,n:m.n};render();setTimeout(()=>{if(g!==S.gen)return;S.busy=false;take()},650)},700)}
+function take(){if(!S.pick||S.over)return;const {i,n}=S.pick;S.rows[i]-=n;S.last={p:S.turn,i,n};S.pick=null;
+  if(S.rows.every(r=>!r)){const lastTaker=S.turn,w=cfg.normal?lastTaker:1-lastTaker;S.over={w};wins[w]++;render();return}
+  S.turn=1-S.turn;next()}
+
+/* ---------- drawing ---------- */
+function build(){$('table').innerHTML=S.orig.map((r,i)=>`<div class="row" data-r="${i}"><span class="n" id="n${i}"></span><div class="sticks">${[...Array(r)].map((_,k)=>`<button class="s" data-r="${i}" data-k="${k}" aria-label="Row ${i+1}, stick ${k+1}"></button>`).join('')}</div></div>`).join('')}
+function render(){const me=!S.over&&!S.busy&&!isCpu();
+  S.orig.forEach((r,i)=>{const left=S.rows[i];$('n'+i).textContent=left;const row=document.querySelector(`.row[data-r="${i}"]`);row.classList.toggle('sel',!!S.pick&&S.pick.i===i);
+    row.querySelectorAll('.s').forEach(b=>{const k=+b.dataset.k,gone=k>=left;const picked=S.pick&&S.pick.i===i&&k>=left-S.pick.n&&!gone;b.className=`s${gone?' gone':''}${picked?' pick':''}`;b.disabled=!me||gone})});
+  const total=S.rows.reduce((a,b)=>a+b,0);
+  $('status').className='status'+(S.busy?' think':'');
+  $('status').textContent=S.over?(cfg.mode==='cpu'?(S.over.w===0?'You win!':'The computer wins.'):`${nameOf(S.over.w)} wins!`):S.busy?'Computer is thinking…':`${cfg.mode==='cpu'?'Your':nameOf(S.turn)+"'s"} turn · ${total} stick${total===1?'':'s'} left`;
+  $('tally').innerHTML=cfg.mode==='cpu'?`You <b>${wins[0]}</b> · Computer <b>${wins[1]}</b>`:`P1 <b>${wins[0]}</b> · P2 <b>${wins[1]}</b>`;
+  $('take').disabled=!me||!S.pick;$('clear').disabled=!me||!S.pick;$('take').textContent=S.pick&&!S.busy?`Take ${S.pick.n}`:'Take';
+  $('level').hidden=cfg.mode!=='cpu'}
+
+/* ---------- input & settings ---------- */
+$('table').addEventListener('click',e=>{const b=e.target.closest('.s');if(!b||b.disabled)return;const i=+b.dataset.r,k=+b.dataset.k,n=S.rows[i]-k;S.pick=S.pick&&S.pick.i===i&&S.pick.n===n?null:{i,n};render()});
+$('take').onclick=take;$('clear').onclick=()=>{S.pick=null;render()};
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!S||S.over||S.busy||isCpu())return;const live=S.rows.map((r,i)=>i).filter(i=>S.rows[i]);
+  if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();const cur=S.pick?live.indexOf(S.pick.i):-1;const j=(cur+(e.key==='ArrowDown'?1:live.length-1)+(cur<0&&e.key==='ArrowUp'?1:0))%live.length;S.pick={i:live[j],n:1};render()}
+  else if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&S.pick){e.preventDefault();S.pick.n=Math.max(1,Math.min(S.rows[S.pick.i],S.pick.n+(e.key==='ArrowRight'?1:-1)));render()}
+  else if(e.key==='Enter'&&S.pick){e.preventDefault();take()}});
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('layout').value=cfg.layout;$('normal').checked=cfg.normal}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-nim',cfg);sync();if(restart){if(k==='mode'){wins[0]=wins[1]=0;round=0}newGame()}else render()}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('layout').onchange=e=>setCfg('layout',e.target.value,true);$('normal').onchange=e=>setCfg('normal',e.target.checked,true);
+$('newgame').onclick=newGame;
+window.onAppBack=()=>{if(S&&S.pick){S.pick=null;render();return true}return false};
+if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';if(!['1,3,5,7','3,4,5','2,4,6,8,10','random'].includes(cfg.layout))cfg.layout='1,3,5,7';
+sync();newGame();
+</script>
+</body>
+</html>

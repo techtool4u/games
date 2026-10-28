@@ -53,8 +53,8 @@ select{border:1px solid var(--line);background:#1a3a66;color:var(--fg);padding:7
 .pile .card{position:absolute;left:0;top:0}
 .stock{border:0;padding:0;background:none;cursor:pointer;border-radius:calc(var(--cw)*.09)}
 .stock:disabled{cursor:default}
-.stock .back{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:repeating-linear-gradient(45deg,var(--back-1) 0 6%,var(--back-2) 6% 12%);box-shadow:0 2px 0 rgba(0,0,0,.3),inset 0 0 0 calc(var(--cw)*.05) #fff}
-.stock.glow .back{box-shadow:0 0 0 3px var(--accent),inset 0 0 0 calc(var(--cw)*.05) #fff}
+.stock .cback{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:repeating-linear-gradient(45deg,var(--back-1) 0 6%,var(--back-2) 6% 12%);box-shadow:0 2px 0 rgba(0,0,0,.3),inset 0 0 0 calc(var(--cw)*.05) #fff}
+.stock.glow .cback{box-shadow:0 0 0 3px var(--accent),inset 0 0 0 calc(var(--cw)*.05) #fff}
 .stock small{display:block;text-align:center;color:var(--muted);font-size:12.5px;margin-top:4px}
 .suitnow{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:12.5px;min-width:56px}
 .suitnow b{font-size:34px;line-height:1}
@@ -124,7 +124,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
     <section class="table" aria-live="polite">
       <div class="rivals" id="rivalsBox"></div>
       <div class="mid">
-        <button class="stock" id="stock" aria-label="Draw a card"><div class="back"></div><small id="stockN"></small></button>
+        <button class="stock" id="stock" aria-label="Draw a card"><div class="cback"></div><small id="stockN"></small></button>
         <div class="pile disc" id="disc"></div>
         <div class="suitnow" id="suitnow"></div>
       </div>
@@ -249,7 +249,7 @@ function render(){if(!S)return;const me=S.turn===0&&!S.busy&&!S.over;
   $('bar').innerHTML=S.over?'<span>Round over.</span>':!me?`<span>${S.players[S.turn].name} is thinking…</span>`:S.drew!=null?`<span>You drew a card that fits. Play it, or pass.</span><button class="btn" id="passBtn">Pass</button>`:opts.length?`<span>Your turn: play a highlighted card${h.length===1?' (your last!)':''}.</span>`:`<span>Nothing fits. Tap the draw pile.</span>`;
   if($('passBtn'))$('passBtn').onclick=()=>{log('You drew and pass.');S.lastBy[0]='drew';endTurn()};
   const top=Math.max(...S.scores);
-  $('scores').innerHTML=S.players.map((p,i)=>`<div class="${S.scores[i]===top&&top>0?'lead':''}"><span>${p.name} <small style="color:var(--muted)">${S.hands[i].length} cards</small></span><b>${S.scores[i]}</b></div>`).join('')+`<div><span style="color:var(--muted)">${+cfg.target?`First to ${cfg.target}`:'Single round'}</span><span></span></div>`;
+  $('scores').innerHTML=S.players.map((p,i)=>`<div class="${S.scores[i]===top&&top>0?'lead':''}"><span>${p.name} <small style="color:var(--muted)">${S.hands[i].length} card${S.hands[i].length===1?'':'s'}</small></span><b>${S.scores[i]}</b></div>`).join('')+`<div><span style="color:var(--muted)">${+cfg.target?`First to ${cfg.target}`:'Single round'}</span><span></span></div>`;
   $('log').innerHTML=S.log.slice(-12).map(t=>`<div>${t}</div>`).join('');$('log').scrollTop=1e6}
 
 /* ---------- input & settings ---------- */
