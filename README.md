@@ -53,6 +53,8 @@ Self-contained HTML files. No install or build step.
 - `dominoes.html` — Dominoes (Draw or Block game) for 2 to 4 players, people or computers.
 - `free-cell.html` — Free Cell with the classic numbered deals, tap or drag, auto-play, undo and hints.
 - `pyramid-solitaire.html` — Pyramid Solitaire: pair cards that add up to 13, with 1, 3 or unlimited passes.
+- `spades.html` — Spades: you and a computer partner against two computers, with bidding, nil, bags and sets.
+- `cribbage.html` — Cribbage vs the computer or 2 players, with full pegging and automatic counting.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
