@@ -57,6 +57,8 @@ Self-contained HTML files. No install or build step.
 - `cribbage.html` — Cribbage vs the computer or 2 players, with full pegging and automatic counting.
 - `gin-rummy.html` — Gin Rummy vs the computer or 2 players, with knocking, gin, undercuts and layoffs.
 - `go-fish.html` — Go Fish against 1 to 4 computer players with different memories.
+- `war.html` — War, the card-flipping game, vs the computer or 2 players, in quick or classic length.
+- `euchre.html` — Euchre: you and a computer partner against two computers, with bowers, going alone and stick the dealer.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Euchre</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a card table seen from your seat. Opponents at the left and right, your partner at the top, the current trick (or the turned-up card while choosing trump) in the middle and your hand fanned along the bottom, with the trump buttons under it. The team scoreboard and rules sit beside the table on wide screens and below it on phones. */
+:root{
+  --bg:#1a1430; --felt:#3c2f6b; --felt-2:#281f4a; --fg:#f1eefa; --muted:#c4bce0; --panel:rgba(255,255,255,.08); --line:rgba(255,255,255,.16);
+  --accent:#f3c246; --accent-ink:#2a1d00; --card:#fffdf8; --red:#c62b2b; --black:#1d1d22; --back-1:#8c2f2b; --back-2:#6e2421;
+  --display:"Libre Baskerville", Georgia, "Times New Roman", serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0e0b1a;--felt:#2c2350;--felt-2:#1c1636;--card:#f1ece2}}
+:root[data-theme="dark"]{--bg:#0e0b1a;--felt:#2c2350;--felt-2:#1c1636;--card:#f1ece2}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4;min-height:100vh}
+.wrap{max-width:1180px;margin:0 auto;padding-block:10px 20px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+h1{font-family:var(--display);font-size:clamp(24px,4.5vw,34px);line-height:1.05;margin:2px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:#34295e;color:var(--fg);padding:7px 10px;border-radius:999px;min-height:38px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:700;min-height:38px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:minmax(0,1fr)}}
+.table{position:relative;background:radial-gradient(ellipse at 50% 40%,var(--felt),var(--felt-2) 75%);border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset 0 10px 40px rgba(0,0,0,.3);padding:12px;display:grid;grid-template-columns:minmax(56px,1fr) minmax(0,2.4fr) minmax(56px,1fr);grid-template-rows:auto minmax(170px,1fr) auto;gap:8px;--cw:clamp(46px,9vw,74px);user-select:none;-webkit-user-select:none}
+.seat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;min-width:0}
+.seat b{font-size:14.5px}
+.seat small{color:var(--muted);font-size:12.5px}
+.seat.cur b{color:var(--accent)}
+.seat .backs{display:flex}
+.seat .backs i{width:16px;height:24px;border-radius:3px;background:repeating-linear-gradient(45deg,var(--back-1) 0 3px,var(--back-2) 3px 6px);box-shadow:0 0 0 1px #fff;margin-left:-9px}
+.seat .backs i:first-child{margin-left:0}
+.seat .backs em{display:none;font-style:normal;font-weight:800;font-size:13px;margin-left:4px;align-self:center}
+.north{grid-column:2;grid-row:1}.west{grid-column:1;grid-row:2}.east{grid-column:3;grid-row:2}
+.trick{grid-column:2;grid-row:2;position:relative;min-height:170px}
+.trick .card{position:absolute;left:50%;top:50%;transition:transform .35s ease,opacity .35s}
+.trick .p0{transform:translate(-50%,-12%)} .trick .p1{transform:translate(-118%,-50%)} .trick .p2{transform:translate(-50%,-88%)} .trick .p3{transform:translate(18%,-50%)}
+.trick .card.win{box-shadow:0 0 0 3px var(--accent),0 4px 12px rgba(0,0,0,.5)}
+.trick.take0 .card{transform:translate(-50%,120%);opacity:0} .trick.take1 .card{transform:translate(-300%,-50%);opacity:0}
+.trick.take2 .card{transform:translate(-50%,-250%);opacity:0} .trick.take3 .card{transform:translate(200%,-50%);opacity:0}
+.center-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:14.5px;padding:8px;pointer-events:none}
+.south{grid-column:1/-1;grid-row:3;display:flex;flex-direction:column;align-items:center;gap:8px}
+.hand{display:flex;justify-content:center;padding-top:16px;min-height:calc(var(--cw)*1.42 + 16px);max-width:100%}
+.hand .card{position:relative;margin-left:calc(var(--cw)*-.52);transition:transform .15s}
+.hand .card:first-child{margin-left:0}
+.hand .card.ok{cursor:pointer}
+.hand .card.ok:hover,.hand .card.kb{transform:translateY(-10px)}
+.hand .card.no{filter:brightness(.62)}
+.hand .card.picked{transform:translateY(-16px);box-shadow:0 0 0 3px var(--accent),0 6px 12px rgba(0,0,0,.45)}
+.hand .card.got{box-shadow:0 0 0 3px #7fd1ff,0 4px 10px rgba(0,0,0,.4)}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;min-height:40px}
+.bar span{color:var(--muted);font-size:14.5px}
+
+.card{width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.09);background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.12);overflow:hidden;flex:none;border:0;padding:0;font:inherit}
+.card .ix{position:absolute;left:7%;top:3%;font-weight:800;font-size:calc(var(--cw)*.3);line-height:1;letter-spacing:-.04em;display:flex;flex-direction:column;align-items:center}
+.card .ix i{font-style:normal;font-size:.85em}
+.card .cc{position:absolute;right:7%;bottom:5%;font-size:calc(var(--cw)*.5);line-height:1}
+.card.r{color:var(--red)} .card.k{color:var(--black)}
+.hand .card,.trick .card{position:relative}
+.trick .card{position:absolute}
+
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.label{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+table.sc{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+table.sc th,table.sc td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line)}
+table.sc th:first-child,table.sc td:first-child{text-align:left}
+table.sc tr.tot td{font-weight:800;border-bottom:0}
+table.sc td.lead{color:var(--accent)}
+.taken{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(10,0,0,.6);display:grid;place-items:center;padding:16px;z-index:1000}
+.modal{background:#fffdf8;color:#2a1a1a;border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px}
+.modal h2{font-family:var(--display);font-size:28px;margin:0}
+.modal p{margin:0;color:#555b6b}
+.bids{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;max-width:520px}
+.bids .btn{min-width:42px;padding:7px 8px}
+.bids .btn.sug{border-color:var(--accent)}
+.seat .tag{font-size:12px;font-weight:700;color:var(--accent)}
+.seat.partner b::after{content:' · partner';color:var(--muted);font-weight:400;font-size:12px}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+.modal .btn{background:#f1efe8;color:#2a1a1a;border-color:#ddd7ca}
+.modal .btn.primary{background:#3c2f6b;color:#fff;border-color:#3c2f6b}
+.modal table{margin:0 auto;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.modal td{padding:3px 10px;text-align:right}.modal td:first-child{text-align:left}
+
+@media (max-width:520px){.table{grid-template-columns:52px minmax(0,1fr) 52px;padding:8px;--cw:clamp(40px,13.5vw,60px)}.hand .card{margin-left:calc(var(--cw)*-.6)}
+  .seat .backs i:not(:first-child){display:none}.seat .backs em{display:inline}}
+@media (max-height:520px) and (orientation:landscape){.wrap{padding-block:6px 12px}h1{font-size:22px}.table{grid-template-rows:auto minmax(120px,1fr) auto;--cw:clamp(40px,6vw,58px)}.trick{min-height:130px}}
+@media (prefers-reduced-motion:reduce){.trick .card,.hand .card{transition:none}}
+.up{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:700}
+.up .card{position:relative}
+.trumpchip{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border-radius:99px;padding:3px 10px;font-weight:700}
+.trumpchip b{font-size:18px;line-height:1}
+.trumpchip b.r{color:#ff7a7a}
+.bar label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:14px}
+.seat.out{opacity:.45}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Euchre</h1>
+    </div>
+    <div class="controls">
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="target" aria-label="Game length"><option value="10">Game to 10</option><option value="5">Short game to 5</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="game">
+    <section class="table" id="table" aria-live="polite">
+      <div class="seat north partner" id="seat2"></div>
+      <div class="seat west" id="seat1"></div>
+      <div class="trick" id="trick"><div class="center-msg" id="cmsg"></div></div>
+      <div class="seat east" id="seat3"></div>
+      <div class="south"><div class="hand" id="hand" role="listbox" aria-label="Your hand"></div><div class="bar" id="bar"></div></div>
+    </section>
+    <aside class="side">
+      <div class="panel"><p class="label">Scores</p><table class="sc" id="scores"></table><p class="taken" id="taken"></p></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>You and North are partners against West and East. Euchre uses only the 9s through aces: 24 cards. Everyone gets five, and one card is turned up.</li>
+            <li><b>Choosing trump:</b> going around from the dealer's left, each player can <b>order up</b> the turned card's suit as trump (the dealer then picks that card up and discards one) or pass. If all four pass, each may name a different suit, or pass. The dealer can't pass the second time around ("stick the dealer").</li>
+            <li>The team that picks trump are the <b>makers</b>. A player who is very strong can <b>go alone</b>: their partner sits out the hand.</li>
+            <li><b>The bowers:</b> the jack of trump (the right bower) is the highest card, and the other jack of the same color (the left bower) is second and counts as a trump. Then ace, king, queen, 10, 9 of trump.</li>
+            <li>Follow the suit led if you can (the left bower belongs to the trump suit). The highest trump wins, otherwise the highest card of the suit led.</li>
+            <li><b>Scoring:</b> makers who win 3 or 4 tricks score 1; all 5 (a march) scores 2, or 4 when going alone. Makers who win fewer than 3 are <b>euchred</b>, and the other team scores 2.</li>
+            <li>Keyboard: ← → choose a card, Enter plays it.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- cards ---------- */
+// A card is 0-23: suit = floor(c/6) (0 ♣, 1 ♦, 2 ♠, 3 ♥), index = c%6 for 9, 10, J, Q, K, A.
+const SUITS=['♣','♦','♠','♥'],SN=['clubs','diamonds','spades','hearts'],RK=['9','10','J','Q','K','A'];
+const suit=c=>Math.floor(c/6),ix=c=>c%6,J=2,red=c=>suit(c)===1||suit(c)===3;
+const mate=s=>[2,3,0,1][s];// same-colour suit
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({level:'medium',target:10},store.get('parlor-euchre',{}));
+const tally=store.get('parlor-euchre-tally',{won:0,played:0});
+const NAMES=['You','West','North','East'];
+const team=p=>p%2;
+let S=null,kb=-1;
+
+/* ---------- rules ---------- */
+const isRight=(c,t)=>ix(c)===J&&suit(c)===t,isLeft=(c,t)=>ix(c)===J&&suit(c)===mate(t);
+const eff=(c,t)=>isLeft(c,t)?t:suit(c);
+// Strength of a card in the current trick: trumps above everything, then the suit led.
+function power(c,t,led){if(isRight(c,t))return 200;if(isLeft(c,t))return 199;if(suit(c)===t)return 150+ix(c);if(suit(c)===led)return 50+ix(c);return ix(c)}
+function legal(p){const h=S.hands[p];if(!S.trick.length)return h;const led=eff(S.trick[0].c,S.trump),f=h.filter(c=>eff(c,S.trump)===led);return f.length?f:h}
+function trickWinner(t){const led=eff(t[0].c,S.trump);let w=t[0];for(const x of t)if(power(x.c,S.trump,led)>power(w.c,S.trump,led))w=x;return w.p}
+
+/* ---------- computer ---------- */
+// How strong a hand must be (see strength) before each level takes trump.
+const NEED={easy:6.6,medium:6.4,hard:6};
+// Rough number of tricks-worth in a hand if suit t were trump.
+function strength(h,t){let v=0;const tr=h.filter(c=>eff(c,t)===t);
+  for(const c of tr)v+=isRight(c,t)?3.2:isLeft(c,t)?2.6:[1.2,1.3,0,1.6,1.8,2.1][ix(c)];
+  for(const c of h)if(eff(c,t)!==t&&ix(c)===5)v+=1.1;
+  const sides=[0,1,2,3].filter(s=>s!==t&&!h.some(c=>eff(c,t)===s)).length;if(tr.length>=2)v+=sides*.6;
+  return v}
+function cpuOrder(p){const up=S.up,t=suit(up),h=S.hands[p];let v;
+  if(p===S.dealer){// the dealer gets the up card and drops the weakest card
+    const nh=h.concat(up);v=Math.max(...nh.map(d=>strength(nh.filter(x=>x!==d),t)))}
+  else{v=strength(h,t);const upv=isRight(up,t)?3:ix(up)===5?1.4:1;if(team(S.dealer)===team(p))v+=upv*.5;else v-=upv*.6}
+  const need=NEED[cfg.level]+(cfg.level==='easy'?Math.random()*2-1:0);
+  return v>=need?{alone:v>=11.5&&cfg.level!=='easy'}:null}
+function cpuName(p,must){let best=-1,bv=-1;for(let s=0;s<4;s++){if(s===suit(S.up))continue;const v=strength(S.hands[p],s);if(v>bv){bv=v;best=s}}
+  const need=NEED[cfg.level]+.3;if(bv>=need||must)return{suit:best,alone:bv>=11.5&&cfg.level!=='easy'};return null}
+function cpuDiscard(p){const h=S.hands[p],t=S.trump;const side=h.filter(c=>eff(c,t)!==t&&ix(c)!==5);
+  // throw a singleton side card to make a void, or else the lowest side card
+  const pool=side.length?side:h.filter(c=>eff(c,t)!==t).length?h.filter(c=>eff(c,t)!==t):h;
+  pool.sort((a,b)=>h.filter(x=>eff(x,t)===eff(a,t)).length-h.filter(x=>eff(x,t)===eff(b,t)).length||ix(a)-ix(b));return pool[0]}
+function chooseCard(p){const opts=legal(p),t=S.trump,lv=cfg.level;if(opts.length===1)return opts[0];
+  if(lv==='easy'&&Math.random()<.45)return opts[rand(opts.length)];
+  const pw=(c,led)=>power(c,t,led),low=(a,led)=>a.reduce((x,y)=>pw(y,led)<pw(x,led)?y:x),high=(a,led)=>a.reduce((x,y)=>pw(y,led)>pw(x,led)?y:x);
+  const maker=team(p)===team(S.maker);
+  if(!S.trick.length){const tr=opts.filter(c=>eff(c,t)===t);
+    if(maker&&tr.some(c=>isRight(c,t)||(S.played.some(x=>isRight(x,t))&&isLeft(c,t))))return high(tr,-1);// pull trumps with the top bower
+    const aces=opts.filter(c=>eff(c,t)!==t&&ix(c)===5);if(aces.length)return aces[0];
+    const side=opts.filter(c=>eff(c,t)!==t);if(side.length)return high(side,-1);
+    return maker?high(opts,-1):low(opts,-1)}
+  const led=eff(S.trick[0].c,t),cur=S.trick.reduce((w,x)=>pw(x.c,led)>pw(w.c,led)?x:w),pWin=team(cur.p)===team(p),last=S.trick.length===S.active-1;
+  const win=opts.filter(c=>pw(c,led)>pw(cur.c,led));
+  if(pWin&&(last||pw(cur.c,led)>=160||lv==='easy'))return low(opts,led);
+  if(win.length)return low(win,led);
+  return low(opts,led)}
+
+/* ---------- game flow ---------- */
+function newGame(){$('overlay').hidden=true;S={scores:[0,0],hist:[],hand:0,dealer:rand(4),gen:(S?S.gen:0)+1};deal()}
+const sortHand=h=>{const t=S&&S.trump>=0?S.trump:-1;h.sort((a,b)=>{const sa=t>=0?eff(a,t):suit(a),sb=t>=0?eff(b,t):suit(b);const oa=sa===t?9:[1,0,3,2][sa],ob=sb===t?9:[1,0,3,2][sb];return oa-ob||(t>=0?power(a,t,-1)-power(b,t,-1):ix(a)-ix(b))})};
+function deal(){const deck=[...Array(24).keys()].sort(()=>Math.random()-.5);S.dealer=(S.dealer+1)%4;S.gen++;
+  Object.assign(S,{hands:[0,1,2,3].map(i=>deck.slice(i*5,i*5+5)),up:deck[20],trump:-1,maker:-1,alone:-1,round:1,turn:(S.dealer+1)%4,phase:'bid',tricks:[0,0],trick:[],played:[],busy:false,discarding:false,active:4,passes:0});
+  S.hands.forEach(sortHand);render();nextBid()}
+function nextBid(){render();if(S.phase!=='bid')return;const p=S.turn;if(p===0&&!S.discarding)return;if(S.discarding)return;
+  const g=S.gen;S.busy=true;render();setTimeout(()=>{if(g!==S.gen)return;S.busy=false;
+    if(S.round===1){const o=cpuOrder(p);if(o)orderUp(p,o.alone);else pass(p)}
+    else{const must=p===S.dealer,o=cpuName(p,must);if(o)name(p,o.suit,o.alone);else pass(p)}},750)}
+function pass(p){S.say={p,t:'Pass'};S.passes++;if(S.passes===4&&S.round===1){S.round=2;S.passes=0}S.turn=(p+1)%4;nextBid()}
+function orderUp(p,alone){S.trump=suit(S.up);S.maker=p;S.alone=alone?p:-1;S.say={p,t:p===S.dealer?'Pick it up':'Order it up'};
+  S.hands[S.dealer].push(S.up);S.hands.forEach(sortHand);
+  if(S.dealer===0&&!(alone&&S.alone>=0&&team(S.alone)===0&&S.alone!==0)){S.discarding=true;S.busy=false;render();return}
+  if(S.dealer!==0){const d=cpuDiscard(S.dealer);S.hands[S.dealer]=S.hands[S.dealer].filter(x=>x!==d)}else{S.hands[0]=S.hands[0].filter(x=>x!==S.up)}
+  startPlay()}
+function name(p,s,alone){S.trump=s;S.maker=p;S.alone=alone?p:-1;S.say={p,t:`${SN[s][0].toUpperCase()+SN[s].slice(1)}`};S.hands.forEach(sortHand);startPlay()}
+function humanDiscard(c){if(!S.discarding)return;S.hands[0]=S.hands[0].filter(x=>x!==c);S.discarding=false;startPlay()}
+const sitsOut=p=>S.alone>=0&&p===(S.alone+2)%4;
+function startPlay(){S.phase='play';S.active=S.alone>=0?3:4;S.turn=(S.dealer+1)%4;if(sitsOut(S.turn))S.turn=(S.turn+1)%4;S.busy=false;sortHand(S.hands[0]);next()}
+function nextPlayer(p){let q=(p+1)%4;if(sitsOut(q))q=(q+1)%4;return q}
+function next(){render();if(S.phase!=='play'||S.turn===0)return;S.busy=true;const g=S.gen;
+  setTimeout(()=>{if(g!==S.gen)return;S.busy=false;play(S.turn,chooseCard(S.turn))},cfg.level==='easy'?500:650)}
+function play(p,c){if(S.phase!=='play'||p!==S.turn||!legal(p).includes(c))return;
+  S.hands[p]=S.hands[p].filter(x=>x!==c);S.trick.push({p,c});S.played.push(c);kb=-1;
+  if(S.trick.length<S.active){S.turn=nextPlayer(p);next();return}
+  const w=trickWinner(S.trick);S.turn=-1;S.busy=true;render(w);const g=S.gen;
+  setTimeout(()=>{if(g!==S.gen)return;$('trick').classList.add('take'+w);
+    setTimeout(()=>{if(g!==S.gen)return;$('trick').classList.remove('take'+w);S.tricks[team(w)]++;S.trick=[];S.busy=false;
+      if(S.tricks[0]+S.tricks[1]===5){endHand();return}S.turn=w;next()},380)},900)}
+function endHand(){const mt=team(S.maker),got=S.tricks[mt];let pts,who,why;
+  if(got>=3){who=mt;pts=got===5?(S.alone>=0?4:2):1;why=got===5?(S.alone>=0?'Alone and took all five!':'A march: all five tricks!'):`Made it with ${got} tricks.`}
+  else{who=1-mt;pts=2;why=`Euchred! The makers only took ${got}.`}
+  S.scores[who]+=pts;S.hist.push(who===0?[pts,0]:[0,pts]);S.hand++;S.phase='done';render();
+  const T=+cfg.target,over=S.scores.some(s=>s>=T);if(over){tally.played++;if(S.scores[0]>=T)tally.won++;store.set('parlor-euchre-tally',tally)}
+  const makers=mt===0?'You & North':'West & East';
+  setTimeout(()=>{$('modal').innerHTML=`<h2>${over?(S.scores[0]>=T?'You win!':'They win'):who===0?`+${pts} for you`:`+${pts} for them`}</h2><p>${makers} made ${SN[S.trump]} trump${S.alone>=0?` (${NAMES[S.alone]} went alone)`:''}. ${why}</p><p>Score: you ${S.scores[0]} · them ${S.scores[1]}</p>${over?`<p>You've won ${tally.won} of ${tally.played} games.</p>`:''}<div class="row"><button class="btn primary" id="mnext">${over?'New game':'Next hand'}</button></div>`;
+    $('overlay').hidden=false;$('mnext').focus();$('mnext').onclick=()=>{$('overlay').hidden=true;if(over)newGame();else deal()}},500)}
+
+/* ---------- drawing ---------- */
+const cardHTML=(c,cls='',attrs='')=>`<button class="card ${red(c)?'r':'k'} ${cls}" data-c="${c}" ${attrs} aria-label="${RK[ix(c)]} of ${SN[suit(c)]}"><span class="ix">${RK[ix(c)]}<i>${SUITS[suit(c)]}</i></span><span class="cc">${SUITS[suit(c)]}</span></button>`;
+function render(winner){if(!S)return;const play=S.phase==='play'&&S.turn===0&&!S.busy,opts=play?legal(0):[];
+  for(const p of [1,2,3]){const n=S.hands[p].length;
+    $('seat'+p).className=`seat ${['','west','north','east'][p]}${p===2?' partner':''}${S.turn===p?' cur':''}${S.phase==='play'&&sitsOut(p)?' out':''}`;
+    const tag=S.phase==='bid'&&S.say&&S.say.p===p?S.say.t:p===S.dealer?'dealer':'';
+    $('seat'+p).innerHTML=`<b>${NAMES[p]}</b><div class="backs">${'<i></i>'.repeat(n)}${n?`<em>×${n}</em>`:''}</div><small>${[S.phase==='play'&&sitsOut(p)?'sitting out':tag,p===S.maker&&S.phase!=='bid'?'maker':''].filter(Boolean).join(' · ')}</small>`}
+  const t=$('trick');t.querySelectorAll('.card,.up').forEach(e=>e.remove());
+  if(S.phase==='bid'&&S.round===1)t.insertAdjacentHTML('beforeend',`<div class="up">${cardHTML(S.up,'','tabindex="-1"')}<span>Turned up · ${NAMES[S.dealer]} dealt</span></div>`);
+  S.trick.forEach(x=>t.insertAdjacentHTML('beforeend',cardHTML(x.c,'p'+x.p+(winner===x.p?' win':''),'tabindex="-1"')));
+  $('cmsg').textContent=S.phase==='bid'?(S.round===2?(S.turn===0&&!S.busy?'Name a trump suit, or pass.':`${NAMES[S.turn]} is choosing…`):S.discarding?'':S.turn===0&&!S.busy?'':`${NAMES[S.turn]} is deciding…`):S.phase==='play'&&!S.trick.length&&S.turn>0?`${NAMES[S.turn]} leads…`:'';
+  const h=S.hands[0];
+  $('hand').innerHTML=h.map((c,i)=>{const ok=S.discarding||opts.includes(c)||S.phase==='bid';return cardHTML(c,`${ok?'ok':'no'}${kb===i?' kb':''}`)}).join('');
+  let bar='';
+  if(S.discarding)bar=`<span>You picked up the ${RK[ix(S.up)]}${SUITS[suit(S.up)]}. Tap a card to discard.</span>`;
+  else if(S.phase==='bid'&&S.turn===0&&!S.busy){const s=suit(S.up);
+    if(S.round===1)bar=`<button class="btn primary" id="order">${S.dealer===0?'Pick it up':'Order it up'} (${SUITS[s]})</button><button class="btn" id="passB">Pass</button><label><input type="checkbox" id="alone"> Go alone</label>`;
+    else bar=`${[0,1,2,3].filter(x=>x!==s).map(x=>`<button class="btn" data-suit="${x}">${SUITS[x]} ${SN[x]}</button>`).join('')}${S.dealer===0?'':'<button class="btn" id="passB">Pass</button>'}<label><input type="checkbox" id="alone"> Go alone</label>`}
+  else bar=`<span>${S.phase==='play'?(S.turn===0&&!S.busy?(S.trick.length?'Follow suit if you can.':'Your lead.'):S.turn>0?`${NAMES[S.turn]} is thinking…`:''):S.phase==='bid'&&S.say&&S.say.p===0?`You: ${S.say.t}`:''}</span>`;
+  if(S.trump>=0)bar+=`<span class="trumpchip">Trump <b class="${S.trump%2?'r':''}">${SUITS[S.trump]}</b></span>`;
+  $('bar').innerHTML=bar;
+  $('scores').innerHTML=`<tr><th>Hand</th><th>Us</th><th>Them</th></tr>`+S.hist.map((r,i)=>`<tr><td>${i+1}</td><td>${r[0]||''}</td><td>${r[1]||''}</td></tr>`).join('')+`<tr class="tot"><td>Total</td><td class="${S.scores[0]>S.scores[1]?'lead':''}">${S.scores[0]}</td><td class="${S.scores[1]>S.scores[0]?'lead':''}">${S.scores[1]}</td></tr>`;
+  $('taken').textContent=S.phase==='bid'?`Hand ${S.hand+1} · choosing trump · game to ${cfg.target}`:`Hand ${S.hand+1} · trump ${SN[S.trump]||'?'} · tricks: us ${S.tricks[0]}, them ${S.tricks[1]}`}
+
+/* ---------- input & settings ---------- */
+$('hand').addEventListener('click',e=>{const b=e.target.closest('.card');if(!b)return;const c=+b.dataset.c;if(S.discarding){humanDiscard(c);return}if(S.phase==='play'&&S.turn===0&&!S.busy)play(0,c)});
+$('bar').addEventListener('click',e=>{if(S.phase!=='bid'||S.turn!==0||S.busy||S.discarding)return;const al=$('alone')&&$('alone').checked;
+  if(e.target.closest('#order'))orderUp(0,al);else if(e.target.closest('#passB'))pass(0);else{const b=e.target.closest('[data-suit]');if(b)name(0,+b.dataset.suit,al)}});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!$('overlay').hidden||!S)return;const h=S.hands[0];
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();kb=kb<0?0:(kb+(e.key==='ArrowLeft'?h.length-1:1))%h.length;render();return}
+  if(e.key==='Enter'&&kb>=0&&h[kb]!=null){e.preventDefault();if(S.discarding)humanDiscard(h[kb]);else if(S.phase==='play'&&S.turn===0&&!S.busy)play(0,h[kb])}});
+window.onAppBack=()=>false;
+function sync(){$('level').value=cfg.level;$('target').value=cfg.target}
+$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-euchre',cfg)};
+$('target').onchange=e=>{cfg.target=+e.target.value;store.set('parlor-euchre',cfg);render()};
+$('newgame').onclick=()=>{if(S&&(S.hist.length||S.played.length)&&!confirm('Abandon this game and start a new one?'))return;newGame()};
+if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';if(![5,10].includes(+cfg.target))cfg.target=10;
+sync();newGame();
+</script>
+</body>
+</html>
