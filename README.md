@@ -39,6 +39,8 @@ Self-contained HTML files. No install or build step.
 - `farkle.html` — Farkle with six dice, hot dice and a scoring chart, vs computers or 2 to 6 players.
 - `nim.html` — Nim with matchsticks, vs a perfect computer or 2 players.
 - `rummy.html` — Rummy against 1 to 3 computer players.
+- `blackjack.html` — Blackjack against the dealer with a saved chip bankroll and optional strategy hints.
+- `snap.html` — Snap, a quick-reflex card game against 1 to 3 computer players.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
@@ -46,7 +48,7 @@ Open `index.html` in a browser and press **Play now** on a game. Keep all the fi
 
 Everything runs offline except the web fonts (loaded from Google Fonts); without internet the pages fall back to system fonts.
 
-Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress, Spider game, Hangman streaks, Word Tiles game, Sudoku puzzle and best times, Backgammon, Go, Five Dice and Klondike games in progress are saved in your browser's local storage.
+Favorites, the chosen library layout, your Checkers and Mancala settings and your Sweet Swap progress, Spider game, Hangman streaks, Word Tiles game, Sudoku puzzle and best times, Backgammon, Go, Five Dice and Klondike games in progress, and your Blackjack chips, are saved in your browser's local storage.
 
 The Word Tiles and Word Ladder dictionaries are built from [SCOWL](http://wordlist.aspell.net/) (via the `wordlist-english` package); its full copyright notice is at the top of `wordtiles-words.js` and `ladder-words.js`.
 
