@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ludo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: the classic cross-shaped Ludo board with four colored yards. Header with settings; the board with the dice tray right under it,
+   and a scorecard (players, wins, rules) beside it on wide screens and below on phones. Landscape phones put everything beside the board. */
+:root{
+  --bg:#f6f2e8; --fg:#24211c; --muted:#6c665b; --panel:#ffffff; --line:#e4ddcf; --chip:#f2ede3;
+  --accent:#2b5fb8; --accent-ink:#ffffff; --cell:#ffffff; --grid:#b9b2a3; --boardbg:#fbf9f3;
+  --red:#e0463a; --green:#2fa55a; --yellow:#f2b42a; --blue:#2f6fe0;
+  --die:#fffdf8; --pip:#24211c;
+  --display:"Fraunces", Georgia, serif;
+  --body:"Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14130f; --fg:#ece8df; --muted:#a69f92; --panel:#1e1c17; --line:#35312a; --chip:#29261f; --accent:#7fa9ff; --accent-ink:#0a1530; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#14130f; --fg:#ece8df; --muted:#a69f92; --panel:#1e1c17; --line:#35312a; --chip:#29261f; --accent:#7fa9ff; --accent-ink:#0a1530; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding-block:16px 36px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.back{color:var(--muted);text-decoration:none;font-weight:600;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(32px,5.5vw,48px);line-height:1;margin:4px 0 0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:46ch}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:700;min-height:40px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+@media (max-width:880px){.game{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.boardbox{width:min(100%,600px,calc(100dvh - 290px));min-width:min(100%,290px)}
+@media (max-width:880px){.boardbox{width:min(100%,600px)}}
+svg{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 14px 30px -16px rgba(40,30,10,.55);touch-action:manipulation;user-select:none;-webkit-user-select:none;outline:none}
+svg:focus-visible{box-shadow:0 0 0 4px var(--accent)}
+.c{fill:var(--cell);stroke:var(--grid);stroke-width:.04}
+.star{fill:none;stroke:#8c8473;stroke-width:.06}
+.tok{transition:transform .13s ease-in-out;cursor:default}
+.tok.can{cursor:pointer}
+.tok.can .halo{opacity:1}
+.halo{fill:none;stroke:#1d1d1d;stroke-width:.09;stroke-dasharray:.18 .12;opacity:0;animation:spin 2.4s linear infinite;transform-box:fill-box;transform-origin:center}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tok .body{stroke:rgba(0,0,0,.45);stroke-width:.05}
+.tok .ring{fill:none;stroke:#fff;stroke-width:.07;opacity:.9}
+
+.tray{width:min(100%,600px);display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px 14px;box-sizing:border-box}
+.tray .who{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:20px;line-height:1.15;flex:1;min-width:0}
+.tray .msg{font-family:var(--body);font-size:13px;color:var(--muted);font-weight:400;display:block}
+.dot{width:20px;height:20px;border-radius:50%;flex:none;box-shadow:inset -3px -3px 5px rgba(0,0,0,.25)}
+.think .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.die{width:58px;height:58px;border-radius:18%;background:var(--die);box-shadow:inset 0 -4px 0 rgba(0,0,0,.12),0 5px 9px rgba(0,0,0,.25);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:7px;box-sizing:border-box;flex:none;border:2px solid var(--line);cursor:default}
+.die.can{cursor:pointer;border-color:var(--accent);box-shadow:inset 0 -4px 0 rgba(0,0,0,.12),0 0 0 4px rgba(43,95,184,.28)}
+.die i{width:70%;aspect-ratio:1;border-radius:50%;background:var(--pip);place-self:center}
+.die.roll{animation:shake .45s ease-out}
+@keyframes shake{0%{transform:rotate(-30deg) scale(.7)}60%{transform:rotate(12deg)}100%{transform:none}}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.players{display:flex;flex-direction:column;gap:8px}
+.pl{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;font-size:14px}
+.pl .dot{width:16px;height:16px}
+.pl.now b{text-decoration:underline;text-underline-offset:3px}
+.pl small{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.pl .bar{grid-column:2/4;height:6px;border-radius:99px;background:var(--chip);overflow:hidden}
+.pl .bar i{display:block;height:100%;border-radius:99px;transition:width .3s}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.row label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13.5px}
+.tally{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:13.5px}
+.tally b{color:var(--fg)}
+details summary{cursor:pointer;font-weight:700}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:15;box-shadow:0 8px 20px rgba(0,0,0,.25);max-width:calc(100vw - 32px);text-align:center}
+.overlay{position:fixed;inset:0;background:rgba(20,16,8,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.modal h2{font-family:var(--display);font-size:32px;margin:0}
+.modal p{margin:0;color:var(--muted)}
+.modal ol{margin:0;padding-left:22px;text-align:left;color:var(--muted)}
+.modal .row{justify-content:center;margin:0}
+
+@media (max-height:520px) and (orientation:landscape){
+  .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:10px 16px;padding-block:8px 16px}
+  .game{display:contents}
+  .stage{grid-column:1;grid-row:1/3;position:sticky;top:8px;align-self:start}
+  header,.side{grid-column:2}
+  .sub{display:none} h1{font-size:28px}
+  .boardbox{width:calc(100dvh - 16px);min-width:0}
+  .tray{display:none}
+  .side>.tray2{display:flex!important}
+}
+@media (prefers-reduced-motion:reduce){.tok{transition:none}.die.roll,.halo,.think .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Ludo</h1>
+      <p class="sub">Roll a six to bring a pawn out, race it around the board and up your home column. Land on a rival to send it back to its yard.</p>
+    </div>
+    <div class="controls">
+      <select id="players" aria-label="Number of players"><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option></select>
+      <select id="humans" aria-label="People playing"></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+
+  <div class="game">
+    <section class="stage" aria-label="Board">
+      <div class="boardbox"><svg id="svg" viewBox="0 0 15 15" tabindex="0" aria-label="Ludo board. Space or R rolls; arrow keys choose a pawn and Enter moves it."></svg></div>
+      <div class="tray" id="tray"></div>
+    </section>
+
+    <aside class="side">
+      <div class="tray tray2" id="tray2" hidden></div>
+      <div class="panel">
+        <p class="label">Pawns home</p>
+        <div class="players" id="plist"></div>
+        <div class="row"><label><input type="checkbox" id="auto" checked> Move automatically when there's only one choice</label><label><input type="checkbox" id="fast"> Fast computer turns</label></div>
+      </div>
+      <div class="panel">
+        <p class="label">Wins this session</p>
+        <div class="tally" id="tally"></div>
+      </div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Each player has four pawns waiting in their yard. Roll a 6 to move a pawn out onto your colored start square.</li>
+            <li>Pawns travel clockwise once around the board, then turn up their own colored home column to the center. You need the exact roll to finish.</li>
+            <li>Land on a rival's pawn to send it back to its yard. Pawns on a start square or a star square are safe and can share it.</li>
+            <li>Rolling a 6, capturing a pawn, or getting a pawn home earns another roll. Three 6s in a row lose the turn.</li>
+            <li>The first player with all four pawns home wins.</li>
+            <li>Keyboard: Space or R rolls, arrows choose a pawn, Enter moves it.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+
+<script>
+/* ---------- board geometry ---------- */
+// The 52-square loop, clockwise, as [row, col] on a 15×15 grid. Color k starts at loop square 1 + 13k and enters its home column after 50 steps.
+const LOOP=[];
+for(let c=0;c<=5;c++)LOOP.push([6,c]);for(let r=5;r>=0;r--)LOOP.push([r,6]);LOOP.push([0,7]);
+for(let r=0;r<=5;r++)LOOP.push([r,8]);for(let c=9;c<=14;c++)LOOP.push([6,c]);LOOP.push([7,14]);
+for(let c=14;c>=9;c--)LOOP.push([8,c]);for(let r=9;r<=14;r++)LOOP.push([r,8]);LOOP.push([14,7]);
+for(let r=14;r>=9;r--)LOOP.push([r,6]);for(let c=5;c>=0;c--)LOOP.push([8,c]);LOOP.push([7,0]);
+// Colors by yard: 0 top-left, 1 top-right, 2 bottom-right, 3 bottom-left. Play goes clockwise, starting with bottom-left.
+const COL=[['#2fa55a','Green'],['#f2b42a','Yellow'],['#2f6fe0','Blue'],['#e0463a','Red']];
+const HOMECOL=[[...Array(5)].map((_,i)=>[7,1+i]),[...Array(5)].map((_,i)=>[1+i,7]),[...Array(5)].map((_,i)=>[7,13-i]),[...Array(5)].map((_,i)=>[13-i,7])];
+const YARD=[[0,0],[0,9],[9,9],[9,0]];
+const START=k=>1+13*k;
+const SAFE=new Set([1,14,27,40,9,22,35,48]);
+const SEATS={2:[3,1],3:[3,0,1],4:[3,0,1,2]};
+const FINISH=56;
+const loopIdx=(k,p)=>(START(k)+p)%52;
+
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({players:4,humans:1,level:'medium',auto:true,fast:false},store.get('parlor-ludo',{}));
+const wins={};
+let S=null,kbPos=0,kb=false,toastT=0;
+
+/* ---------- rules ---------- */
+const canMove=(p,d)=>p<0?d===6:p+d<=FINISH;
+function legal(pl,d){return S.tok[pl].map((p,i)=>canMove(p,d)?i:-1).filter(i=>i>=0)}
+const newPos=(p,d)=>p<0?0:p+d;
+// Who would be knocked out by moving to rel position np? Returns [{pl,i}] (only on the loop, and never on safe squares).
+function victims(pl,np){if(np>50)return[];const k=S.seats[pl],li=loopIdx(k,np);if(SAFE.has(li))return[];const out=[];
+  S.tok.forEach((ts,o)=>{if(o===pl)return;const ko=S.seats[o];ts.forEach((p,i)=>{if(p>=0&&p<=50&&loopIdx(ko,p)===li)out.push({pl:o,i})})});return out}
+// How many rival pawns sit 1 to 6 squares behind loop square li (so could land on it next roll)?
+function threats(pl,li){if(SAFE.has(li))return 0;let n=0;
+  S.tok.forEach((ts,o)=>{if(o===pl)return;const ko=S.seats[o];ts.forEach(p=>{if(p<0){if(loopIdx(ko,0)===li)n+=.35;return}if(p>50)return;
+    for(let d=1;d<=6;d++)if(p+d<=50&&loopIdx(ko,p+d)===li){n+=1;break}})});return n}
+
+/* ---------- computer ---------- */
+function score(pl,i,d){const k=S.seats[pl],p=S.tok[pl][i],np=newPos(p,d);let v=0;
+  if(np===FINISH)v+=110;
+  if(p<0)v+=70;
+  const vic=victims(pl,np);for(const x of vic)v+=90+S.tok[x.pl][x.i]*1.2;
+  if(np>50&&p<=50)v+=40;
+  const li=np<=50?loopIdx(k,np):-1;
+  if(li>=0&&SAFE.has(li))v+=18;
+  if(p>=0&&p<=50){const t=threats(pl,loopIdx(k,p));v+=t*(20+p*.6)}// escaping danger is worth more the further the pawn has come
+  if(li>=0){const t=threats(pl,li);v-=t*(cfg.level==='hard'?(28+np*.8):22)}
+  v+=np*.25;
+  return v}
+function choose(pl,d,ms){if(cfg.level==='easy'&&Math.random()<.55)return ms[rand(ms.length)];
+  const sc=ms.map(i=>({i,v:score(pl,i,d)+(cfg.level==='medium'?Math.random()*14:Math.random())}));sc.sort((a,b)=>b.v-a.v);return sc[0].i}
+
+/* ---------- game flow ---------- */
+const isCpu=pl=>pl>=S.humans;
+const nameOf=pl=>S.humans===1?(pl===0?'You':`Computer ${COL[S.seats[pl]][1]}`):(isCpu(pl)?`Computer ${COL[S.seats[pl]][1]}`:COL[S.seats[pl]][1]);
+const colorOf=pl=>COL[S.seats[pl]][0];
+const delay=ms=>cfg.fast&&isCpu(S.turn)?Math.min(ms,120):ms;
+function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function newGame(){$('overlay').hidden=true;const n=+cfg.players;
+  S={n,seats:SEATS[n],humans:Math.min(+cfg.humans,n),tok:[...Array(n)].map(()=>[-1,-1,-1,-1]),turn:0,phase:'roll',die:0,sixes:0,busy:false,over:null,msg:'',rolled:false,gen:(S?S.gen:0)+1,last:null};
+  for(let pl=0;pl<n;pl++)if(wins[pl]===undefined)wins[pl]=0;
+  build();startTurn()}
+function startTurn(){S.phase='roll';render();if(isCpu(S.turn)){const g=S.gen;setTimeout(()=>{if(g===S.gen)roll()},delay(650))}}
+function roll(){if(S.over||S.busy||S.phase!=='roll')return;const g=S.gen;
+  S.die=1+rand(6);S.rolled=true;S.anim=true;
+  if(S.die===6)S.sixes++;else S.sixes=0;
+  if(S.sixes===3){S.msg='Three 6s in a row: turn lost.';S.sixes=0;S.phase='wait';render();S.anim=false;setTimeout(()=>{if(g===S.gen)endTurn(false)},delay(1100));return}
+  const ms=legal(S.turn,S.die);
+  if(!ms.length){S.msg=S.die===6?'No move. Roll again.':`No move with a ${S.die}.`;S.phase='wait';render();S.anim=false;
+    setTimeout(()=>{if(g===S.gen)endTurn(S.die===6)},delay(1000));return}
+  S.phase='move';S.msg='';render();S.anim=false;
+  // Pawns still in the yard are interchangeable, so they count as one choice.
+  const distinct=new Set(ms.map(i=>S.tok[S.turn][i]));
+  if(isCpu(S.turn)){setTimeout(()=>{if(g===S.gen)move(choose(S.turn,S.die,ms))},delay(600))}
+  else if(cfg.auto&&distinct.size===1)setTimeout(()=>{if(g===S.gen&&S.phase==='move')move(ms[0])},450)}
+function move(i){if(S.phase!=='move'||S.busy)return;const pl=S.turn,d=S.die,p=S.tok[pl][i];if(!canMove(p,d))return;
+  const g=S.gen,np=newPos(p,d);S.busy=true;S.phase='anim';kbPos=0;
+  const steps=p<0?[0]:[...Array(d)].map((_,k)=>p+k+1);
+  let k=0;const walk=()=>{if(g!==S.gen)return;if(k<steps.length){S.tok[pl][i]=steps[k++];renderTokens();setTimeout(walk,delay(140));return}
+    const vic=victims(pl,np);for(const x of vic)S.tok[x.pl][x.i]=-1;
+    S.last={pl,i};S.busy=false;
+    let bonus=d===6,why='';
+    if(vic.length){bonus=true;why=`${nameOf(pl)} sent ${vic.map(x=>nameOf(x.pl)).filter((v,j,a)=>a.indexOf(v)===j).join(' and ')} back to the yard!`}
+    if(np===FINISH){bonus=true;why=why||`${nameOf(pl)} got a pawn home!`}
+    if(why)toast(why);
+    if(S.tok[pl].every(q=>q===FINISH)){finish(pl);return}
+    render();setTimeout(()=>{if(g===S.gen)endTurn(bonus)},delay(vic.length?500:200))};
+  walk()}
+function endTurn(again){S.msg='';if(!again){S.sixes=0;S.rolled=false;S.turn=(S.turn+1)%S.n}else S.msg=S.die===6?'Rolled a 6: roll again.':'Bonus roll!';startTurn()}
+function finish(w){S.over={w};S.phase='over';wins[w]=(wins[w]||0)+1;render();
+  const prog=pl=>S.tok[pl].reduce((a,p)=>a+Math.max(0,p+1),0);
+  const rank=[...Array(S.n).keys()].sort((a,b)=>prog(b)-prog(a));
+  setTimeout(()=>{if(!S.over)return;$('modal').innerHTML=`<h2>${S.humans===1&&w===0?'You win!':nameOf(w)+' wins'}</h2><p>All four pawns made it home.</p>${S.n>2?`<ol>${rank.map(pl=>`<li>${nameOf(pl)}: ${S.tok[pl].filter(p=>p===FINISH).length} home</li>`).join('')}</ol>`:''}<div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+    $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame},900)}
+
+/* ---------- drawing ---------- */
+function cellXY(pl,p,i){const k=S.seats[pl];
+  if(p<0){const[y0,x0]=YARD[k];const slot=[[1.9,1.9],[1.9,4.1],[4.1,1.9],[4.1,4.1]][i];return[x0+slot[1],y0+slot[0]]}
+  if(p<=50){const[r,c]=LOOP[loopIdx(k,p)];return[c+.5,r+.5]}
+  if(p<FINISH){const[r,c]=HOMECOL[k][p-51];return[c+.5,r+.5]}
+  const ctr=[[6.85,7.5],[7.5,6.85],[8.15,7.5],[7.5,8.15]][k];const off=(i-1.5)*.28;return k%2?[ctr[0]+off,ctr[1]]:[ctr[0],ctr[1]+off]}
+function build(){let s='<defs>';
+  COL.forEach(([c],k)=>{s+=`<radialGradient id="g${k}" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".3" stop-color="${c}"/><stop offset="1" stop-color="${c}"/></radialGradient>`});
+  s+=`</defs><rect width="15" height="15" fill="var(--boardbg)"/>`;
+  // yards
+  COL.forEach(([c],k)=>{const[y,x]=YARD[k];s+=`<rect x="${x}" y="${y}" width="6" height="6" fill="${c}"/><rect x="${x+.8}" y="${y+.8}" width="4.4" height="4.4" rx=".5" fill="#fff"/>`;
+    for(const[a,b]of[[1.9,1.9],[1.9,4.1],[4.1,1.9],[4.1,4.1]])s+=`<circle cx="${x+b}" cy="${y+a}" r=".62" fill="${c}" opacity=".28"/>`});
+  // loop squares
+  LOOP.forEach(([r,c],li)=>{const st=[1,14,27,40].indexOf(li);s+=`<rect class="c" x="${c}" y="${r}" width="1" height="1"${st>=0?` style="fill:${COL[st][0]}"`:''}/>`;
+    if(SAFE.has(li)&&st<0)s+=starPath(c+.5,r+.5);if(st>=0)s+=starPath(c+.5,r+.5,'fill:#fff;stroke:none;opacity:.9')});
+  HOMECOL.forEach((cells,k)=>cells.forEach(([r,c])=>{s+=`<rect class="c" x="${c}" y="${r}" width="1" height="1" style="fill:${COL[k][0]}"/>`}));
+  // center triangles point into each color's home column
+  s+=`<polygon points="6,6 6,9 7.5,7.5" fill="${COL[0][0]}"/><polygon points="6,6 9,6 7.5,7.5" fill="${COL[1][0]}"/><polygon points="9,6 9,9 7.5,7.5" fill="${COL[2][0]}"/><polygon points="6,9 9,9 7.5,7.5" fill="${COL[3][0]}"/>`;
+  s+=`<rect x="6" y="6" width="3" height="3" fill="none" stroke="var(--grid)" stroke-width=".04"/><g id="toks"></g>`;
+  $('svg').innerHTML=s;
+  let t='';for(let pl=0;pl<S.n;pl++)for(let i=0;i<4;i++)t+=`<g class="tok" id="t${pl}_${i}" data-pl="${pl}" data-i="${i}"><circle class="halo" r=".5"/><circle class="body" r=".36" fill="url(#g${S.seats[pl]})"/><circle class="ring" r=".2"/><circle class="hitarea" r=".55" fill="transparent"/></g>`;
+  $('toks').innerHTML=t}
+function starPath(x,y,style){let d='';for(let k=0;k<10;k++){const a=-Math.PI/2+k*Math.PI/5,r=k%2?.15:.36;d+=(k?'L':'M')+(x+r*Math.cos(a)).toFixed(3)+' '+(y+r*Math.sin(a)).toFixed(3)}return `<path class="star" d="${d}Z"${style?` style="${style}"`:''}/>`}
+function renderTokens(){const groups=new Map();
+  for(let pl=0;pl<S.n;pl++)for(let i=0;i<4;i++){const p=S.tok[pl][i];if(p<0||p===FINISH)continue;const[x,y]=cellXY(pl,p,i),key=x+','+y;if(!groups.has(key))groups.set(key,[]);groups.get(key).push([pl,i])}
+  const me=S.phase==='move'&&!S.busy&&!isCpu(S.turn),can=me?new Set(legal(S.turn,S.die)):new Set(),cur=kb&&me?kbChoices()[kbPos%Math.max(1,kbChoices().length)]:-1;
+  for(let pl=0;pl<S.n;pl++)for(let i=0;i<4;i++){const el=$(`t${pl}_${i}`),p=S.tok[pl][i];let[x,y]=cellXY(pl,p,i),sc=1;
+    if(p>=0&&p<FINISH){const gr=groups.get(x+','+y);if(gr&&gr.length>1){const j=gr.findIndex(t=>t[0]===pl&&t[1]===i),n=gr.length,a=j/n*Math.PI*2;x+=Math.cos(a)*.2;y+=Math.sin(a)*.2;sc=.72}}
+    if(p===FINISH)sc=.5;
+    el.style.transform=`translate(${x}px,${y}px) scale(${sc})`;
+    const cls='tok'+(pl===S.turn&&can.has(i)?' can':'');el.setAttribute('class',cls);
+    el.querySelector('.halo').style.stroke=pl===S.turn&&cur===i?'#2f6fe0':'';
+    if(pl===S.turn&&can.has(i))$('toks').appendChild(el)}}
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function trayHTML(){const pl=S.turn,me=!isCpu(pl)&&!S.over;
+  const canRoll=me&&S.phase==='roll'&&!S.busy;
+  const msg=S.over?'Game over.':S.msg?S.msg:isCpu(pl)?(S.phase==='roll'?'Rolling…':'Thinking…'):S.phase==='roll'?'Tap the die to roll.':S.phase==='move'?`You rolled ${S.die}. Tap a pawn with a dashed ring.`:'';
+  const head=S.over?`${nameOf(S.over.w)} ${S.humans===1&&S.over.w===0?'win':'wins'}`:S.humans===1&&pl===0?'Your turn':`${nameOf(pl)}`;
+  const v=S.rolled?S.die:0;
+  return `<div class="who${isCpu(pl)&&!S.over?' think':''}"><span class="dot" style="background:${colorOf(S.over?S.over.w:pl)}"></span><span>${head}<span class="msg">${msg}</span></span></div>
+    <button class="die${canRoll?' can':''}${S.anim&&v?' roll':''}" id="die" aria-label="${canRoll?'Roll the die':v?'Rolled '+v:'Die'}"${canRoll?'':' disabled'}>${[...Array(9)].map((_,k)=>v&&PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</button>`}
+function render(){if(!S)return;renderTokens();
+  const h=trayHTML();$('tray').innerHTML=h;$('tray2').innerHTML=h.replace('id="die"','id="die2"');
+  $('plist').innerHTML=[...Array(S.n).keys()].map(pl=>{const home=S.tok[pl].filter(p=>p===FINISH).length,pr=S.tok[pl].reduce((a,p)=>a+Math.max(0,p+1),0);
+    return `<div class="pl${pl===S.turn&&!S.over?' now':''}"><span class="dot" style="background:${colorOf(pl)}"></span><b>${nameOf(pl)}</b><small>${home}/4</small><span class="bar"><i style="width:${(100*pr/228).toFixed(0)}%;background:${colorOf(pl)}"></i></span></div>`}).join('');
+  $('tally').innerHTML=[...Array(S.n).keys()].map(pl=>`<span>${nameOf(pl)} <b>${wins[pl]||0}</b></span>`).join('')}
+
+/* ---------- input & settings ---------- */
+function kbChoices(){if(!S||S.phase!=='move'||isCpu(S.turn))return[];return legal(S.turn,S.die)}
+$('svg').addEventListener('click',e=>{const t=e.target.closest('.tok');if(!t||+t.dataset.pl!==S.turn||isCpu(S.turn))return;kb=false;move(+t.dataset.i)});
+document.addEventListener('click',e=>{if(e.target.closest('#die,#die2'))roll()});
+$('svg').addEventListener('keydown',e=>{const ch=kbChoices();
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)&&ch.length){e.preventDefault();kb=true;kbPos=(kbPos+(e.key==='ArrowRight'||e.key==='ArrowDown'?1:ch.length-1))%ch.length;renderTokens()}
+  else if(e.key==='Enter'&&ch.length){e.preventDefault();move(ch[kbPos%ch.length])}});
+$('svg').addEventListener('focus',()=>{kb=true;renderTokens()});$('svg').addEventListener('blur',()=>{kb=false;renderTokens()});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;
+  if(e.key==='Escape'&&!$('overlay').hidden){$('overlay').hidden=true;return}
+  if((e.key===' '||e.key==='r'||e.key==='R')&&S&&S.phase==='roll'&&!isCpu(S.turn)&&$('overlay').hidden){e.preventDefault();roll()}});
+window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
+function fillHumans(){const n=+cfg.players;$('humans').innerHTML=[...Array(n).keys()].map(k=>{const h=k+1;return `<option value="${h}">${h===1?'You vs computers':h===n?`${h} people, no computer`:`${h} people + ${n-h} computer${n-h>1?'s':''}`}</option>`}).join('');
+  if(+cfg.humans>n)cfg.humans=n;$('humans').value=cfg.humans}
+function sync(){$('players').value=cfg.players;fillHumans();$('level').value=cfg.level;$('auto').checked=cfg.auto;$('fast').checked=cfg.fast;$('level').hidden=+cfg.humans>=+cfg.players}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-ludo',cfg);sync();if(restart){for(const w in wins)delete wins[w];newGame()}else render()}
+$('players').onchange=e=>setCfg('players',+e.target.value,true);
+$('humans').onchange=e=>setCfg('humans',+e.target.value,true);
+$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('auto').onchange=e=>setCfg('auto',e.target.checked,false);
+$('fast').onchange=e=>setCfg('fast',e.target.checked,false);
+$('newgame').onclick=newGame;
+if(!SEATS[cfg.players])cfg.players=4;cfg.players=+cfg.players;cfg.humans=Math.max(1,Math.min(+cfg.humans||1,cfg.players));if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';
+sync();newGame();
+</script>
+</body>
+</html>

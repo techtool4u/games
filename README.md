@@ -45,6 +45,8 @@ Self-contained HTML files. No install or build step.
 - `shogi.html` — Shogi (Japanese chess) with drops and promotion, vs the computer (easy / medium / hard) or 2 players; unfinished games are saved.
 - `xiangqi.html` — Xiangqi (Chinese chess), vs the computer (easy / medium / hard) or 2 players; unfinished games are saved.
 - `star-checkers.html` — Star Checkers (Chinese checkers) for 2, 3, 4 or 6 players, any mix of people and computers.
+- `ludo.html` — Ludo for 2 to 4 players (people or computers at three levels), with captures, safe squares and bonus rolls.
+- `snakes-and-ladders.html` — Snakes and Ladders on three boards for 2 to 4 players, people or computers.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
