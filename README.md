@@ -27,7 +27,7 @@ Self-contained HTML files. No install or build step.
 - `sudoku.html` — Sudoku on 9×9, 12×12 or 16×16 grids with Easy, Medium, Hard and Expert puzzles (each has one solution), notes, hints and best times.
 - `mine-sweep.html` — Mine Sweep with three board sizes and optional no-guess boards.
 - `sliding-fifteen.html` — Sliding Fifteen in 3×3, 4×4 or 5×5.
-- `memory-match.html` — Memory Match, solo, 2 to 4 players or vs the computer.
+- `memory-match.html` — Memory Match, solo, 2 to 4 players, vs the computer, or online between two devices.
 - `snake.html` — Snake with three speeds and solid or wrap-around walls.
 - `block-drop.html` — Block Drop, a falling-blocks line clearer with hold and next pieces.
 - `merge-tiles.html` — Merge Tiles, slide and merge numbers toward 2048.
@@ -81,3 +81,13 @@ The same pages are packaged as an Android app with [Capacitor](https://capacitor
 - **Signing:** without secrets each build is signed with a throwaway debug key, so installing a newer APK may require uninstalling the old one first. To sign every build with the same key, create one (`keytool -genkeypair -v -keystore app.keystore -alias gameparlor -keyalg RSA -keysize 2048 -validity 10000`) and add the repository secrets `ANDROID_KEYSTORE_BASE64` (`base64 -w0 app.keystore`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`. Keep that key safe and never commit it.
 - **Build locally:** install Node 22, JDK 21 and Android Studio (for the SDK), then run `npm ci && npm run apk`. The APK lands in `android/app/build/outputs/apk/debug/`.
 - **Icon:** `app-shell/icon.svg`. After changing it, regenerate the PNGs with `node scripts/make-icons.cjs` (needs Playwright).
+
+## Online play (device to device)
+
+`p2p.js` connects two devices directly with a WebRTC data channel; there is no game server. Players pair once by swapping two short codes, shown as QR codes or copied and shared. A public STUN server (Google's) is used only to discover each device's internet address and never sees game data; on the same Wi-Fi no outside server is needed. Some strict mobile or office networks block direct connections, and those can't connect without a relay server.
+
+The host's device runs the game and sends the table after every change; the guest's device sends its moves. Memory Match is the first game with online play.
+
+- `p2p.js` — the connection and the pairing dialog.
+- `qrcode.js` — QR code generator by Kazuhiko Arase (MIT license).
+- `jsqr.js` — QR code reader, jsQR by Cosmo Wolfe (Apache License 2.0, included in the file), loaded only when scanning.
