@@ -95,6 +95,12 @@ details summary{cursor:pointer;font-weight:700}
 details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
 
 .overlay{position:fixed;inset:0;background:rgba(20,12,6,.6);display:grid;place-items:center;padding:16px;z-index:20}
+.netbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--chip);border:1px solid var(--line);border-radius:14px;padding:8px 12px;font-size:14px}
+.netbar .dot{width:10px;height:10px;border-radius:50%;background:#2bb36a;flex:none}
+.netbar.off .dot{background:#c62b2b}
+.netbar span{flex:1;min-width:0}
+.netbar .btn{min-height:34px;padding:5px 12px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:30;max-width:calc(100vw - 32px);text-align:center}
 .modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
 .modal h2{font-family:var(--display);font-weight:900;font-size:32px;margin:0}
 .modal p{margin:0;color:var(--muted)}
@@ -123,7 +129,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
       <p class="sub">Play the computer at four levels, from friendly Easy to a tough Expert, or a friend on the same device.</p>
     </div>
     <div class="controls">
-      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option><option value="expert">Expert</option></select>
       <select id="color" aria-label="Your pieces"><option value="w">Play white</option><option value="b">Play black</option><option value="r">Random color</option></select>
       <button class="btn primary" id="newgame">New game</button>
@@ -142,6 +148,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
     </section>
 
     <aside class="side">
+      <div class="netbar" id="netbar" hidden></div>
       <div class="panel" aria-live="polite">
         <div class="status" id="status"><span class="kdot w" id="sdot"></span><span id="stext">White to move</span></div>
         <p class="note" id="note"></p>
@@ -149,6 +156,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
           <button class="btn" id="undo">Undo</button>
           <button class="btn" id="hint">Hint</button>
           <button class="btn" id="flip">Flip board</button>
+          <button class="btn" id="resign" hidden>Resign</button>
         </div>
       </div>
       <div class="panel">
@@ -170,6 +178,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
             <li>Levels: <b>Easy</b> makes beginner mistakes, <b>Medium</b> plays sensibly, <b>Hard</b> calculates a few moves deep, <b>Expert</b> thinks longer and knows some openings.</li>
             <li>Undo takes back your last move (and the computer's reply). Hint shows a good move for you.</li>
             <li>An unfinished game is saved, so you can come back to it.</li>
+            <li><b>Online:</b> play a friend on another phone or computer, connected directly with no game server. One of you hosts and the other joins by scanning a QR code or pasting a code. Colors swap each game; Undo and Hint are off, and you can resign. If the connection drops, connect again and the game carries on.</li>
             <li>Keyboard: arrows move the blue box, Enter picks a piece and its destination, U undoes, F flips.</li>
           </ul>
         </details>
@@ -178,6 +187,9 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
   </div>
 </div>
 <div class="overlay" id="overlay" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 
 <script>
 // The whole rules engine and computer player live in this one function so the same code can run on the page
@@ -388,14 +400,18 @@ const NAME={w:'White',b:'Black'};
 const colorOf=s=>s>0?'w':'b';
 const isCpuTurn=()=>G&&cfg.mode==='cpu'&&colorOf(E.side)!==G.human&&!G.over;
 function newGame(fromSave){
+  if(cfg.mode==='net'&&!online()&&!fromSave){$('overlay').hidden=true;goOnline();return}
+  if(online()&&NET.role==='guest'&&!fromSave){NET.link.send({t:'again'});toast('Asked the host for a new game.');return}
   $('overlay').hidden=true;reqId++;pending=false;hintMove=null;sel=-1;
-  const human=fromSave?fromSave.human:(cfg.color==='r'?(Math.random()<.5?'w':'b'):cfg.color);
+  const human=fromSave?fromSave.human:online()?(NET.games++%2?'b':'w'):(cfg.color==='r'?(Math.random()<.5?'w':'b'):cfg.color);
   G={moves:[],sans:[],human,over:null,last:null};E.load(E.START);
-  flip=cfg.mode==='cpu'&&human==='b';buildSquares();
+  flip=(cfg.mode==='cpu'||cfg.mode==='net')&&human==='b';buildSquares();
   if(fromSave)for(const u of fromSave.moves){const m=E.fromUci(u);if(!m)break;G.sans.push(E.san(m));E.make(m);G.moves.push(u);G.last=[E.FROM(m),E.TO(m)]}
-  syncPieces();checkEnd();save();render();maybeCpu()}
+  syncPieces();checkEnd();save();render();maybeCpu();
+  if(online()){G.net=true;if(NET.role==='host'&&!fromSave)NET.link.send({t:'start',host:human})}}
 function maybeCpu(){if(isCpuTurn()&&!pending){const L=LEVELS[cfg.level];setTimeout(()=>{if(isCpuTurn()&&!pending)ask({depth:L.depth,ms:L.ms,noise:L.noise,random:L.random,book:L.book},'move')},G.moves.length?150:500)}}
-function play(m,animate){
+function play(m,animate,remote){
+  if(online()&&!remote)NET.link.send({t:'move',u:E.toUci(m),n:G.moves.length});
   const from=E.FROM(m),to=E.TO(m),fl=E.FL(m),pr=E.PR(m),mover=E.board[from];
   const s=E.san(m);E.make(m);G.moves.push(E.toUci(m));G.sans.push(s);G.last=[from,to];sel=-1;hintMove=null;
   movePieceEls(from,to,fl,pr,mover);checkEnd();save();render();
@@ -403,7 +419,7 @@ function play(m,animate){
 function checkEnd(){const st=E.status();if(!st)return;
   if(st==='checkmate')G.over={result:-E.side,why:'Checkmate'};else G.over={result:0,why:{stalemate:'Stalemate',fifty:'50-move rule',repetition:'Threefold repetition',insufficient:'Not enough material to checkmate'}[st]}}
 function showEnd(){if(!G.over)return;const r=G.over.result;let title;
-  if(r===0)title='Draw';else if(cfg.mode==='cpu')title=colorOf(r)===G.human?'You win!':'Computer wins';else title=NAME[colorOf(r)]+' wins';
+  if(r===0)title='Draw';else if(cfg.mode==='cpu')title=colorOf(r)===G.human?'You win!':'Computer wins';else if(cfg.mode==='net')title=colorOf(r)===G.human?'You win!':'Your friend wins';else title=NAME[colorOf(r)]+' wins';
   $('modal').innerHTML=`<h2>${title}</h2><p>${G.over.why}${r?` · ${NAME[colorOf(r)]} won`:''} after ${Math.ceil(G.moves.length/2)} moves${cfg.mode==='cpu'?` on ${LEVELS[cfg.level].label}`:''}.</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">New game</button></div>`;
   $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=()=>newGame()}
 // Undo takes back moves until it is the human's turn again (in 2-player mode, just the last move).
@@ -413,7 +429,7 @@ function undo(){if(!G.moves.length)return;
   if(cfg.mode==='two')pop();else do pop();while(G.moves.length&&colorOf(E.side)!==G.human);
   const l=G.moves[G.moves.length-1];G.last=l?[sqIdx(l.slice(0,2)),sqIdx(l.slice(2,4))]:null;
   syncPieces();save();render();maybeCpu()}
-function save(){if(!G)return;if(G.over||!G.moves.length){store.del('parlor-chess-game');return}store.set('parlor-chess-game',{moves:G.moves,human:G.human,mode:cfg.mode,level:cfg.level})}
+function save(){if(!G||cfg.mode==='net')return;if(G.over||!G.moves.length){store.del('parlor-chess-game');return}store.set('parlor-chess-game',{moves:G.moves,human:G.human,mode:cfg.mode,level:cfg.level})}
 
 /* ---------- board rendering ---------- */
 const pos=sq=>{const f=sq&7,r=sq>>4;return flip?[7-f,r]:[f,7-r]};// [col,row] on screen
@@ -430,7 +446,7 @@ function movePieceEls(from,to,fl,pr,mover){
   const el=els.get(from);els.delete(from);if(el){el.classList.remove('drag');el.style.transform=tr(to);els.set(to,el);if(pr){const np=pr*(mover>0?1:-1);el.dataset.p=np;el.innerHTML=pieceSVG(np)}}
   if(fl===4){const rf=to===6?7:to===2?0:to===118?119:112,rt=to===6?5:to===2?3:to===118?117:115;const r=els.get(rf);els.delete(rf);if(r){r.style.transform=tr(rt);els.set(rt,r)}}}
 function legalFrom(sq){return E.legal().filter(m=>E.FROM(m)===sq)}
-function canMove(){return G&&!G.over&&!pending&&(cfg.mode==='two'||colorOf(E.side)===G.human)}
+function canMove(){if(cfg.mode==='net')return online()&&G&&!G.over&&!pending&&colorOf(E.side)===G.human;return G&&!G.over&&!pending&&(cfg.mode==='two'||colorOf(E.side)===G.human)}
 function render(){if(!G)return;
   const marks=[];const mk=(sq,cls)=>{const[c,r]=pos(sq);marks.push(`<div class="mk ${cls}" style="left:${c*12.5}%;top:${r*12.5}%"></div>`)};
   if(G.last)G.last.forEach(s=>mk(s,'last'));
@@ -443,7 +459,8 @@ function render(){if(!G)return;
   $('sdot').className='kdot '+(G.over?(G.over.result>0?'w':G.over.result<0?'b':turn):turn);
   $('status').classList.toggle('think',!!pending);
   let t,note='';
-  if(G.over){const r=G.over.result;t=r===0?'Draw':cfg.mode==='cpu'?(colorOf(r)===G.human?'You win':'Computer wins'):NAME[colorOf(r)]+' wins';note=G.over.why+'.'}
+  if(G.over){const r=G.over.result;t=r===0?'Draw':cfg.mode==='cpu'?(colorOf(r)===G.human?'You win':'Computer wins'):cfg.mode==='net'?(colorOf(r)===G.human?'You win':'Your friend wins'):NAME[colorOf(r)]+' wins';note=G.over.why+'.'}
+  else if(cfg.mode==='net'){t=!online()?'Not connected':turn===G.human?'Your move':"Friend's move";note=online()?`You play ${NAME[G.human].toLowerCase()}.`:'Connect to a friend to play.'}
   else if(think){t='Computer is thinking…';note=`${LEVELS[cfg.level].label} plays ${NAME[turn].toLowerCase()}.`}
   else{t=cfg.mode==='cpu'?'Your move':NAME[turn]+' to move';note=pending&&pending.kind==='hint'?'Looking for a good move…':hintMove?`Hint: ${hintSan()}`:cfg.mode==='cpu'?`You play ${NAME[G.human].toLowerCase()}.`:''}
   if(!G.over&&E.inCheck()){note='Check! '+note;}
@@ -452,13 +469,17 @@ function render(){if(!G)return;
   const start={1:8,2:2,3:2,4:2,5:1},cnt={};for(let s=0;s<128;s++){if(s&0x88){s+=7;continue}const p=E.board[s];if(p)cnt[p]=(cnt[p]||0)+1}
   const caps=c=>{let h='',mat=0;for(const t of [5,4,3,2,1]){const n=Math.max(0,start[t]-(cnt[-c*t]||0));for(let i=0;i<n;i++)h+=pieceSVG(-c*t);mat+=n*[0,1,3,3,5,9][t]}return[h,mat]};
   const [wc,wm]=caps(1),[bc,bmat]=caps(-1),lead=wm-bmat;
-  const row=c=>{const me=c===1?[wc,lead]:[bc,-lead];const who=cfg.mode==='cpu'?(colorOf(c)===G.human?'You':`Computer · ${LEVELS[cfg.level].label}`):NAME[colorOf(c)];
+  const row=c=>{const me=c===1?[wc,lead]:[bc,-lead];const who=cfg.mode==='cpu'?(colorOf(c)===G.human?'You':`Computer · ${LEVELS[cfg.level].label}`):cfg.mode==='net'?(colorOf(c)===G.human?'You':'Friend'):NAME[colorOf(c)];
     return `<span class="kdot ${colorOf(c)}"></span><b>${who}</b><span class="caps">${me[0]}${me[1]>0?`<span class="adv">+${me[1]}</span>`:''}</span>`};
   const bottom=flip?-1:1;$('pBot').innerHTML=row(bottom);$('pTop').innerHTML=row(-bottom);
   let ml='';for(let i=0;i<G.sans.length;i+=2)ml+=`<li class="n">${i/2+1}.</li><li${i===G.sans.length-1?' class="now"':''}>${G.sans[i]}</li><li${i+1===G.sans.length-1?' class="now"':''}>${G.sans[i+1]||''}</li>`;
   $('moves').innerHTML=ml;$('movesEmpty').hidden=G.sans.length>0;$('moves').scrollTop=1e5;
   $('undo').disabled=!G.moves.length||(cfg.mode==='cpu'&&G.moves.length===1&&G.human==='b');
-  $('hint').disabled=!canMove()}
+  $('hint').disabled=!canMove();
+  const net=cfg.mode==='net';$('undo').hidden=$('hint').hidden=net;$('resign').hidden=!net||!online()||!!G.over;
+  const nb=$('netbar');nb.hidden=!net;if(net){nb.className='netbar'+(online()?'':' off');
+    nb.innerHTML=`<i class="dot"></i><span>${online()?(NET.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}</span>${online()?'<button class="btn" id="leave">Leave</button>':'<button class="btn primary" id="reconnect">Connect</button>'}`;
+    const lv=$('leave');if(lv)lv.onclick=leaveOnline;const rc=$('reconnect');if(rc)rc.onclick=goOnline}}
 const sqIdx=a=>(a.charCodeAt(0)-97)+(+a[1]-1)*16;
 function hintSan(){const m=E.fromUci(hintMove);return m?E.san(m):hintMove}
 
@@ -501,7 +522,33 @@ $('mode').onchange=e=>setCfg('mode',e.target.value,true);
 $('level').onchange=e=>setCfg('level',e.target.value,false);
 $('color').onchange=e=>setCfg('color',e.target.value,true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('overlay').hidden&&!$('modal').querySelector('.promo'))$('overlay').hidden=true});
-if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['w','b','r'].includes(cfg.color))cfg.color='w';
+if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';// online play always starts by pairing, never straight from a saved setting
+if(!['w','b','r'].includes(cfg.color))cfg.color='w';
+/* ---------- online play ---------- */
+// Both devices run the same rules, so only moves travel: each side checks every move it receives.
+// The host chooses colors (alternating each game) and is the referee if the two move lists ever disagree.
+const NET={link:null,role:null,games:0};
+const online=()=>cfg.mode==='net'&&NET.link&&NET.link.open;
+let toastT=0;function toast(t,ms=2600){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function goOnline(){if(!window.P2P){toast('Online play needs p2p.js and qrcode.js next to this page.',4000);cfg.mode='cpu';syncCtl();newGame();return}
+  P2P.open({game:'Chess',onOpen:link=>{NET.link=link;NET.role=link.role;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected. The game is paused: connect again to carry on.',4000);NET.link=null;render()};
+      if(link.role==='host'){// a game already under way carries on after reconnecting
+        if(G&&G.net&&!G.over){sendSync();toast('Reconnected. The game carries on.')}else{NET.games=0;newGame();toast('Connected! You play white.')}}
+      else{toast('Connected! Waiting for the host…');render()}},
+    onCancel:()=>{if(!online()){cfg.mode='cpu';store.set('parlor-chess',cfg);syncCtl();newGame()}}})}
+function leaveOnline(){if(NET.link){NET.link.send({t:'bye'});NET.link.close()}NET.link=null;cfg.mode='cpu';store.set('parlor-chess',cfg);syncCtl();newGame()}
+function sendSync(){NET.link.send({t:'sync',host:G.human,moves:G.moves,over:G.over})}
+// Start (or rebuild) the board from a move list sent by the host.
+function loadFromHost(hostColor,moves,over){$('overlay').hidden=true;newGame({human:hostColor==='w'?'b':'w',moves});G.net=true;if(over){G.over=over;render()}}
+function onNet(m){if(!m)return;
+  if(m.t==='move'){if(G.over)return;const mv=E.fromUci(m.u),ok=mv&&m.n===G.moves.length&&colorOf(E.side)!==G.human&&E.legal().includes(mv);
+    if(!ok){if(NET.role==='host')sendSync();else NET.link.send({t:'resync'});return}play(mv,true,true);return}
+  if(m.t==='resign'){if(G.over)return;G.over={result:G.human==='w'?1:-1,why:'Your friend resigned'};render();setTimeout(showEnd,300);return}
+  if(m.t==='bye'){toast('Your friend left the game.',3500);NET.link.close();NET.link=null;render();return}
+  if(NET.role==='host'){if(m.t==='again'){$('overlay').hidden=true;newGame();G.net=true}else if(m.t==='resync')sendSync();return}
+  if(m.t==='start'){loadFromHost(m.host,[],null);toast(`New game: you play ${m.host==='w'?'black':'white'}.`)}
+  else if(m.t==='sync')loadFromHost(m.host,m.moves,m.over)}
+$('resign').onclick=()=>{if(!online()||G.over)return;if(!confirm('Resign this game?'))return;NET.link.send({t:'resign'});G.over={result:G.human==='w'?-1:1,why:'You resigned'};render();setTimeout(showEnd,300)};
 syncCtl();
 const saved=store.get('parlor-chess-game',null);
 if(saved&&Array.isArray(saved.moves)&&saved.mode===cfg.mode){newGame(saved)}else newGame();
