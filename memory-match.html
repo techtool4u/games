@@ -172,7 +172,7 @@ function render(){const els=$('board').children;G.cards.forEach((c,i)=>{const e=
 function sendState(){NET.link.send({t:'state',cards:G.cards.map(c=>[c.up?1:0,c.done?1:0,c.owner]),turn:G.turn,pairs:G.players.map(p=>p.pairs),turns:G.turns,elapsed:G.elapsed,over:G.over})}
 /* ---------- online play ---------- */
 function toast(t,ms=2600){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
-function goOnline(){P2P.open({game:'Memory Match',onOpen:link=>{NET.link=link;NET.role=link.role;NET.games=0;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected.');NET.link=null;render()};
+function goOnline(){if(!window.P2P){toast('Online play needs p2p.js and qrcode.js next to this page.',4000);cfg.players='s';sync();newGame();return}P2P.open({game:'Memory Match',onOpen:link=>{NET.link=link;NET.role=link.role;NET.games=0;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected.');NET.link=null;render()};
     toast(link.role==='host'?'Connected! You go first.':'Connected! Waiting for the host to deal…');if(link.role==='host')newGame();else render()},
   onCancel:()=>{if(!online()){cfg.players='s';store.set('parlor-memory',cfg);sync();newGame()}}})}
 function leaveOnline(){if(NET.link){NET.link.send({t:'bye'});NET.link.close()}NET.link=null;cfg.players='s';store.set('parlor-memory',cfg);sync();newGame()}
