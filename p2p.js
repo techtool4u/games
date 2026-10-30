@@ -13,27 +13,79 @@
  */
 (function(){
   const ICE=[{urls:'stun:stun.l.google.com:19302'}];
-  const VERSION='GP1';
-
-  /* ---------- codes: a WebRTC offer or answer squeezed into one short line ---------- */
-  // Only the parts that differ between devices are kept: ICE username and password, the DTLS fingerprint,
-  // and the network candidates. The rest of the session description is the same every time and is rebuilt.
-  const b64=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  const unb64=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return[...atob(s)].map(c=>c.charCodeAt(0))};
+  /* ---------- codes: a WebRTC offer or answer packed into a few dozen letters and digits ---------- */
+  // Only what differs between devices is sent, packed as bytes and written in base58 (letters and digits with no
+  // look-alikes such as 0/O or I/l). The rest of the session description is the same every time and is rebuilt.
+  //   byte 0      version (high 3 bits), offer/answer, DTLS role (2 bits), "ICE login derived" flag
+  //   [ufrag, pwd as length + ASCII, only when not derived]
+  //   32 bytes    the DTLS certificate fingerprint (SHA-256): this is what keeps the link private
+  //   candidates  1 byte kind (host / internet / relay) and address form (IPv4, IPv6, hidden .local name),
+  //               then the address (4, 16 or 16 bytes) and a 2-byte port
+  // The ICE username and password are normally made from the fingerprint on both sides (see derive), so they
+  // don't need to be sent; if a browser won't accept them, its own ones are sent instead.
+  const VER=2,ABC='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58(bytes){let n=0n;for(const x of bytes)n=n*256n+BigInt(x);let s='';while(n>0n){s=ABC[Number(n%58n)]+s;n/=58n}
+    for(const x of bytes){if(x)break;s='1'+s}return s}
+  function unb58(str){let n=0n;for(const ch of str){const v=ABC.indexOf(ch);if(v<0)throw new Error('bad');n=n*58n+BigInt(v)}
+    const out=[];while(n>0n){out.unshift(Number(n%256n));n/=256n}for(const ch of str){if(ch!=='1')break;out.unshift(0)}return out}
+  const ICECH='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const derive=fp=>{const t=i=>ICECH[fp[i]&63];return{ufrag:[0,1,2,3].map(t).join(''),pwd:[...Array(24)].map((_,i)=>t(4+i)).join('')}};
+  const fpBytes=sdp=>{const m=sdp.match(/a=fingerprint:sha-256 ([0-9A-F:]+)/i);return m?m[1].split(':').map(h=>parseInt(h,16)):null};
+  // Swap the browser's random ICE username and password for ones both sides can work out from the fingerprint.
+  function munge(desc){const fp=fpBytes(desc.sdp);if(!fp)return desc;const d=derive(fp);
+    return{type:desc.type,sdp:desc.sdp.replace(/a=ice-ufrag:.*/g,'a=ice-ufrag:'+d.ufrag).replace(/a=ice-pwd:.*/g,'a=ice-pwd:'+d.pwd)}}
+  const KIND={host:0,srflx:1,relay:2},KN=['host','srflx','relay'];
+  function packAddr(ip){
+    let m=ip.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);if(m)return[0,m.slice(1).map(Number)];
+    m=ip.match(/^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})\.local$/i);
+    if(m){const h=m.slice(1).join('');return[2,[...Array(16)].map((_,i)=>parseInt(h.substr(i*2,2),16))]}
+    if(ip.includes(':')){let[l,r]=ip.split('::');const L=l?l.split(':'):[],R=r!==undefined&&r?r.split(':'):[];
+      const g=r===undefined?L:[...L,...Array(8-L.length-R.length).fill('0'),...R];if(g.length!==8)return null;
+      return[1,g.flatMap(x=>{const v=parseInt(x||'0',16);return[v>>8,v&255]})]}
+    return null}
+  function unpackAddr(form,b){if(form===0)return b.join('.');
+    const h=b.map(x=>x.toString(16).padStart(2,'0')).join('');
+    if(form===2)return`${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}.local`;
+    return h.match(/.{4}/g).map(x=>x.replace(/^0+(?=.)/,'')).join(':')}
+  // Pick the few addresses worth sending: Wi-Fi (or the hidden .local name) and the internet address, skipping
+  // IPv6 when IPv4 does the same job and link-local IPv6 always.
+  function pickCands(sdp){const all=[];
+    for(const m of sdp.matchAll(/a=candidate:\S+ 1 udp \d+ (\S+) (\d+) typ (host|srflx|relay)/gi)){
+      const p=packAddr(m[1]);if(!p||(p[0]===1&&/^fe80/i.test(m[1]))||all.some(c=>c.key===m[1]+' '+m[2]))continue;all.push({k:KIND[m[3].toLowerCase()],form:p[0],b:p[1],port:+m[2],key:m[1]+' '+m[2]})}
+    const out=[];
+    for(const k of[0,1,2]){const mine=all.filter(c=>c.k===k),v4=mine.filter(c=>c.form!==1),v6=mine.filter(c=>c.form===1);
+      out.push(...(v4.length?v4:v6).slice(0,k===0?2:1))}
+    return out}
   function compact(desc){const sdp=desc.sdp,get=k=>{const m=sdp.match(new RegExp('a='+k+':(.+)'));return m?m[1].trim():''};
-    const fp=get('fingerprint').split(' ')[1]||'',setup=get('setup'),cands=[];
-    for(const m of sdp.matchAll(/a=candidate:\S+ 1 udp \d+ (\S+) (\d+) typ (host|srflx|relay)/gi))cands.push(`${m[3][0]},${m[1]},${m[2]}`);
+    const fp=fpBytes(sdp),setup=get('setup'),cands=pickCands(sdp);
+    if(!fp||fp.length!==32)throw new Error('this browser uses an unsupported security setting');
     if(!cands.length)throw new Error('no network route found');
-    return[VERSION,desc.type==='offer'?'o':'a',setup==='active'?'A':setup==='passive'?'P':'X',get('ice-ufrag'),get('ice-pwd'),b64(fp.split(':').map(h=>parseInt(h,16))),[...new Set(cands)].join(';')].join('~')}
-  function expand(code){const parts=String(code).trim().replace(/\s+/g,'').split('~');
-    if(parts.length!==7||parts[0]!==VERSION)throw new Error('That doesn\'t look like a Game Parlor code.');
-    const[,t,su,ufrag,pwd,fp,cl]=parts,fpHex=unb64(fp).map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(':');
-    const prio={h:2130706431,s:1694498815,r:16777215},kind={h:'host',s:'srflx',r:'relay'};
-    const cands=cl.split(';').filter(Boolean).map((c,i)=>{const[k,ip,port]=c.split(',');return `a=candidate:${i+1} 1 udp ${prio[k]-i} ${ip} ${port} typ ${kind[k]}${k==='h'?'':' raddr 0.0.0.0 rport 0'}`});
-    const setup=su==='A'?'active':su==='P'?'passive':'actpass';
+    const d=derive(fp),derived=get('ice-ufrag')===d.ufrag&&get('ice-pwd')===d.pwd;
+    const out=[VER<<5|(desc.type==='offer'?16:0)|({active:1,passive:2}[setup]||0)<<2|(derived?2:0)];
+    if(!derived)for(const t of[get('ice-ufrag'),get('ice-pwd')])out.push(t.length,...[...t].map(c=>c.charCodeAt(0)));
+    out.push(...fp);for(const c of cands)out.push(c.k<<2|c.form,...c.b,c.port>>8,c.port&255);
+    return b58(out)}
+  // Codes are shown in groups of four to make them easier to read; spaces and dashes are ignored when reading one.
+  const pretty=code=>code.match(/.{1,4}/g).join(' ');
+  function decode(code){const str=String(code).replace(/[\s-]+/g,'');
+    if(/~/.test(str))throw new Error('That code is from an older version of Game Parlor. Update both devices and try again.');
+    let b;try{b=unb58(str)}catch(e){throw new Error('That doesn\'t look like a Game Parlor code.')}
+    if(!b.length||b[0]>>5!==VER)throw new Error('That doesn\'t look like a Game Parlor code.');
+    let i=1;const h=b[0],r={type:h&16?'offer':'answer',setup:['actpass','active','passive'][h>>2&3]||'actpass'};
+    const take=n=>{if(i+n>b.length)throw new Error('That code is incomplete. Copy all of it, or scan it again.');const x=b.slice(i,i+n);i+=n;return x};
+    if(!(h&2)){const str2=()=>String.fromCharCode(...take(take(1)[0]));r.ufrag=str2();r.pwd=str2()}
+    r.fp=take(32);if(h&2)Object.assign(r,derive(r.fp));
+    r.cands=[];while(i<b.length){const t=take(1)[0],form=t&3;r.cands.push({k:t>>2&3,ip:unpackAddr(form,take(form===0?4:16)),port:(x=>x[0]<<8|x[1])(take(2))})}
+    if(!r.cands.length)throw new Error('That code is incomplete. Copy all of it, or scan it again.');
+    return r}
+  function expand(code){const r=decode(code);
+    const prio=[2130706431,1694498815,16777215];
+    const cands=r.cands.map((c,i)=>`a=candidate:${i+1} 1 udp ${prio[c.k]-i} ${c.ip} ${c.port} typ ${KN[c.k]}${c.k?' raddr 0.0.0.0 rport 0':''}`);
+    const fpHex=r.fp.map(x=>x.toString(16).padStart(2,'0').toUpperCase()).join(':');
     const sdp=['v=0','o=- 1 2 IN IP4 127.0.0.1','s=-','t=0 0','a=group:BUNDLE 0','a=msid-semantic: WMS','m=application 9 UDP/DTLS/SCTP webrtc-datachannel','c=IN IP4 0.0.0.0',
-      ...cands,'a=end-of-candidates',`a=ice-ufrag:${ufrag}`,`a=ice-pwd:${pwd}`,`a=fingerprint:sha-256 ${fpHex}`,`a=setup:${setup}`,'a=mid:0','a=sctp-port:5000','a=max-message-size:262144',''].join('\r\n');
-    return{type:t==='o'?'offer':'answer',sdp}}
+      ...cands,'a=end-of-candidates',`a=ice-ufrag:${r.ufrag}`,`a=ice-pwd:${r.pwd}`,`a=fingerprint:sha-256 ${fpHex}`,`a=setup:${r.setup}`,'a=mid:0','a=sctp-port:5000','a=max-message-size:262144',''].join('\r\n');
+    return{type:r.type,sdp}}
+  const isCode=t=>{try{decode(t);return true}catch(e){return false}};
   // Wait until the browser has found its network routes (or a few seconds, whichever comes first).
   const gathered=pc=>new Promise(res=>{if(pc.iceGatheringState==='complete')return res();const t=setTimeout(res,4000);
     pc.addEventListener('icegatheringstatechange',()=>{if(pc.iceGatheringState==='complete'){clearTimeout(t);res()}})});
@@ -52,8 +104,9 @@
     let last=Date.now();dc.addEventListener('message',()=>{last=Date.now()});
     const hb=setInterval(()=>{if(closed){clearInterval(hb);return}if(dc.readyState==='open'){dc.send('{"__ping":1}');if(Date.now()-last>20000)lost()}},4000);
     return link}
-  async function hostOffer(link){const o=await link.pc.createOffer();await link.pc.setLocalDescription(o);await gathered(link.pc);return compact(link.pc.localDescription)}
-  async function guestAnswer(link,code){await link.pc.setRemoteDescription(expand(code));const a=await link.pc.createAnswer();await link.pc.setLocalDescription(a);await gathered(link.pc);return compact(link.pc.localDescription)}
+  const setLocal=async(pc,d)=>{try{await pc.setLocalDescription(munge(d))}catch(e){await pc.setLocalDescription(d)}};
+  async function hostOffer(link){const o=await link.pc.createOffer();await setLocal(link.pc,o);await gathered(link.pc);return compact(link.pc.localDescription)}
+  async function guestAnswer(link,code){await link.pc.setRemoteDescription(expand(code));const a=await link.pc.createAnswer();await setLocal(link.pc,a);await gathered(link.pc);return compact(link.pc.localDescription)}
   const opened=(link,ms)=>new Promise((res,rej)=>{if(link.dc.readyState==='open')return res();const t=setTimeout(()=>rej(new Error('timeout')),ms);link.dc.addEventListener('open',()=>{clearTimeout(t);res()})});
 
   // Chrome hides a device's Wi-Fi address behind a random "….local" name unless the page may use the camera or
@@ -65,8 +118,8 @@
       const hs=hostAddrs(pc.localDescription.sdp);pc.close();return hs.length>0&&hs.every(h=>/\.local$/i.test(h))}catch(e){return false}}
   async function unhide(){for(const c of[{video:true},{audio:true}]){try{const st=await navigator.mediaDevices.getUserMedia(c);st.getTracks().forEach(t=>t.stop());return true}catch(e){}}return false}
   // What a code tells about the routes to that device, in words.
-  function routes(code){const cl=String(code).trim().split('~')[6]||'',r={wifi:false,hidden:false,net:false};
-    for(const c of cl.split(';')){const[k,ip]=c.split(',');if(k==='h'){if(/\.local$/i.test(ip||''))r.hidden=true;else r.wifi=true}else if(k==='s'||k==='r')r.net=true}
+  function routes(code){const r={wifi:false,hidden:false,net:false};let d;try{d=decode(code)}catch(e){return r}
+    for(const c of d.cands){if(c.k===0){if(c.ip.endsWith('.local'))r.hidden=true;else r.wifi=true}else r.net=true}
     return r}
   const routeText=r=>`Wi-Fi address: ${r.wifi?'yes':r.hidden?'hidden':'none'} · internet address: ${r.net?'yes':'none'}`;
 
@@ -81,6 +134,7 @@
 .p2p button.pri{background:var(--accent,#2f6fd6);color:var(--accent-ink,#fff);border-color:var(--accent,#2f6fd6)}
 .p2p button:disabled{opacity:.45;cursor:not-allowed}
 .p2p textarea{font:12.5px/1.35 ui-monospace,Menlo,Consolas,monospace;width:100%;box-sizing:border-box;border-radius:10px;border:1px solid var(--line,#ccc);padding:8px;background:var(--bg,#fafafa);color:inherit;resize:none;word-break:break-all}
+.p2p textarea[readonly]{font-size:16px;line-height:1.5;text-align:center;letter-spacing:.03em;word-break:normal;word-spacing:.25em}
 .p2p .qr{display:grid;place-items:center;background:#fff;border-radius:12px;padding:10px}
 .p2p .qr svg{width:min(240px,70vw);height:auto;display:block}
 .p2p video{width:100%;border-radius:12px;background:#000;max-height:46vh;object-fit:cover}
@@ -102,12 +156,12 @@
     const cancel=()=>{stopScan();if(link&&!done)link.close();ov.remove();window.onAppBack=prevBack;if(!done&&opts.onCancel)opts.onCancel()};
     const prevBack=window.onAppBack;window.onAppBack=()=>{cancel();return true};
     const show=h=>{box.innerHTML=h;const c=box.querySelector('[data-cancel]');if(c)c.onclick=cancel};
-    const codeBlock=(code,label)=>`<div class="qr" aria-label="${label} as a QR code">${qrSVG(code)}</div><textarea rows="3" readonly aria-label="${label}">${esc(code)}</textarea>
+    const codeBlock=(code,label)=>`<div class="qr" aria-label="${label} as a QR code">${qrSVG(code)}</div><textarea rows="3" readonly aria-label="${label}">${esc(pretty(code))}</textarea>
       <div class="row"><button data-copy>Copy</button>${navigator.share?'<button data-share>Share</button>':''}</div>`;
     const wireCode=(code)=>{const cp=box.querySelector('[data-copy]'),sh=box.querySelector('[data-share]'),ta=box.querySelector('textarea[readonly]');
       ta.onclick=()=>ta.select();
-      cp.onclick=async()=>{try{await navigator.clipboard.writeText(code);cp.textContent='Copied!'}catch(e){ta.select();document.execCommand('copy');cp.textContent='Copied!'}setTimeout(()=>cp.textContent='Copy',1500)};
-      if(sh)sh.onclick=()=>navigator.share({text:code,title:`${opts.game} code`}).catch(()=>{})};
+      cp.onclick=async()=>{try{await navigator.clipboard.writeText(pretty(code));cp.textContent='Copied!'}catch(e){ta.select();document.execCommand('copy');cp.textContent='Copied!'}setTimeout(()=>cp.textContent='Copy',1500)};
+      if(sh)sh.onclick=()=>navigator.share({text:pretty(code),title:`${opts.game} code`}).catch(()=>{})};
     // Read a code from the camera: the built-in detector when there is one, otherwise the bundled scanner.
     async function scanInto(ta,after){const wrap=box.querySelector('[data-scanner]');
       try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})}catch(e){wrap.innerHTML='<p class="err">The camera isn\'t available. Paste the code instead.</p>';return}
@@ -118,7 +172,7 @@
       const tick=async()=>{if(!stream)return;let txt=null;
         try{if(det){const r=await det.detect(v);if(r[0])txt=r[0].rawValue}
           else if(v.videoWidth){const w=Math.min(640,v.videoWidth),h=Math.round(w*v.videoHeight/v.videoWidth);cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);const r=jsQR(cx.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'dontInvert'});if(r)txt=r.data}}catch(e){}
-        if(txt&&txt.startsWith(VERSION)){stopScan();wrap.innerHTML='';ta.value=txt;after();return}scanT=setTimeout(tick,180)};tick()}
+        if(txt&&isCode(txt)){stopScan();wrap.innerHTML='';ta.value=txt;after();return}scanT=setTimeout(tick,180)};tick()}
     const pasteBlock=(label,goText)=>`<textarea rows="3" data-in placeholder="Paste the ${label.toLowerCase()} here" aria-label="${label}"></textarea><div data-scanner></div>
       <div class="row">${navigator.mediaDevices&&navigator.mediaDevices.getUserMedia?'<button data-scan>Scan QR code</button>':''}<button class="pri" data-go>${goText}</button></div><p data-msg></p>`;
     const connected=()=>{done=true;stopScan();ov.remove();window.onAppBack=prevBack;link.open=true;opts.onOpen(link)};
