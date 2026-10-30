@@ -533,7 +533,7 @@ let toastT=0;function toast(t,ms=2600){$('toast').textContent=t;$('toast').hidde
 function goOnline(){if(!window.P2P){toast('Online play needs p2p.js and qrcode.js next to this page.',4000);cfg.mode='cpu';syncCtl();newGame();return}
   P2P.open({game:'Chess',onOpen:link=>{NET.link=link;NET.role=link.role;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected. The game is paused: connect again to carry on.',4000);NET.link=null;render()};
       if(link.role==='host'){// a game already under way carries on after reconnecting
-        if(G&&G.net&&!G.over){sendSync();toast('Reconnected. The game carries on.')}else{NET.games=0;newGame();toast('Connected! You play white.')}}
+        if(G&&G.net&&!G.over){sendSync();render();toast('Reconnected. The game carries on.')}else{NET.games=0;newGame();toast('Connected! You play white.')}}
       else{toast('Connected! Waiting for the host…');render()}},
     onCancel:()=>{if(!online()){cfg.mode='cpu';store.set('parlor-chess',cfg);syncCtl();newGame()}}})}
 function leaveOnline(){if(NET.link){NET.link.send({t:'bye'});NET.link.close()}NET.link=null;cfg.mode='cpu';store.set('parlor-chess',cfg);syncCtl();newGame()}

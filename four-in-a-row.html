@@ -90,6 +90,12 @@ details summary{cursor:pointer;font-weight:700}
 details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
 
 .overlay{position:fixed;inset:0;background:rgba(10,15,40,.55);display:grid;place-items:center;padding:16px;z-index:20}
+.netbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 12px;font-size:14px}
+.netbar .ndot{width:10px;height:10px;border-radius:50%;background:#2bb36a;flex:none}
+.netbar.off .ndot{background:#c62b2b}
+.netbar span{flex:1;min-width:0}
+.netbar .btn{min-height:34px;padding:5px 12px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:30;max-width:calc(100vw - 32px);text-align:center}
 .modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
 .modal h2{font-family:var(--display);font-weight:400;font-size:34px;margin:0}
 .modal p{margin:0;color:var(--muted)}
@@ -114,7 +120,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
       <p class="sub">Drop discs into the frame. Line up four of your color across, down or diagonally before your rival does.</p>
     </div>
     <div class="controls">
-      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
       <select id="first" aria-label="Who goes first"><option value="you">You go first</option><option value="cpu">Computer first</option><option value="alt">Take turns starting</option></select>
       <button class="btn primary" id="newgame">New game</button>
@@ -136,6 +142,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
     </section>
 
     <aside class="side">
+      <div class="netbar" id="netbar" hidden></div>
       <div class="panel" aria-live="polite">
         <div class="turn" id="turn"><span class="dot r" id="tdot"></span><span id="turnText">Your turn</span></div>
         <p class="hint" id="hint"></p>
@@ -157,6 +164,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
             <li>Get four of your discs in a line: across, up and down, or diagonally.</li>
             <li>If the frame fills up with no four in a row, it's a draw.</li>
             <li>Red always moves first. Tip: the middle column is part of the most possible lines.</li>
+            <li><b>Online:</b> play a friend on another phone or computer, connected directly with no game server. One of you hosts and the other joins by scanning a QR code or pasting a code. You take turns being red (who goes first). If the connection drops, connect again and the game carries on.</li>
             <li>Keyboard: ← → choose a column, Enter or Space drops, 1–7 drop into that column, U undoes.</li>
           </ul>
         </details>
@@ -165,6 +173,9 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
   </div>
 </div>
 <div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 
 <script>
 // board[c][r]: column c (0-6), row r counted from the bottom (0-5). 1 = red (moves first), 2 = yellow.
@@ -223,27 +234,38 @@ function chooseMove(b,p,moves){
 
 /* ---------- game flow ---------- */
 const isCpu=p=>cfg.mode==='cpu'&&p===S.cpu;
-const nameOf=p=>cfg.mode==='cpu'?(p===S.cpu?'Computer':'You'):(p===1?'Red':'Yellow');
-function newGame(){
+const nameOf=p=>cfg.mode==='cpu'?(p===S.cpu?'Computer':'You'):cfg.mode==='net'?(p===S.me?'You':'Friend'):(p===1?'Red':'Yellow');
+// Whether a person at this device may drop a disc now.
+const myTurn=()=>S&&!S.over&&!S.busy&&!isCpu(S.turn)&&(cfg.mode!=='net'||(online()&&S.turn===S.me));
+function newGame(from){if(!from||!Array.isArray(from.moves))from=null;// buttons pass a click event here
+  if(cfg.mode==='net'&&!online()&&!from){$('overlay').hidden=true;goOnline();return}
+  if(online()&&NET.role==='guest'&&!from){NET.link.send({t:'again'});toast('Asked the host for a new game.');return}
   $('overlay').hidden=true;games++;
   const cpuFirst=cfg.first==='cpu'||(cfg.first==='alt'&&games%2===0);
-  S={b:[...Array(W)].map(()=>Array(H).fill(0)),turn:1,cpu:cfg.mode==='cpu'?(cpuFirst?1:2):0,hist:[],over:null,busy:false,last:null,gen:(S?S.gen:0)+1};
-  $('discs').innerHTML='';render();next();
+  S={b:[...Array(W)].map(()=>Array(H).fill(0)),turn:1,cpu:cfg.mode==='cpu'?(cpuFirst?1:2):0,hist:[],over:null,busy:false,last:null,gen:(S?S.gen:0)+1,
+    me:from?from.me:online()?(NET.games++%2?2:1):0,net:online()};
+  $('discs').innerHTML='';
+  if(from)for(const c of from.moves){if(S.over||!canPlay(S.b,c))break;drop(c,true,true)}
+  render();next();
+  if(online()&&NET.role==='host'&&!from)NET.link.send({t:'start',host:S.me});
 }
 function next(){render();if(!S.over&&isCpu(S.turn)){S.busy=true;render();const g=S.gen;
   setTimeout(()=>{if(g!==S.gen)return;const c=chooseMove(S.b,S.turn,S.hist.length);S.busy=false;drop(c)},420)}}
-function drop(c){
-  if(S.over||!canPlay(S.b,c))return;const r=height(S.b,c),p=S.turn;
+function drop(c,remote,replay){
+  if(S.over||!canPlay(S.b,c))return;
+  if(online()&&!remote)NET.link.send({t:'move',c,n:S.hist.length});
+  const r=height(S.b,c),p=S.turn;
   S.b[c][r]=p;S.hist.push(c);S.last=[c,r];
   const d=document.createElement('div');d.className=`disc ${p===1?'r':'y'} fall`;d.id=`d${c}_${r}`;
   d.style.left=`calc(${c}*100%/7)`;d.style.top=`calc(${H-1-r}*100%/6)`;d.style.setProperty('--from',`-${(H-r)*100+40}%`);d.style.setProperty('--t',`${.18+.06*(H-r)}s`);d.innerHTML='<i></i>';
   $('discs').appendChild(d);
   const line=lineAt(S.b,c,r);
-  if(line){S.over={w:p,line};wins[p]++;line.forEach(([x,y])=>$(`d${x}_${y}`).classList.add('win'));render();setTimeout(()=>finish(),900);return}
-  if(full(S.b)){S.over={w:0};wins.d++;render();setTimeout(()=>finish(),500);return}
-  S.turn=3-p;next()}
+  const tallyW=w=>cfg.mode==='net'?(w===0?'d':w===S.me?1:2):w===0?'d':w;
+  if(line){S.over={w:p,line};if(!replay)wins[tallyW(p)]++;line.forEach(([x,y])=>$(`d${x}_${y}`).classList.add('win'));render();if(!replay)setTimeout(()=>finish(),900);return}
+  if(full(S.b)){S.over={w:0};if(!replay)wins.d++;render();if(!replay)setTimeout(()=>finish(),500);return}
+  S.turn=3-p;if(!replay)next()}
 function finish(){const w=S.over.w;
-  const title=w===0?'Draw':cfg.mode==='cpu'?(w===S.cpu?'Computer wins':'You win!'):`${nameOf(w)} wins`;
+  const title=w===0?'Draw':cfg.mode==='cpu'?(w===S.cpu?'Computer wins':'You win!'):cfg.mode==='net'?(w===S.me?'You win!':'Your friend wins'):`${nameOf(w)} wins`;
   $('modal').innerHTML=`<h2>${title}</h2><p>${w?`Four in a row after ${S.hist.length} moves.`:'The frame is full.'}</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
   $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame}
 // Undo takes back moves until it is a human's turn again (in 2-player mode, just the last move).
@@ -259,24 +281,27 @@ function build(){
   $('drop').innerHTML=[...Array(W)].map((_,c)=>`<div class="ghost off" id="g${c}"><i></i></div>`).join('');
 }
 function render(){if(!S)return;
-  const me=!S.over&&!S.busy&&!isCpu(S.turn),p=S.turn,cls=p===1?'r':'y';
+  const me=myTurn(),p=S.turn,cls=p===1?'r':'y';
   document.querySelectorAll('.col').forEach(b=>{const c=+b.dataset.c;b.disabled=!me||!canPlay(S.b,c);b.classList.toggle('cur',me&&c===cursor&&kb)});
   for(let c=0;c<W;c++){const g=$('g'+c);g.className=`ghost ${cls}${me&&c===hover&&canPlay(S.b,c)?'':' off'}`}
   $('tdot').className='dot '+(S.over?(S.over.w===2?'y':'r'):cls);
   $('turn').classList.toggle('think',!S.over&&isCpu(p));
-  $('turnText').textContent=S.over?(S.over.w===0?'Draw':cfg.mode==='cpu'?(S.over.w===S.cpu?'Computer wins':'You win'):`${nameOf(S.over.w)} wins`):isCpu(p)?'Computer is thinking…':cfg.mode==='cpu'?'Your turn':`${nameOf(p)} to move`;
-  $('hint').textContent=S.over?'Press New game or Play again for another round.':isCpu(p)?`Computer plays ${p===1?'red':'yellow'} on ${cfg.level}.`:cfg.mode==='cpu'?`You are ${p===1?'red':'yellow'}. Tap a column to drop a disc.`:`Tap a column to drop a ${p===1?'red':'yellow'} disc.`;
-  $('w0').textContent=wins[cfg.mode==='cpu'?3-S.cpu:1];$('w1').textContent=wins[cfg.mode==='cpu'?S.cpu:2];$('wd').textContent=wins.d;
-  $('n0').textContent=cfg.mode==='cpu'?'You':'Red';$('n1').textContent=cfg.mode==='cpu'?'Computer':'Yellow';
-  const youDot=cfg.mode==='cpu'?(S.cpu===1?'y':'r'):'r';document.querySelector('.score>div:first-child .dot').className='dot '+youDot;document.querySelector('.score>div:last-child .dot').className='dot '+(youDot==='r'?'y':'r');
-  $('undo').disabled=S.busy||!S.hist.length||(cfg.mode==='cpu'&&!S.hist.some((c,i)=>(i%2===0?1:2)!==S.cpu))}
+  $('turnText').textContent=S.over?(S.over.w===0?'Draw':cfg.mode==='cpu'?(S.over.w===S.cpu?'Computer wins':'You win'):cfg.mode==='net'?(S.over.w===S.me?'You win':'Your friend wins'):`${nameOf(S.over.w)} wins`):isCpu(p)?'Computer is thinking…':cfg.mode==='net'?(!online()?'Not connected':p===S.me?'Your turn':"Friend's turn"):cfg.mode==='cpu'?'Your turn':`${nameOf(p)} to move`;
+  if(cfg.mode==='net'&&!S.over)$('hint').textContent=online()?`You are ${S.me===1?'red':'yellow'}.${p===S.me?' Tap a column to drop a disc.':''}`:'Connect to a friend to play.';else $('hint').textContent=S.over?'Press New game or Play again for another round.':isCpu(p)?`Computer plays ${p===1?'red':'yellow'} on ${cfg.level}.`:cfg.mode==='cpu'?`You are ${p===1?'red':'yellow'}. Tap a column to drop a disc.`:`Tap a column to drop a ${p===1?'red':'yellow'} disc.`;
+  const net=cfg.mode==='net';$('w0').textContent=wins[net?1:cfg.mode==='cpu'?3-S.cpu:1];$('w1').textContent=wins[net?2:cfg.mode==='cpu'?S.cpu:2];$('wd').textContent=wins.d;
+  $('n0').textContent=cfg.mode==='two'?'Red':'You';$('n1').textContent=cfg.mode==='cpu'?'Computer':net?'Friend':'Yellow';
+  const youDot=cfg.mode==='cpu'?(S.cpu===1?'y':'r'):net?(S.me===2?'y':'r'):'r';document.querySelector('.score>div:first-child .dot').className='dot '+youDot;document.querySelector('.score>div:last-child .dot').className='dot '+(youDot==='r'?'y':'r');
+  $('undo').disabled=S.busy||!S.hist.length||(cfg.mode==='cpu'&&!S.hist.some((c,i)=>(i%2===0?1:2)!==S.cpu));$('undo').hidden=net;
+  const nb=$('netbar');nb.hidden=!net;if(net){nb.className='netbar'+(online()?'':' off');
+    nb.innerHTML=`<i class="ndot"></i><span>${online()?(NET.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}</span>${online()?'<button class="btn" id="leave">Leave</button>':'<button class="btn primary" id="reconnect">Connect</button>'}`;
+    const lv=$('leave');if(lv)lv.onclick=leaveOnline;const rc=$('reconnect');if(rc)rc.onclick=goOnline}}
 
 /* ---------- input & settings ---------- */
 let hover=-1,kb=false;
 $('cols').addEventListener('click',e=>{const b=e.target.closest('.col');if(b&&!b.disabled){kb=false;drop(+b.dataset.c)}});
 $('cols').addEventListener('pointerover',e=>{const b=e.target.closest('.col');hover=b?+b.dataset.c:-1;render()});
 $('board').addEventListener('pointerleave',()=>{hover=-1;render()});
-$('board').addEventListener('keydown',e=>{if(!S||S.over||S.busy||isCpu(S.turn))return;
+$('board').addEventListener('keydown',e=>{if(!myTurn())return;
   if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();kb=true;cursor=(cursor+(e.key==='ArrowLeft'?W-1:1))%W;hover=cursor;render()}
   else if(e.key==='Enter'||e.key===' '){e.preventDefault();if(canPlay(S.b,cursor))drop(cursor)}
   else if(e.key>='1'&&e.key<='7'){const c=+e.key-1;if(canPlay(S.b,c))drop(c)}});
@@ -284,12 +309,34 @@ $('board').addEventListener('focus',()=>{kb=true;hover=cursor;render()});
 $('board').addEventListener('blur',()=>{kb=false;hover=-1;render()});
 document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true;else if((e.key==='u'||e.key==='U')&&!$('undo').disabled)undo()});
 function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('first').value=cfg.first;$('level').hidden=$('first').hidden=cfg.mode!=='cpu'}
-function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-four',cfg);sync();if(restart){games=0;newGame()}else render()}
+function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-four',cfg);sync();if(k==='mode')wins[1]=wins[2]=wins.d=0;if(restart){games=0;newGame()}else render()}
 $('mode').onchange=e=>setCfg('mode',e.target.value,true);
 $('level').onchange=e=>setCfg('level',e.target.value,false);
 $('first').onchange=e=>setCfg('first',e.target.value,true);
 $('newgame').onclick=newGame;$('undo').onclick=undo;
-if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['you','cpu','alt'].includes(cfg.first))cfg.first='you';
+/* ---------- online play ---------- */
+// Both devices run the same rules and only send the column of each move. The host decides who is red
+// (alternating each game) and resends its move list if the two ever disagree.
+const NET={link:null,role:null,games:0};
+const online=()=>cfg.mode==='net'&&NET.link&&NET.link.open;
+let toastT=0;function toast(t,ms=2600){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function goOnline(){if(!window.P2P){toast('Online play needs p2p.js and qrcode.js next to this page.',4000);cfg.mode='cpu';sync();newGame();return}
+  P2P.open({game:'Four in a Row',onOpen:link=>{NET.link=link;NET.role=link.role;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected. Connect again to carry on.',4000);NET.link=null;render()};
+      if(link.role==='host'){if(S&&S.net&&!S.over&&S.hist.length){sendSync();render();toast('Reconnected. The game carries on.')}else{NET.games=0;newGame();toast('Connected! You are red and go first.')}}
+      else{toast('Connected! Waiting for the host…');render()}},
+    onCancel:()=>{if(!online()){cfg.mode='cpu';store.set('parlor-four',cfg);sync();newGame()}}})}
+function leaveOnline(){if(NET.link){NET.link.send({t:'bye'});NET.link.close()}NET.link=null;cfg.mode='cpu';store.set('parlor-four',cfg);sync();games=0;newGame()}
+function sendSync(){NET.link.send({t:'sync',host:S.me,moves:S.hist})}
+function fromHost(hostColor,moves){$('overlay').hidden=true;newGame({me:3-hostColor,moves});S.net=true}
+function onNet(m){if(!m)return;
+  if(m.t==='move'){if(S.over)return;const ok=m.n===S.hist.length&&S.turn!==S.me&&canPlay(S.b,m.c);
+    if(!ok){if(NET.role==='host')sendSync();else NET.link.send({t:'resync'});return}drop(m.c,true);return}
+  if(m.t==='bye'){toast('Your friend left the game.',3500);NET.link.close();NET.link=null;render();return}
+  if(NET.role==='host'){if(m.t==='again'){$('overlay').hidden=true;newGame()}else if(m.t==='resync')sendSync();return}
+  if(m.t==='start'){fromHost(m.host,[]);toast(`New game: you are ${m.host===1?'yellow':'red'}.`)}
+  else if(m.t==='sync')fromHost(m.host,m.moves)}
+if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';// online play always starts by pairing
+if(!['you','cpu','alt'].includes(cfg.first))cfg.first='you';
 build();sync();newGame();
 </script>
 </body>
