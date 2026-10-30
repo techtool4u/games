@@ -86,7 +86,7 @@ The same pages are packaged as an Android app with [Capacitor](https://capacitor
 
 `p2p.js` connects two devices directly with a WebRTC data channel; there is no game server. Players pair once by swapping two short codes, shown as QR codes or copied and shared. A public STUN server (Google's) is used only to discover each device's internet address and never sees game data; on the same Wi-Fi no outside server is needed. Some strict mobile or office networks block direct connections, and those can't connect without a relay server.
 
-The host's device runs the game and sends the table after every change; the guest's device sends its moves. Memory Match is the first game with online play.
+The host's device runs the game and sends the table after every change; the guest's device sends its moves. Memory Match, Chess and Four in a Row have online play. In Chess and Four in a Row both devices run the rules and only moves are sent; the host's move list settles any disagreement, and a dropped game resumes after pairing again.
 
 - `p2p.js` — the connection and the pairing dialog.
 - `qrcode.js` — QR code generator by Kazuhiko Arase (MIT license).

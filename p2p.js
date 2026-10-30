@@ -105,8 +105,8 @@
         try{if(det){const r=await det.detect(v);if(r[0])txt=r[0].rawValue}
           else if(v.videoWidth){const w=Math.min(640,v.videoWidth),h=Math.round(w*v.videoHeight/v.videoWidth);cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);const r=jsQR(cx.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'dontInvert'});if(r)txt=r.data}}catch(e){}
         if(txt&&txt.startsWith(VERSION)){stopScan();wrap.innerHTML='';ta.value=txt;after();return}scanT=setTimeout(tick,180)};tick()}
-    const pasteBlock=(label)=>`<textarea rows="3" data-in placeholder="Paste the code here" aria-label="${label}"></textarea><div data-scanner></div>
-      <div class="row">${navigator.mediaDevices&&navigator.mediaDevices.getUserMedia?'<button data-scan>Scan QR code</button>':''}<button class="pri" data-go>Connect</button></div><p data-msg></p>`;
+    const pasteBlock=(label,goText)=>`<textarea rows="3" data-in placeholder="Paste the ${label.toLowerCase()} here" aria-label="${label}"></textarea><div data-scanner></div>
+      <div class="row">${navigator.mediaDevices&&navigator.mediaDevices.getUserMedia?'<button data-scan>Scan QR code</button>':''}<button class="pri" data-go>${goText}</button></div><p data-msg></p>`;
     const connected=()=>{done=true;stopScan();ov.remove();window.onAppBack=prevBack;link.open=true;opts.onOpen(link)};
     const fail=(msg)=>{const m=box.querySelector('[data-msg]');if(m){m.className='err';m.textContent=msg}};
 
@@ -116,15 +116,15 @@
     async function asHost(){show(`<h2>Hosting</h2><p>Making your invite code…</p><div class="row"><button data-cancel>Cancel</button></div>`);
       link=makeLink('host');let code;try{code=await hostOffer(link)}catch(e){show(`<h2>Can't host</h2><p class="err">${esc(e.message)}</p><div class="row"><button data-cancel>Close</button></div>`);return}
       show(`<span class="step">Step 1 of 2</span><h2>Send this invite</h2><p>On your friend's device, open ${esc(opts.game)}, choose Online, then Join, and scan or paste this code.</p>${codeBlock(code,'Invite code')}
-        <span class="step">Step 2 of 2</span><p>Now scan or paste the reply code from your friend's screen.</p>${pasteBlock('Reply code')}<div class="row"><button data-cancel>Cancel</button></div>`);
+        <span class="step">Step 2 of 2</span><p>Now scan or paste the reply code from your friend's screen.</p>${pasteBlock('Reply code','Connect')}<div class="row"><button data-cancel>Cancel</button></div>`);
       wireCode(code);const ta=box.querySelector('[data-in]');
-      const go=async()=>{const v=ta.value.trim();if(!v)return;let d;try{d=expand(v);if(d.type!=='answer')throw new Error('That\'s an invite code. Paste the reply from the other device.')}catch(e){fail(e.message);return}
+      const go=async()=>{const v=ta.value.trim();if(!v){fail('First send the invite above to your friend. Their device then shows a reply code: scan it or paste it here, then tap Connect.');ta.focus();return}let d;try{d=expand(v);if(d.type!=='answer')throw new Error('That\'s an invite code. Paste the reply from the other device.')}catch(e){fail(e.message);return}
         const m=box.querySelector('[data-msg]');m.className='';m.textContent='Connecting…';
         try{await link.pc.setRemoteDescription(d);await opened(link,20000);connected()}catch(e){fail(e.message==='timeout'?'Couldn\'t connect. Check that both devices are online (the same Wi-Fi is most reliable) and try again.':e.message)}};
       box.querySelector('[data-go]').onclick=go;const sc=box.querySelector('[data-scan]');if(sc)sc.onclick=()=>{sc.disabled=true;scanInto(ta,go)}}
-    async function asGuest(){show(`<span class="step">Step 1 of 2</span><h2>Join a game</h2><p>Scan or paste the invite code shown on the host's screen.</p>${pasteBlock('Invite code')}<div class="row"><button data-cancel>Cancel</button></div>`);
+    async function asGuest(){show(`<span class="step">Step 1 of 2</span><h2>Join a game</h2><p>Scan or paste the invite code shown on the host's screen.</p>${pasteBlock('Invite code','Next')}<div class="row"><button data-cancel>Cancel</button></div>`);
       const ta=box.querySelector('[data-in]');
-      const go=async()=>{const v=ta.value.trim();if(!v)return;let d;try{d=expand(v);if(d.type!=='offer')throw new Error('That\'s a reply code. Paste the invite from the host.')}catch(e){fail(e.message);return}
+      const go=async()=>{const v=ta.value.trim();if(!v){fail('Scan the QR code on the host\'s screen, or paste their invite code here first.');ta.focus();return}let d;try{d=expand(v);if(d.type!=='offer')throw new Error('That\'s a reply code. Paste the invite from the host.')}catch(e){fail(e.message);return}
         box.querySelector('[data-go]').disabled=true;const m=box.querySelector('[data-msg]');m.className='';m.textContent='Making your reply…';
         link=makeLink('guest');let code;try{code=await guestAnswer(link,v)}catch(e){fail('That code didn\'t work: '+e.message);box.querySelector('[data-go]').disabled=false;return}
         show(`<span class="step">Step 2 of 2</span><h2>Send this reply</h2><p>Show this to the host to scan, or copy it and send it to them.</p>${codeBlock(code,'Reply code')}<p data-msg>Waiting for the host to connect…</p><div class="row"><button data-cancel>Cancel</button></div>`);
