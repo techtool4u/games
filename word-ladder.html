@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <script src="ladder-words.js"></script>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -137,11 +139,11 @@ const last=()=>S.steps[S.steps.length-1];
 const diffs=(x,y)=>[...x].filter((c,i)=>c!==y[i]).length;
 function say(t,cls){const m=$('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'')}
 function submit(){if(S.done)return;const w=entry.toLowerCase();
-  if(w.length!==cfg.len){shake();say(`Type a ${cfg.len}-letter word.`,'bad');return}
-  if(diffs(w,last())!==1){shake();say(diffs(w,last())?'Change exactly one letter.':'That is the same word.','bad');return}
-  if(!VALID.has(w)){shake();say(`“${w.toUpperCase()}” isn't in the dictionary.`,'bad');return}
+  if(w.length!==cfg.len){shake();sfx('error');say(`Type a ${cfg.len}-letter word.`,'bad');return}
+  if(diffs(w,last())!==1){shake();sfx('error');say(diffs(w,last())?'Change exactly one letter.':'That is the same word.','bad');return}
+  if(!VALID.has(w)){shake();sfx('error');say(`“${w.toUpperCase()}” isn't in the dictionary.`,'bad');return}
   if(S.steps.includes(w)){shake();say('You already used that word.','bad');return}
-  S.steps.push(w);entry='';cur=0;S.hint=null;S.fresh=true;
+  S.steps.push(w);entry='';cur=0;S.hint=null;S.fresh=true;sfx('good');
   if(w===S.b){win();return}
   // if the next step would reach the goal, the goal itself is one letter away
   say(diffs(w,S.b)===1?'One more change to go!':'',diffs(w,S.b)===1?'good':'');save();render()}
@@ -170,7 +172,7 @@ function render(){if(!S)return;let h=tiles(S.a,null,'start');
   const st=stats[cfg.len];$('streak').innerHTML=st&&st.solved?`Solved <b>${st.solved}</b>`:'';
   $('undo').disabled=S.done||S.steps.length<2;$('hint').disabled=S.done;$('giveup').disabled=S.done;$('level').value=cfg.len}
 function buildKbd(){const rows=['qwertyuiop','asdfghjkl','⏎zxcvbnm⌫'];$('kbd').innerHTML=rows.map(r=>`<div class="r">${[...r].map(k=>k==='⏎'?'<button class="wide" data-k="Enter">Enter</button>':k==='⌫'?'<button class="wide" data-k="Backspace" aria-label="Delete">⌫</button>':`<button data-k="${k}">${k}</button>`).join('')}</div>`).join('')}
-function key(k){if(!S||S.done||!$('overlay').hidden)return;
+function key(k){if(!S||S.done||!$('overlay').hidden)return;sfx('key');
   if(k==='Enter'){submit();return}if(k==='Backspace'){entry=entry.slice(0,-1);render();return}
   if(/^[a-z]$/i.test(k)&&entry.length<cfg.len){entry+=k.toLowerCase();say('');render()}}
 $('kbd').addEventListener('click',e=>{const b=e.target.closest('button');if(b)key(b.dataset.k)});

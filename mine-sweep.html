@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -143,13 +145,13 @@ function start(i){const t0=performance.now();let mine;
   timer=setInterval(()=>{if(G.over||document.hidden)return;G.elapsed=Math.floor((Date.now()-G.t0)/1000);showTime()},500)}
 function dig(i){if(G.over||G.flag[i])return;if(!G.started)start(i);
   if(G.open[i]){chord(i);return}
-  if(G.mine[i]){G.boom=i;lose();return}
-  const st=[i];while(st.length){const k=st.pop();if(G.open[k]||G.flag[k])continue;G.open[k]=1;G.fresh.add(k);if(!G.cnt[k])for(const j of nbrs(k,G.w,G.h))if(!G.open[j])st.push(j)}
+  if(G.mine[i]){G.boom=i;sfx('boom',{big:1});lose();return}
+  const st=[i];while(st.length){sfx('tap');const k=st.pop();if(G.open[k]||G.flag[k])continue;G.open[k]=1;G.fresh.add(k);if(!G.cnt[k])for(const j of nbrs(k,G.w,G.h))if(!G.open[j])st.push(j)}
   checkWin();render()}
 function chord(i){const nb=nbrs(i,G.w,G.h);if(!G.cnt[i]||nb.filter(j=>G.flag[j]).length!==G.cnt[i])return;
   for(const j of nb)if(!G.open[j]&&!G.flag[j]){if(G.mine[j]){G.boom=j;lose();return}}
   for(const j of nb)if(!G.open[j]&&!G.flag[j])dig(j)}
-function toggleFlag(i){if(G.over||G.open[i])return;G.flag[i]^=1;if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}render()}
+function toggleFlag(i){if(G.over||G.open[i])return;sfx(G.flag[i]?'slide':'place');G.flag[i]^=1;if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}render()}
 function checkWin(){let opened=0;for(let i=0;i<G.open.length;i++)opened+=G.open[i];if(opened!==G.w*G.h-G.m)return;
   G.over=G.won=true;clearInterval(timer);G.elapsed=Math.floor((Date.now()-G.t0)/1000);for(let i=0;i<G.mine.length;i++)if(G.mine[i])G.flag[i]=1;
   const b=best[cfg.level]=best[cfg.level]||{wins:0,best:0,played:0};b.wins++;b.played++;if(!b.best||G.elapsed<b.best)b.best=G.elapsed;store.set('parlor-mines-best',best);

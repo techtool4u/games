@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Lexend:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -255,7 +257,7 @@ function drop(c,remote,replay){
   if(S.over||!canPlay(S.b,c))return;
   if(online()&&!remote)NET.link.send({t:'move',c,n:S.hist.length});
   const r=height(S.b,c),p=S.turn;
-  S.b[c][r]=p;S.hist.push(c);S.last=[c,r];
+  S.b[c][r]=p;S.hist.push(c);S.last=[c,r];if(!replay)sfx('drop');
   const d=document.createElement('div');d.className=`disc ${p===1?'r':'y'} fall`;d.id=`d${c}_${r}`;
   d.style.left=`calc(${c}*100%/7)`;d.style.top=`calc(${H-1-r}*100%/6)`;d.style.setProperty('--from',`-${(H-r)*100+40}%`);d.style.setProperty('--t',`${.18+.06*(H-r)}s`);d.innerHTML='<i></i>';
   $('discs').appendChild(d);

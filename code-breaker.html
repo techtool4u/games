@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -199,7 +201,7 @@ function newGame(){$('overlay').hidden=true;const D=DIFFS[cfg.diff];
 function addColor(k){if(S.over||S.phase==='watch')return;const D=S.D;
   if(!cfg.dupes&&S.phase==='set'&&S.cur.includes(k)){toast('Repeats are off: each color only once.');return}
   let i=S.cur[S.pick]===-1?S.pick:S.cur.indexOf(-1);if(i<0)i=S.pick;
-  S.cur[i]=k;S.justAdded=i;const nxt=S.cur.indexOf(-1,i+1),any=S.cur.indexOf(-1);S.pick=nxt>=0?nxt:any>=0?any:i;render()}
+  S.cur[i]=k;S.justAdded=i;sfx('place');const nxt=S.cur.indexOf(-1,i+1),any=S.cur.indexOf(-1);S.pick=nxt>=0?nxt:any>=0?any:i;render()}
 function removeLast(){let i=-1;for(let k=S.cur.length-1;k>=0;k--)if(S.cur[k]>=0){i=k;break}if(i<0)return;S.cur[i]=-1;S.pick=i;render()}
 function check(){if(S.over||S.cur.includes(-1))return;
   if(S.phase==='set'){S.code=S.cur.slice();S.cur=new Array(S.D.pegs).fill(-1);S.pick=0;
@@ -208,7 +210,7 @@ function check(){if(S.over||S.cur.includes(-1))return;
       $('mgo').onclick=()=>{$('overlay').hidden=true;S.phase='guess';render()};return}
     S.phase='watch';render();cpuStep();return}
   submit(S.cur.slice())}
-function submit(code){const clue=score(S.code,code);S.guesses.push({code,clue});S.cur=new Array(S.D.pegs).fill(-1);S.pick=0;
+function submit(code){const clue=score(S.code,code);sfx(clue[0]===S.D.pegs?'good':'tap');S.guesses.push({code,clue});S.cur=new Array(S.D.pegs).fill(-1);S.pick=0;
   if(clue[0]===S.D.pegs)S.over={won:true};else if(S.guesses.length>=S.D.rows)S.over={won:false};
   if(S.over&&cfg.mode!=='cpu')record(S.over.won?S.guesses.length:0);
   render();if(S.over)setTimeout(endModal,700)}

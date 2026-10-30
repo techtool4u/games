@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -132,11 +134,11 @@ const restore=s=>Object.assign(G,JSON.parse(s));
 function avail(){const out=[];G.pyr.forEach((id,p)=>{if(id>=0&&!covered(p))out.push({id,where:'pyr',p})});
   if(G.waste.length)out.push({id:G.waste[G.waste.length-1],where:'waste'});return out}
 function whereOf(id){const p=G.pyr.indexOf(id);if(p>=0)return{where:'pyr',p,free:!covered(p)};if(G.waste.length&&G.waste[G.waste.length-1]===id)return{where:'waste',free:true};return null}
-function removeCards(ids){undoStack.push(snapshot());const rowsBefore=rowsCleared();
+function removeCards(ids){sfx(ids.length>1?'good':'card');undoStack.push(snapshot());const rowsBefore=rowsCleared();
   for(const id of ids){const p=G.pyr.indexOf(id);if(p>=0){G.pyr[p]=-1;G.score+=5}else if(G.waste[G.waste.length-1]===id)G.waste.pop();G.out.push(id)}
   G.score+=(rowsCleared()-rowsBefore)*25;sel=-1;after()}
 function rowsCleared(){let n=0;for(let r=0;r<7;r++){let all=true;for(let i=0;i<=r;i++)if(G.pyr[pidx(r,i)]>=0)all=false;if(all)n++}return n}
-function draw(){if(G.over)return;sel=-1;
+function draw(){sfx('flip');if(G.over)return;sel=-1;
   if(G.stock.length){undoStack.push(snapshot());G.waste.push(G.stock.pop());after();return}
   if(G.pass<G.maxPass&&G.waste.length){undoStack.push(snapshot());G.stock=G.waste.reverse();G.waste=[];G.pass++;after();toast(`Pass ${G.pass}${G.maxPass<99?' of '+G.maxPass:''}.`);return}
   toast('The stock is used up.')}
@@ -148,7 +150,7 @@ function after(){render();save();
 function findPair(){const a=avail();for(const x of a)if(cards[x.id].r===13)return[x.id];
   for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++)if(cards[a[i].id].r+cards[a[j].id].r===13)return[a[i].id,a[j].id];return null}
 const hasMove=()=>!!findPair();
-function undo(){if(!undoStack.length)return;restore(undoStack.pop());G.over=false;sel=-1;render();save()}
+function undo(){sfx('slide');if(!undoStack.length)return;restore(undoStack.pop());G.over=false;sel=-1;render();save()}
 function tap(id){if(G.over)return;clearHints();const w=whereOf(id);if(!w){return}
   if(!w.free){nudge(els[id]);toast('That card is covered by the row below.');return}
   const c=cards[id];if(c.r===13){removeCards([id]);return}

@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -117,7 +119,7 @@ let G=null,cards=[],els=[],undoStack=[],L=null,timerT=0,toastT=0,drag=null;
 
 /* ---------- game state ---------- */
 // G.cols: seven arrays of card ids (bottom to top). G.stock / G.waste: ids (last = top). G.found: four arrays, one per suit.
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function shuffle(a){sfx('shuffle');for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function newGame(draw){$('overlay').hidden=true;
   cards=[];for(let s=0;s<4;s++)for(let r=1;r<=13;r++)cards.push({id:cards.length,s,r,up:false});
   const order=shuffle(cards.map(c=>c.id));
@@ -139,16 +141,16 @@ function canCol(i,id){const t=topOf(G.cols[i]),c=cards[id];return t?(t.up&&RED(t
 function canFound(id){const c=cards[id],f=G.found[c.s];return f.length===c.r-1}
 // Take the cards for a move out of their pile (after checks), so they can be placed.
 function lift(at){if(at.pile==='col')return G.cols[at.i].splice(at.k);if(at.pile==='waste')return[G.waste.pop()];return[G.found[at.i].pop()]}
-function doMove(at,dest){undoStack.push(snapshot());const ids=lift(at);
+function doMove(at,dest){sfx('card');undoStack.push(snapshot());const ids=lift(at);
   if(dest.pile==='found'){G.found[cards[ids[0]].s].push(ids[0]);G.score+=10}else{G.cols[dest.i].push(...ids);if(at.pile==='waste')G.score+=5;if(at.pile==='found')G.score=Math.max(0,G.score-15)}
   G.moves++;after()}
 function after(){for(const c of G.cols)if(c.length&&!cards[c[c.length-1]].up){cards[c[c.length-1]].up=true;G.score+=5}
   render();save();if(G.found.every(f=>f.length===13))win()}
-function drawCards(){if(G.over)return;undoStack.push(snapshot());
+function drawCards(){sfx('flip');if(G.over)return;undoStack.push(snapshot());
   if(!G.stock.length){if(!G.waste.length){undoStack.pop();return}G.stock=G.waste.reverse();G.waste=[];G.stock.forEach(id=>cards[id].up=false);if(G.draw===1)G.score=Math.max(0,G.score-100)}
   else{for(let n=0;n<G.draw&&G.stock.length;n++){const id=G.stock.pop();cards[id].up=true;G.waste.push(id)}}
   G.moves++;render();save()}
-function undo(){if(!undoStack.length||G.over)return;restore(undoStack.pop());render();save()}
+function undo(){sfx('slide');if(!undoStack.length||G.over)return;restore(undoStack.pop());render();save()}
 
 /* ---------- smart moves & hints ---------- */
 // Legal moves for the card the player touched, best first.

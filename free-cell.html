@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -138,7 +140,7 @@ const capacity=toEmpty=>(freeCells()+1)*2**Math.max(0,emptyCols()-(toEmpty?1:0))
 function fitsCol(i,id){const t=topOf(G.cols[i]),c=cards[id];return!t||(RED(t.s)!==RED(c.s)&&t.r===c.r+1)}
 const canFound=id=>{const c=cards[id];return G.found[c.s].length===c.r-1};
 function lift(at){if(at.pile==='col')return G.cols[at.i].splice(at.k);if(at.pile==='cell'){const id=G.cells[at.i];G.cells[at.i]=-1;return[id]}return[G.found[at.i].pop()]}
-function doMove(at,dest,quiet){if(!quiet)undoStack.push(snapshot());const ids=lift(at);
+function doMove(at,dest,quiet){sfx('card');if(!quiet)undoStack.push(snapshot());const ids=lift(at);
   if(dest.pile==='found')G.found[cards[ids[0]].s].push(ids[0]);else if(dest.pile==='cell')G.cells[dest.i]=ids[0];else G.cols[dest.i].push(...ids);
   G.moves++;if(!quiet)after()}
 function after(){autoPlay();render();save();if(G.found.every(f=>f.length===13))win()}
@@ -148,7 +150,7 @@ function autoPlay(){if(!prefs.auto||!G||G.over)return;let moved=true,any=false;
   while(moved){moved=false;for(let i=0;i<8;i++){const t=topOf(G.cols[i]);if(t&&safe(t.id)){doMove({pile:'col',i,k:G.cols[i].length-1},{pile:'found'},true);moved=any=true}}
     for(let i=0;i<4;i++){const id=G.cells[i];if(id>=0&&safe(id)){doMove({pile:'cell',i},{pile:'found'},true);moved=any=true}}}
   if(any){render();if(G.found.every(f=>f.length===13))win()}}
-function undo(){if(!undoStack.length||G.over)return;restore(undoStack.pop());render();save()}
+function undo(){sfx('slide');if(!undoStack.length||G.over)return;restore(undoStack.pop());render();save()}
 
 /* ---------- smart moves & hints ---------- */
 function movesFor(id){const at=locate(id);if(!at)return[];const out=[],c=cards[id];

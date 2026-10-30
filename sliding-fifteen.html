@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Righteous&family=Inter:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -110,7 +112,7 @@ function load(){const o=store.get('parlor-fifteen-game',null);if(!o||o.n!==cfg.n
 function slide(p,record=true){if(G.done||G.peek)return false;const n=G.n,g=G.b.indexOf(0);if(p===g)return false;
   const pr=Math.floor(p/n),pc=p%n,gr=Math.floor(g/n),gc=g%n;if(pr!==gr&&pc!==gc)return false;
   const step=pr===gr?(pc<gc?-1:1):(pr<gr?-n:n);let cur=g;
-  if(record)G.hist.push(G.b.slice());
+  if(record)G.hist.push(G.b.slice());sfx('slide');
   while(cur!==p){const nx=cur+step;G.b[cur]=G.b[nx];G.b[nx]=0;cur=nx;G.moves++}
   if(!G.started){G.started=true;tick()}
   render();save();if(solved(G.b))win();return true}

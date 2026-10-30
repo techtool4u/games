@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -219,19 +221,19 @@ function isBoss(c,p){const s=suit(c);for(let r=rank(c)+1;r<=14;r++){const x=s*13
 
 /* ---------- game flow ---------- */
 function newGame(){$('overlay').hidden=true;S={scores:[0,0],bags:[0,0],hist:[],hand:0,dealer:3,gen:(S?S.gen:0)+1};deal()}
-function deal(){const deck=[...Array(52).keys()].sort(()=>Math.random()-.5);S.dealer=(S.dealer+1)%4;
+function deal(){sfx('shuffle');const deck=[...Array(52).keys()].sort(()=>Math.random()-.5);S.dealer=(S.dealer+1)%4;
   Object.assign(S,{hands:[0,1,2,3].map(i=>sortHand(deck.slice(i*13,i*13+13))),tricks:[0,0,0,0],bids:[null,null,null,null],trick:[],played:[],broken:false,turn:(S.dealer+1)%4,phase:'bid',busy:false});
   render();nextBid()}
 const sortHand=h=>h.sort((a,b)=>[1,0,3,2][suit(a)]-[1,0,3,2][suit(b)]||rank(a)-rank(b));
 function nextBid(){render();if(S.phase!=='bid')return;if(S.bids.every(b=>b!=null)){S.phase='play';S.turn=(S.dealer+1)%4;next();return}
   if(S.turn===0)return;const g=S.gen;S.busy=true;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;S.bids[S.turn]=cpuBid(S.turn);S.turn=(S.turn+1)%4;nextBid()},700)}
-function humanBid(b){if(S.phase!=='bid'||S.turn!==0||S.busy)return;S.bids[0]=b;S.turn=1;nextBid()}
+function humanBid(b){sfx('select');if(S.phase!=='bid'||S.turn!==0||S.busy)return;S.bids[0]=b;S.turn=1;nextBid()}
 function next(){render();if(S.phase!=='play'||S.turn===0)return;S.busy=true;const g=S.gen;
   setTimeout(()=>{if(g!==S.gen)return;S.busy=false;play(S.turn,chooseCard(S.turn))},cfg.level==='easy'?500:650)}
-function play(p,c){if(S.phase!=='play'||p!==S.turn||!legal(p).includes(c))return;
+function play(p,c){if(S.phase!=='play'||p!==S.turn||!legal(p).includes(c))return;sfx('card');
   S.hands[p]=S.hands[p].filter(x=>x!==c);S.trick.push({p,c});S.played.push(c);if(suit(c)===SP)S.broken=true;kb=-1;
   if(S.trick.length<4){S.turn=(p+1)%4;next();return}
-  const w=trickWinner(S.trick);S.turn=-1;S.busy=true;render(w);const g=S.gen;
+  const w=trickWinner(S.trick);S.turn=-1;S.busy=true;setTimeout(()=>sfx('slide'),500);render(w);const g=S.gen;
   setTimeout(()=>{if(g!==S.gen)return;$('trick').classList.add('take'+w);
     setTimeout(()=>{if(g!==S.gen)return;$('trick').classList.remove('take'+w);S.tricks[w]++;S.trick=[];S.busy=false;
       if(!S.hands[0].length){endHand();return}S.turn=w;next()},380)},900)}

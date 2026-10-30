@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -155,13 +157,13 @@ function newGame(){$('overlay').hidden=true;const n=+cfg.size;if(!DP||DP.n!==n)D
   S={players:setup(),turn:0,open:(1<<n)-1,dice:[],sel:0,phase:'roll',busy:false,over:false,log:'',anim:false,gen:(S?S.gen:0)+1};S.players.forEach(p=>{p.score=null;p.rolls=0});render();next()}
 const cur=()=>S.players[S.turn];
 const sumOf=m=>DP.sum[m]||0;
-function roll(k){if(S.over||S.busy||S.phase!=='roll')return;if(k===1&&!DP.oneOK(S.open))k=2;
+function roll(k){if(S.over||S.busy||S.phase!=='roll')return;sfx('dice');if(k===1&&!DP.oneOK(S.open))k=2;
   S.dice=[...Array(k)].map(()=>1+rand(6));S.anim=true;cur().rolls++;const t=S.dice.reduce((a,b)=>a+b,0);
   if(!DP.subs(S.open)[t]){S.log=`${cur().name} rolled ${t}: no tiles add up to that.`;render();S.anim=false;endTurn();return}
   S.phase='shut';S.sel=0;S.log='';render();S.anim=false;if(cur().cpu)cpuShut()}
 const total=()=>S.dice.reduce((a,b)=>a+b,0);
-function toggle(k){if(S.phase!=='shut'||cur().cpu||S.busy)return;const bit=1<<(k-1);if(!(S.open&bit))return;S.sel^=bit;render()}
-function shut(){if(S.phase!=='shut'||sumOf(S.sel)!==total())return;S.open&=~S.sel;S.sel=0;S.phase='roll';
+function toggle(k){if(S.phase!=='shut'||cur().cpu||S.busy)return;sfx('tap');const bit=1<<(k-1);if(!(S.open&bit))return;S.sel^=bit;render()}
+function shut(){if(S.phase!=='shut'||sumOf(S.sel)!==total())return;sfx('place');S.open&=~S.sel;S.sel=0;S.phase='roll';
   if(!S.open){cur().score=0;S.log=`${cur().name} shut the box!`;render();endTurn(true);return}render();if(cur().cpu)cpuRoll()}
 // Turn over: the open tiles are the score. Then the next player gets a fresh box.
 function endTurn(shutAll){S.busy=true;const p=cur();if(p.score==null)p.score=sumOf(S.open);render();const g=S.gen;

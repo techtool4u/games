@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -214,12 +216,12 @@ function choose(pl,ms){if(cfg.level==='easy')return ms[rand(ms.length)];const h=
 function sideScore(pl,t,side){if(!S.line.length)return 0;const[L,R]=ends(),e=side==='L'?L:R;if(!fits(t,e))return -99;const out=t[0]===e?t[1]:t[0],other=side==='L'?R:L;
   const mine=S.hands[pl].filter(x=>x!==t&&(fits(x,out)||fits(x,other))).length;let v=mine*2;
   const nxt=(pl+1)%S.n;if(S.missing[nxt].has(out)&&S.missing[nxt].has(other))v+=8;else if(S.missing[nxt].has(out))v+=3;return v}
-function place(pl,i,side){const t=S.hands[pl].splice(i,1)[0];S.passes=0;S.passed[pl]=false;S.forced=false;
+function place(pl,i,side){sfx('clack');const t=S.hands[pl].splice(i,1)[0];S.passes=0;S.passed[pl]=false;S.forced=false;
   if(!S.line.length){S.line.push(t.slice());S.lastAdded=0}
   else{const[L,R]=ends();if(side==='L'){const e=L;S.line.unshift(t[1]===e?[t[0],t[1]]:[t[1],t[0]]);S.lastAdded=0}else{const e=R;S.line.push(t[0]===e?[t[0],t[1]]:[t[1],t[0]]);S.lastAdded=S.line.length-1}}
   if(!S.hands[pl].length){endRound(pl,'domino');return}
   next()}
-function doPass(pl){if(S.line.length){const[L,R]=ends();S.missing[pl].add(L);S.missing[pl].add(R)}S.passes++;S.passed[pl]=true;toast(`${nameOf(pl)} ${pl===0&&S.humans===1?'pass':'passes'}.`);
+function doPass(pl){sfx('tap');if(S.line.length){const[L,R]=ends();S.missing[pl].add(L);S.missing[pl].add(R)}S.passes++;S.passed[pl]=true;toast(`${nameOf(pl)} ${pl===0&&S.humans===1?'pass':'passes'}.`);
   if(S.passes>=S.n){endRound(-1,'blocked');return}next()}
 function next(){S.turn=(S.turn+1)%S.n;S.lastShown=S.lastAdded;startTurn()}
 function endRound(w,how){const totals=S.hands.map(pips);let winner=w;
@@ -237,7 +239,7 @@ function tapTile(i){if(!myTurn())return;const ms=legalFor(S.turn);if(!ms.include
   const t=S.hands[S.turn][i];if(S.line.length){const[L,R]=ends(),fl=fits(t,L),fr=fits(t,R);if(fl&&fr&&L!==R){S.sel=S.sel===i?-1:i;render();return}place(S.turn,i,fl?'L':'R');return}
   place(S.turn,i,'R')}
 function tapEnd(side){if(!myTurn()||S.sel<0)return;place(S.turn,S.sel,side)}
-function humanDraw(){if(!myTurn()||cfg.variant!=='draw'||!S.yard.length||legalFor(S.turn).length)return;S.hands[S.turn].push(S.yard.pop());render()}
+function humanDraw(){if(!myTurn()||cfg.variant!=='draw'||!S.yard.length||legalFor(S.turn).length)return;sfx('slide');S.hands[S.turn].push(S.yard.pop());render()}
 function humanPass(){if(!myTurn()||legalFor(S.turn).length||(cfg.variant==='draw'&&S.yard.length))return;doPass(S.turn)}
 
 /* ---------- drawing ---------- */

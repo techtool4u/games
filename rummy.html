@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -172,19 +174,19 @@ function findMelds(hand){const cand=[];
 
 /* ---------- game ---------- */
 function newGame(){$('overlay').hidden=true;const names=shuffle(NAMES.slice());S={players:[{name:'You'},...[...Array(+cfg.rivals)].map((_,i)=>({name:names[i],cpu:true}))],dealer:-1,gen:(S?S.gen:0)+1};S.players.forEach(p=>p.score=0);deal()}
-function deal(){const n=S.players.length,deck=shuffle([...Array(52).keys()]),hand=n===2?10:7;S.dealer=(S.dealer+1)%n;
+function deal(){sfx('shuffle');const n=S.players.length,deck=shuffle([...Array(52).keys()]),hand=n===2?10:7;S.dealer=(S.dealer+1)%n;
   Object.assign(S,{hands:S.players.map(()=>deck.splice(0,hand)),stock:deck,disc:[],melds:[],refills:0,turn:(S.dealer+1)%n,phase:'draw',sel:new Set(),took:null,drawn:null,log:[],over:false,busy:false,pickups:S.players.map(()=>[])});
   S.disc.push(S.stock.pop());sortHand();log(`New hand. ${S.players[S.turn].name} ${S.turn===0?'go':'goes'} first.`);next()}
 const cur=()=>S.players[S.turn];
 function log(t){S.log.push(t);if(S.log.length>30)S.log.shift()}
 function sortHand(){S.hands[0].sort(sortBy==='suit'?(a,b)=>suit(a)-suit(b)||rank(a)-rank(b):(a,b)=>rank(a)-rank(b)||suit(a)-suit(b))}
 function refill(){if(S.stock.length)return true;if(S.disc.length<2||S.refills>=2)return false;S.refills++;const top=S.disc.pop();S.stock=shuffle(S.disc);S.disc=[top];log('The discards are shuffled into a new stock.');return true}
-function draw(p,fromDisc){let c;if(fromDisc){c=S.disc.pop();S.took=c;S.pickups[p].push(c);log(`${S.players[p].name} ${p===0?'take':'takes'} ${label(c)} from the discards.`)}
+function draw(p,fromDisc){sfx('card');let c;if(fromDisc){c=S.disc.pop();S.took=c;S.pickups[p].push(c);log(`${S.players[p].name} ${p===0?'take':'takes'} ${label(c)} from the discards.`)}
   else{if(!refill()){blocked();return null}c=S.stock.pop();S.took=null;log(`${S.players[p].name} ${p===0?'draw':'draws'} from the stock.`)}
   S.hands[p].push(c);S.drawn=c;S.phase='play';return c}
-function meld(p,cs){S.hands[p]=S.hands[p].filter(c=>!cs.includes(c));S.melds.push({cards:arrange(cs),by:p});log(`${S.players[p].name} ${p===0?'meld':'melds'} ${arrange(cs).map(label).join(' ')}.`)}
-function layoff(p,c,mi){const m=S.melds[mi];S.hands[p]=S.hands[p].filter(x=>x!==c);m.cards=arrange(m.cards.concat(c));log(`${S.players[p].name} ${p===0?'lay':'lays'} off ${label(c)}.`)}
-function discard(p,c){S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c);log(`${S.players[p].name} ${p===0?'discard':'discards'} ${label(c)}.`);
+function meld(p,cs){sfx('deal',{n:cs.length});S.hands[p]=S.hands[p].filter(c=>!cs.includes(c));S.melds.push({cards:arrange(cs),by:p});log(`${S.players[p].name} ${p===0?'meld':'melds'} ${arrange(cs).map(label).join(' ')}.`)}
+function layoff(p,c,mi){sfx('card');const m=S.melds[mi];S.hands[p]=S.hands[p].filter(x=>x!==c);m.cards=arrange(m.cards.concat(c));log(`${S.players[p].name} ${p===0?'lay':'lays'} off ${label(c)}.`)}
+function discard(p,c){sfx('card');S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c);log(`${S.players[p].name} ${p===0?'discard':'discards'} ${label(c)}.`);
   if(!S.hands[p].length){handOver(p);return}S.turn=(S.turn+1)%S.players.length;S.phase='draw';S.took=null;S.drawn=null;S.sel=new Set();next()}
 // After the stock has run out twice with nobody going out, the hand is a draw and nobody scores.
 function blocked(){S.over=true;log('The stock ran out again: this hand is a draw.');render();

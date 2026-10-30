@@ -82,6 +82,12 @@ The same pages are packaged as an Android app with [Capacitor](https://capacitor
 - **Build locally:** install Node 22, JDK 21 and Android Studio (for the SDK), then run `npm ci && npm run apk`. The APK lands in `android/app/build/outputs/apk/debug/`.
 - **Icon:** `app-shell/icon.svg`. After changing it, regenerate the PNGs with `node scripts/make-icons.cjs` (needs Playwright).
 
+## Sound and music
+
+`sound.js` gives every game sound effects and optional background music, all synthesized with the Web Audio API, so there are no audio files to download. Each game plays sounds that suit it: card games snap and shuffle, dice games rattle, board games click and capture, word and puzzle games chime, and arcade games blip. Wins, losses and draws get their own short tunes.
+
+Every page has two buttons next to the "← Game Parlor" link. The speaker turns sound effects on or off (mute), and the note turns music on or off. The music is generated as it plays and has a different style for each kind of game. Both settings are remembered and shared by all the games. Music is off until you turn it on, and sound pauses when the page is hidden.
+
 ## Online play (device to device)
 
 `p2p.js` connects two devices directly with a WebRTC data channel; there is no game server. Players pair once by swapping two short codes, shown as QR codes or copied and shared. A public STUN server (Google's) is used only to discover each device's internet address and never sees game data; on the same Wi-Fi no outside server is needed. Some strict mobile or office networks block direct connections, and those can't connect without a relay server.

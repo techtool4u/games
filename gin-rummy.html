@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -228,7 +230,7 @@ const other=p=>1-p;
 const isCpu=p=>cfg.mode==='cpu'&&p===1;
 const NAME=p=>cfg.mode==='cpu'?(p===0?'You':'Computer'):`Player ${p+1}`;
 function newGame(){$('overlay').hidden=true;S={score:[0,0],boxes:[0,0],dealer:rand(2),hist:[],gen:(S?S.gen:0)+1,over:false,viewer:0};deal()}
-function deal(){const deck=[...Array(52).keys()].sort(()=>Math.random()-.5);S.gen++;S.dealer=other(S.dealer);
+function deal(){sfx('shuffle');const deck=[...Array(52).keys()].sort(()=>Math.random()-.5);S.gen++;S.dealer=other(S.dealer);
   Object.assign(S,{hands:[deck.slice(0,10),deck.slice(10,20)],disc:[deck[20]],stock:deck.slice(21),turn:other(S.dealer),phase:'first',passes:0,picked:-1,took:-1,drawn:-1,pickups:[[],[]],discards:[[],[]],msg:'',busy:false,turnCount:0});
   showTo(S.turn,next)}
 function showTo(p,then){if(cfg.mode==='cpu'){S.viewer=0;render();if(then)then();return}
@@ -244,14 +246,14 @@ function next(){render();const p=S.turn;if(!isCpu(p))return;S.busy=true;render()
       if(cpuKnock(p,dw))knock(p,c);else discard(p,c)},500)},700)}
 function passFirst(p){S.passes++;S.msg=`${NAME(p)} ${p===0&&cfg.mode==='cpu'?'pass':'passes'} on the first card.`;
   if(S.passes===1){S.turn=other(p);showTo(S.turn,next)}else{S.phase='draw';S.turn=other(S.dealer);showTo(S.turn,()=>{takeStock(S.turn);if(isCpu(S.turn))next();else render()})}}
-function takeDisc(p){const c=S.disc.pop();S.hands[p].push(c);S.took=c;S.drawn=c;S.pickups[p].push(c);S.phase='discard';S.msg=`${NAME(p)} ${p===0&&cfg.mode==='cpu'?'take':'takes'} ${nm(c)} from the discards.`;render();if(isCpu(p))return;}
-function takeStock(p){const c=S.stock.pop();S.hands[p].push(c);S.took=-1;S.drawn=c;S.phase='discard';S.msg=`${NAME(p)} ${p===0&&cfg.mode==='cpu'?'draw':'draws'} from the stock.`;render()}
-function discard(p,c){if(c===S.took&&S.hands[p].length>1)return;S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c);S.discards[p].push(c);S.picked=-1;S.drawn=-1;S.took=-1;S.turnCount++;kb=-1;
+function takeDisc(p){sfx('card');const c=S.disc.pop();S.hands[p].push(c);S.took=c;S.drawn=c;S.pickups[p].push(c);S.phase='discard';S.msg=`${NAME(p)} ${p===0&&cfg.mode==='cpu'?'take':'takes'} ${nm(c)} from the discards.`;render();if(isCpu(p))return;}
+function takeStock(p){sfx('card');const c=S.stock.pop();S.hands[p].push(c);S.took=-1;S.drawn=c;S.phase='discard';S.msg=`${NAME(p)} ${p===0&&cfg.mode==='cpu'?'draw':'draws'} from the stock.`;render()}
+function discard(p,c){sfx('card');if(c===S.took&&S.hands[p].length>1)return;S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c);S.discards[p].push(c);S.picked=-1;S.drawn=-1;S.took=-1;S.turnCount++;kb=-1;
   S.msg=`${NAME(p)} ${p===0&&cfg.mode==='cpu'?'discard':'discards'} ${nm(c)}.`;
   if(S.stock.length<=2){endHand(-1,'draw');return}
   S.phase='draw';S.turn=other(p);showTo(S.turn,next)}
 // c = the card to discard face down, or -1 for big gin (keep all 11).
-function knock(p,c){if(c>=0){S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c)}const k=arrange(S.hands[p]);
+function knock(p,c){sfx('tap');if(c>=0){S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c)}const k=arrange(S.hands[p]);
   if(k.dw>10)return;endHand(p,k.dw===0?(c<0?'biggin':'gin'):'knock')}
 function endHand(p,how){S.phase='over';S.busy=true;S.gen++;S.viewer=cfg.mode==='cpu'?0:S.viewer;render();
   let lines=[],winner=-1,pts=0;

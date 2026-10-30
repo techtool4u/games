@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -132,7 +134,7 @@ function restore(s){const o=JSON.parse(s);G.cols=o.cols;G.stock=o.stock;G.done=o
 function movableFrom(ci,k){const c=G.cols[ci];if(k<0||k>=c.length||!cards[c[k]].up)return false;
   for(let j=k+1;j<c.length;j++){const a=cards[c[j-1]],b=cards[c[j]];if(b.s!==a.s||b.r!==a.r-1)return false}return true}
 function canDrop(ci,first){const c=G.cols[ci];return!c.length||cards[c[c.length-1]].r===cards[first].r+1}
-function move(from,k,to){undoStack.push(snapshot());const run=G.cols[from].splice(k);G.cols[to].push(...run);G.score--;G.moves++;
+function move(from,k,to){sfx('card');undoStack.push(snapshot());const run=G.cols[from].splice(k);G.cols[to].push(...run);G.score--;G.moves++;
   afterChange([from,to])}
 function afterChange(touched){
   for(const ci of touched){const c=G.cols[ci];if(c.length&&!cards[c[c.length-1]].up)cards[c[c.length-1]].up=true}
@@ -142,13 +144,13 @@ function afterChange(touched){
 function checkComplete(ci){const c=G.cols[ci];if(c.length<13)return false;const k=c.length-13;
   if(cards[c[k]].r!==13||!movableFrom(ci,k))return false;
   G.done.push(cards[c[k]].s);const run=c.splice(k);run.forEach(id=>cards[id].gone=G.done.length-1);G.score+=100;
-  if(c.length&&!cards[c[c.length-1]].up)cards[c[c.length-1]].up=true;toast('Run complete!');return true}
-function deal(){if(G.over)return;if(!G.stock.length){toast('The stock is empty.');return}
+  if(c.length&&!cards[c[c.length-1]].up)cards[c[c.length-1]].up=true;toast('Run complete!');sfx('clear',{n:4});return true}
+function deal(){sfx('deal',{n:5});if(G.over)return;if(!G.stock.length){toast('The stock is empty.');return}
   if(G.cols.some(c=>!c.length)){toast('Fill every empty column before dealing.');nudge(L.stockEl);return}
   undoStack.push(snapshot());const grp=G.stock.pop();grp.forEach((id,i)=>{cards[id].up=true;G.cols[i].push(id)});G.score--;G.moves++;
   dealing=true;afterChange([...Array(10).keys()]);dealing=false}
 let dealing=false;
-function undo(){if(!undoStack.length||G.over)return;restore(undoStack.pop());cards.forEach(c=>{c.gone=undefined});rebuildGone();G.score--;render();save()}
+function undo(){sfx('slide');if(!undoStack.length||G.over)return;restore(undoStack.pop());cards.forEach(c=>{c.gone=undefined});rebuildGone();G.score--;render();save()}
 function rebuildGone(){// cards in completed runs are the ones in no column and no stock group
   const live=new Set([...G.cols.flat(),...G.stock.flat()]);let slot=0;const bySet=[];
   cards.forEach(c=>{if(!live.has(c.id)){c.gone=null}});

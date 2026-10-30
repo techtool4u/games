@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -204,8 +206,8 @@ function load(){const o=store.get('parlor-sudoku-game',null);const n=o&&(o.size|
   setSize(n);S=Object.assign(o,{size:n,undo:[]});cfg.level=S.level;cfg.size=n;sel=S.val.findIndex(v=>!v);build();render();return true}
 function push(){S.undo.push({val:S.val.slice(),notes:S.notes.slice()});if(S.undo.length>300)S.undo.shift()}
 function setVal(i,d){if(S.done||S.given[i])return;
-  if(notesMode&&d){if(S.val[i])return;push();S.notes[i]^=1<<(d-1);render();save();return}
-  if(S.val[i]===d)return;push();S.val[i]=d;S.notes[i]=0;
+  if(notesMode&&d){if(S.val[i])return;sfx('key');push();S.notes[i]^=1<<(d-1);render();save();return}
+  if(S.val[i]===d)return;push();S.val[i]=d;S.notes[i]=0;sfx(!d?'slide':d!==S.sol[i]?'bad':'tap');
   if(d){if(d!==S.sol[i]){S.mistakes++}else PEERS[i].forEach(j=>S.notes[j]&=~(1<<(d-1)))}
   render();save();if(S.val.every((v,k)=>v===S.sol[k]))win()}
 function undo(){if(!S||S.done||!S.undo.length)return;const u=S.undo.pop();S.val=u.val;S.notes=u.notes;render();save()}

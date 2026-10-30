@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -295,8 +297,8 @@ function renderHud(){if(FAST())return;const L=S.L,G=L.goal;
   else{const left=S.jelly.reduce((s,x)=>s+x,0);h=`<span class="goal${left?'':' done'}"><span class="jl"></span>${left?left+' jelly':'✓ All clear'}</span>`}
   $('goals').innerHTML=h}
 function fxAt(cls,i,extra){if(FAST())return;const[r,c]=rc(i),d=document.createElement('div');d.className=cls;Object.assign(d.style,extra||{left:(c+.5)*12.5+'%',top:(r+.5)*12.5+'%'});$('fx').appendChild(d);setTimeout(()=>d.remove(),1200);return d}
-function beam(i,dir){const[r,c]=rc(i);fxAt('beam'+(dir==='v'?' v':''),i,dir==='v'?{left:c*12.5+3+'%',width:'6.5%',top:0,height:'100%'}:{top:r*12.5+3+'%',height:'6.5%',left:0,width:'100%'})}
-function burst(i,size){const[r,c]=rc(i),s=size*12.5;fxAt('burst',i,{left:(c+.5)*12.5-s/2+'%',top:(r+.5)*12.5-s/2+'%',width:s+'%',height:s+'%'})}
+function beam(i,dir){sfx('eat');const[r,c]=rc(i);fxAt('beam'+(dir==='v'?' v':''),i,dir==='v'?{left:c*12.5+3+'%',width:'6.5%',top:0,height:'100%'}:{top:r*12.5+3+'%',height:'6.5%',left:0,width:'100%'})}
+function burst(i,size){sfx('boom');const[r,c]=rc(i),s=size*12.5;fxAt('burst',i,{left:(c+.5)*12.5-s/2+'%',top:(r+.5)*12.5-s/2+'%',width:s+'%',height:s+'%'})}
 function floatText(i,t){const d=fxAt('float',i);if(d)d.textContent=t}
 function banner(t){if(FAST())return;const d=document.createElement('div');d.className='banner';d.textContent=t;$('fx').appendChild(d);setTimeout(()=>d.remove(),1200)}
 
@@ -310,7 +312,7 @@ function expand(set,fired){const g=S.grid,q=[...set];
     else if(cd.s==='b'){const cnt={};g.forEach(o=>{if(o&&o.c!==BOMB)cnt[o.c]=(cnt[o.c]||0)+1});const k=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];g.forEach((o,j)=>{if(o&&o.c===k)add.push(j)});burst(i,4)}
     add.forEach(j=>{if(!set.has(j)){set.add(j);q.push(j)}})}
   return set}
-async function clearCells(set,specials=[],fired=new Set()){
+async function clearCells(set,specials=[],fired=new Set()){sfx(S.cascade>1?'clear':'pop',{n:S.cascade});
   const g=S.grid;
   specials.forEach(sp=>set.delete(sp.at));
   expand(set,fired);
@@ -351,10 +353,10 @@ function comboCells(a,b){const g=S.grid,A=g[a],B=g[b],set=new Set([a,b]),fired=n
 async function trySwap(a,b){
   if(!S||S.busy||S.over||!neighbors(a,b))return false;
   const g=S.grid;if(!g[a]||!g[b])return false;
-  S.busy=true;S.sel=-1;clearHint();
+  S.busy=true;S.sel=-1;clearHint();sfx('slide');
   const ok=swapWorks(g,a,b);
   [g[a],g[b]]=[g[b],g[a]];render();await wait(190);
-  if(!ok){[g[a],g[b]]=[g[b],g[a]];render();await wait(190);S.busy=false;status('No match there. Try another swap.');armHint();return false}
+  if(!ok){sfx('bad');[g[a],g[b]]=[g[b],g[a]];render();await wait(190);S.busy=false;status('No match there. Try another swap.');armHint();return false}
   S.moves--;S.cascade=1;status('');
   const A=g[a],B=g[b];
   if(A.c===BOMB||B.c===BOMB||(A.s&&B.s)){const{set,fired}=comboCells(a,b);await clearCells(set,[],fired);await gravity();S.cascade++}

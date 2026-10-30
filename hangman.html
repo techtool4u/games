@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito+Sans:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -183,7 +185,7 @@ function start(word,clue){
 function newRound(){if(cfg.mode==='two'){askWord();return}const[w,c]=pickWord();start(w,LEVELS[cfg.level].clue?c:null)}
 const letters=()=>[...new Set(R.word.replace(/[^A-Z]/g,''))];
 function guess(ch){if(!R||R.over||R.guessed.has(ch)||!/^[A-Z]$/.test(ch))return;R.guessed.add(ch);
-  const hit=R.word.includes(ch);if(!hit)R.wrong++;
+  const hit=R.word.includes(ch);if(!hit)R.wrong++;sfx(hit?'good':'bad');
   const k=document.querySelector(`.key[data-k="${ch}"]`);if(k){k.classList.add(hit?'hit':'miss');k.disabled=true}
   if(letters().every(l=>R.guessed.has(l)))finish(true);else if(R.wrong>=R.lives)finish(false);
   render(false,hit?ch:null)}

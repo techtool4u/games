@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -234,7 +236,7 @@ function fire(c){if(S.phase!=='play'||S.busy||S.cover)return;const p=S.turn,foe=
   const i=shipAt(foe,c);foe.shots[c]=i>=0?2:1;S.last[p]=c;S.stats[p].shots++;let msg='';
   if(i>=0){S.stats[p].hits++;msg='Hit!';if(isSunk(foe,i)){foe.sunk.push(i);msg=`${p===0&&cfg.mode==='cpu'?'You sank':isCpu(p)?'Computer sank':nameOf(p)+' sank'} the ${foe.ships[i].name.toLowerCase()}!`}}
   else msg='Miss.';
-  S.fresh=c;render();S.fresh=-1;
+  sfx(i<0?'splash':msg==='Hit!'?'boom':'boom',{big:msg!=='Hit!'});S.fresh=c;render();S.fresh=-1;
   if(allSunk(foe)){S.phase='over';wins[p]++;render();setTimeout(()=>finish(p),800);return}
   if(i>=0&&msg!=='Hit!')toast(msg,1800);
   const again=cfg.bonus&&i>=0;

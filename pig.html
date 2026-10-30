@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -119,14 +121,14 @@ let S=null;
 function setup(){const m=cfg.players,n=+m[1];if(m[0]==='c')return[{name:'You'},...[...Array(n)].map((_,i)=>({name:NAMES[i],cpu:true}))];return[...Array(n)].map((_,i)=>({name:`Player ${i+1}`}))}
 function newGame(){$('overlay').hidden=true;S={players:setup(),turn:0,turnTotal:0,dice:[],mustRoll:false,over:false,busy:false,log:'',anim:false,gen:(S?S.gen:0)+1};S.players.forEach(p=>p.score=0);render();next()}
 const cur=()=>S.players[S.turn];
-function roll(){if(S.over||S.busy)return;const n=+cfg.dice;S.dice=[...Array(n)].map(()=>1+Math.floor(Math.random()*6));S.anim=true;S.mustRoll=false;
+function roll(){if(S.over||S.busy)return;sfx('dice');const n=+cfg.dice;S.dice=[...Array(n)].map(()=>1+Math.floor(Math.random()*6));S.anim=true;S.mustRoll=false;
   const ones=S.dice.filter(v=>v===1).length,nm=cur().name,you=nm==='You';
   if(n===2&&ones===2){cur().score=0;S.turnTotal=0;S.log=`Snake eyes! ${nm} ${you?'lose':'loses'} the whole score.`;render();endTurn();return}
-  if(ones){S.log=`${you?'You':nm} rolled a 1 and ${you?'lose':'loses'} ${S.turnTotal} point${S.turnTotal===1?'':'s'}.`;S.turnTotal=0;render();endTurn();return}
+  if(ones){setTimeout(()=>sfx('bad'),400);S.log=`${you?'You':nm} rolled a 1 and ${you?'lose':'loses'} ${S.turnTotal} point${S.turnTotal===1?'':'s'}.`;S.turnTotal=0;render();endTurn();return}
   S.turnTotal+=S.dice.reduce((a,b)=>a+b,0);if(n===2&&S.dice[0]===S.dice[1]){S.mustRoll=true;S.log='Doubles: roll again!'}else S.log='';
   if(cur().score+S.turnTotal>=cfg.target){S.mustRoll=false;hold();return}
   render();S.anim=false}
-function hold(){if(S.over||!S.turnTotal||S.mustRoll)return;cur().score+=S.turnTotal;S.log=`${cur().name} ${cur().name==='You'?'bank':'banks'} ${S.turnTotal}.`;S.turnTotal=0;
+function hold(){if(S.over||!S.turnTotal||S.mustRoll)return;sfx('score');cur().score+=S.turnTotal;S.log=`${cur().name} ${cur().name==='You'?'bank':'banks'} ${S.turnTotal}.`;S.turnTotal=0;
   if(cur().score>=cfg.target){S.over=true;render();finish();return}endTurn()}
 function endTurn(){S.busy=true;render();S.anim=false;const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;S.turn=(S.turn+1)%S.players.length;S.turnTotal=0;S.dice=[];S.mustRoll=false;next()},1100)}
 // Computer: hold once the turn total reaches a target that depends on style and the race.

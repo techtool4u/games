@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Outfit:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -253,10 +255,10 @@ async function play(pit){
   const hand=S.pits[pit].splice(0);let i=pit;const skip=STORE[1-p],own=STORE[p];
   render();
   const delay=n>12?110:170;
-  for(const id of hand){do{i=(i+1)%14}while(i===skip);S.pits[i].push(id);render();await wait(delay);if(g!==S.gen)return}
+  for(const id of hand){do{i=(i+1)%14}while(i===skip);S.pits[i].push(id);sfx('tick');sfx('step');render();await wait(delay);if(g!==S.gen)return}
   let text=`Pit ${label(pit)} · ${n} seed${n===1?'':'s'}`;
-  if(r.again){text+=' · landed in store, goes again';S.note=`${nameOf(p)} landed in the store. ${p===0||cfg.mode==='two'?'Go again!':'It goes again.'}`}
-  if(r.cap){await wait(250);if(g!==S.gen)return;
+  if(r.again){setTimeout(()=>sfx('good'),100);text+=' · landed in store, goes again';S.note=`${nameOf(p)} landed in the store. ${p===0||cfg.mode==='two'?'Go again!':'It goes again.'}`}
+  if(r.cap){await wait(250);if(g!==S.gen)return;sfx('capture');
     S.pits[own].push(...S.pits[i].splice(0),...S.pits[12-i].splice(0));render();
     text+=` · captured ${r.cap}`;S.note=`${nameOf(p)} captured ${r.cap} seeds.`}
   S.log.push({who:nameOf(p),text});S.last=[pit,i];

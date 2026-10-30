@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -99,7 +101,7 @@ function placeFood(){const f=free();G.food=f.length?f[Math.floor(Math.random()*f
 function start(){if(G.state==='over')newGame();G.state='run';$('msg').hidden=true;last=performance.now();acc=0;cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
 function pause(){if(G.state==='run'){G.state='paused';showMsg('Paused','Press Space, or tap below to carry on.','Resume');$('pause').textContent='Resume'}else if(G.state==='paused'||G.state==='ready'){$('pause').textContent='Pause';start()}}
 // Directions are queued so two quick taps (up, then left) both count, but the snake can't reverse into itself.
-function turn(d){if(G.state==='over')return;const lastDir=G.queue.length?G.queue[G.queue.length-1]:G.dir;const [ax,ay]=DIRS[lastDir],[bx,by]=DIRS[d];
+function turn(d){if(G.state==='over')return;sfx('tick');const lastDir=G.queue.length?G.queue[G.queue.length-1]:G.dir;const [ax,ay]=DIRS[lastDir],[bx,by]=DIRS[d];
   if(!(ax+bx===0&&ay+by===0||d===lastDir)&&G.queue.length<3)G.queue.push(d);
   if(G.state==='ready'||G.state==='paused'){$('pause').textContent='Pause';start()}}
 function step(){if(G.queue.length)G.dir=G.queue.shift();const [dx,dy]=DIRS[G.dir];let [x,y]=G.snake[0];x+=dx;y+=dy;
@@ -107,14 +109,14 @@ function step(){if(G.queue.length)G.dir=G.queue.shift();const [dx,dy]=DIRS[G.dir
   const tailMoves=G.grow===0;const body=tailMoves?G.snake.slice(0,-1):G.snake;
   if(body.some(([a,b])=>a===x&&b===y)){die();return}
   G.snake.unshift([x,y]);if(G.grow>0)G.grow--;else G.snake.pop();
-  if(G.food&&x===G.food[0]&&y===G.food[1]){G.score++;G.grow+=1;G.eaten++;placeFood();if(G.eaten%6===0&&!G.gold){const f=free();if(f.length)G.gold={p:f[Math.floor(Math.random()*f.length)],t:performance.now()}}}
+  if(G.food&&x===G.food[0]&&y===G.food[1]){sfx('eat');G.score++;G.grow+=1;G.eaten++;placeFood();if(G.eaten%6===0&&!G.gold){const f=free();if(f.length)G.gold={p:f[Math.floor(Math.random()*f.length)],t:performance.now()}}}
   if(G.gold&&x===G.gold.p[0]&&y===G.gold.p[1]){G.score+=5;G.grow+=2;G.gold=null}
   $('score').textContent=G.score;
   if(!G.food&&!G.gold)win()}
-function die(){G.state='over';cancelAnimationFrame(raf);const k=bestKey(),nb=G.score>(best[k]||0);if(nb){best[k]=G.score;store.set('parlor-snake-best',best)}$('best').textContent=best[k]||0;
+function die(){sfx('lose');G.state='over';cancelAnimationFrame(raf);const k=bestKey(),nb=G.score>(best[k]||0);if(nb){best[k]=G.score;store.set('parlor-snake-best',best)}$('best').textContent=best[k]||0;
   render(true);if(navigator.vibrate)try{navigator.vibrate(120)}catch(e){}
   showMsg('Game over',`Score ${G.score}.${nb&&G.score?' A new best!':''}`,'Play again')}
-function win(){G.state='over';cancelAnimationFrame(raf);showMsg('You filled the board!',`Score ${G.score}.`,'Play again')}
+function win(){sfx('win');G.state='over';cancelAnimationFrame(raf);showMsg('You filled the board!',`Score ${G.score}.`,'Play again')}
 function showMsg(t,p,b){$('msg').innerHTML=`<div><b>${t}</b><p>${p}</p><button class="btn primary" id="go">${b}</button></div>`;$('msg').hidden=false;$('go').onclick=()=>{if(G.state==='paused'){$('pause').textContent='Pause'}start()}}
 function loop(t){if(G.state!=='run')return;const interval=Math.max(SPEED[cfg.speed]*.6,SPEED[cfg.speed]-G.eaten*1.2);acc+=t-last;last=t;
   if(acc>250)acc=interval;   // after a background tab, don't jump several squares at once

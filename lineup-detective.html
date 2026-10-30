@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -143,6 +145,7 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
       <label for="diff" class="label" style="margin:0">Rival</label>
       <select id="diff"><option value="easy">Easygoing</option><option value="sharp" selected>Sharp</option></select>
       <button class="btn primary" id="newgame">New game</button>
+      <span data-sound></span>
     </div>
   </header>
 
@@ -290,7 +293,7 @@ function renderAll(){
 function ask(id){
   if(S.phase!=='you'||S.accuse) return;
   const q=QS.find(x=>x.id===id), a=q.t(people[S.cpu]);
-  S.asked.add(id); S.log.push({who:'You',text:q.q,a});
+  S.asked.add(id); S.log.push({who:'You',text:q.q,a});sfx('tap');
   if($('auto').checked) people.forEach(p=>{if(q.t(p)!==a) S.mine[p.i]=false});
   S.phase='cpu'; renderAll(); setTimeout(cpuTurn,1100);
 }
@@ -329,7 +332,7 @@ function end(res,msg){
 }
 $('board').addEventListener('click',e=>{const t=e.target.closest('.tile');if(!t||S.phase==='over')return;const i=+t.dataset.i;
   if(S.accuse){ if(S.mine[i]&&S.phase==='you') accuse(i); return;}
-  S.mine[i]=!S.mine[i]; renderAll();});
+  sfx('flip');S.mine[i]=!S.mine[i]; renderAll();});
 $('questions').addEventListener('click',e=>{const b=e.target.closest('.chip'); if(b&&!b.disabled) ask(b.dataset.q)});
 $('accuse').onclick=()=>{S.accuse=!S.accuse;renderAll()};
 $('newgame').onclick=newGame;

@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&display=swap&text=%E5%B8%A5%E4%BB%95%E7%9B%B8%E5%82%8C%E4%BF%A5%E7%82%AE%E5%85%B5%E5%B0%87%E5%A3%AB%E8%B1%A1%E9%A6%AC%E8%BB%8A%E7%A0%B2%E5%8D%92%E6%A5%9A%E6%B2%B3%E6%BC%A2%E7%95%8C">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -334,7 +336,7 @@ function newGame(fromSave){$('overlay').hidden=true;reqId++;pending=null;hint=nu
   G.legal=E.legal();checkEnd();save();render();maybeCpu()}
 function record(m){const n=notate(m),cap=E.board[E.TO(m)];E.make(m);G.moves.push(m);G.notes.push(n);G.caps.push(cap);G.checks.push(E.inCheck(E.side));G.keys.push(E.key());G.quiet.push(cap?0:G.quiet[G.quiet.length-1]+1)}
 function maybeCpu(){if(isCpuTurn()&&!pending){const L=LEVELS[cfg.level],g=G;setTimeout(()=>{if(G===g&&isCpuTurn()&&!pending)ask({depth:L.depth,ms:L.ms,noise:L.noise},'move')},G.moves.length?200:600)}}
-function play(m){record(m);dropped=E.TO(m);sel=-1;hint=null;G.legal=E.legal();checkEnd();save();render();dropped=-1;
+function play(m){record(m);sfx(G.checks[G.checks.length-1]?'check':G.caps[G.caps.length-1]?'capture':'move');dropped=E.TO(m);sel=-1;hint=null;G.legal=E.legal();checkEnd();save();render();dropped=-1;
   if(G.over)setTimeout(showEnd,700);else maybeCpu()}
 function checkEnd(){
   if(!G.legal.length){G.over={result:-E.side,why:E.inCheck(E.side)?'Checkmate':'No legal moves (stalemate loses in xiangqi)'};return}

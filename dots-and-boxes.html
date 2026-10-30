@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -213,7 +215,7 @@ const cur=()=>S.players[S.turn];
 function next(){render();if(S.over||!cur().cpu)return;S.busy=true;render();const g=S.gen;
   setTimeout(()=>{if(g!==S.gen)return;S.busy=false;play(chooseLine(S))},S.lastGot?380:620)}
 function play(e){if(S.over||S.lines[e])return;S.hist.push({lines:S.lines.slice(),owner:S.owner.slice(),turn:S.turn,last:S.last});
-  const got=draw(S,e,S.turn);S.last=e;S.fresh=G.edgeBoxes[e].filter(b=>S.owner[b]===S.turn&&got);S.lastGot=got;
+  const got=draw(S,e,S.turn);sfx(got?'score':'tap');S.last=e;S.fresh=G.edgeBoxes[e].filter(b=>S.owner[b]===S.turn&&got);S.lastGot=got;
   if(!got)S.turn=(S.turn+1)%S.players.length;
   if(S.lines.every(x=>x)){S.over=true;render();finish();return}
   next()}

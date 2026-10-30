@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700&display=swap&text=%E6%AD%A9%E9%A6%99%E6%A1%82%E9%8A%80%E9%87%91%E8%A7%92%E9%A3%9B%E7%8E%89%E7%8E%8B%E3%81%A8%E6%9D%8F%E5%9C%AD%E5%85%A8%E9%A6%AC%E9%BE%8D">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -374,8 +376,8 @@ function newGame(fromSave){$('overlay').hidden=true;reqId++;pending=null;hint=nu
   if(fromSave)for(const m of fromSave.moves){const L=E.legal();if(!L.includes(m))break;G.notes.push(notate(m,L));E.make(m);G.moves.push(m);G.checks.push(E.inCheck(E.side));G.keys.push(E.key())}
   G.legal=E.legal();checkEnd();save();render();maybeCpu()}
 function maybeCpu(){if(isCpuTurn()&&!pending){const L=LEVELS[cfg.level],g=G;setTimeout(()=>{if(G===g&&isCpuTurn()&&!pending)ask({depth:L.depth,ms:L.ms,noise:L.noise},'move')},G.moves.length?200:600)}}
-function play(m){const n=notate(m,G.legal);E.make(m);G.moves.push(m);G.notes.push(n);G.checks.push(E.inCheck(E.side));G.keys.push(E.key());
-  dropped=E.TO(m);sel=null;hint=null;G.legal=E.legal();checkEnd();save();render();dropped=-1;
+function play(m){const n=notate(m,G.legal);sfx(n.includes('x')?'capture':'move');E.make(m);G.moves.push(m);G.notes.push(n);G.checks.push(E.inCheck(E.side));G.keys.push(E.key());
+  if(G.checks[G.checks.length-1])sfx('check');dropped=E.TO(m);sel=null;hint=null;G.legal=E.legal();checkEnd();save();render();dropped=-1;
   if(G.over)setTimeout(showEnd,700);else maybeCpu()}
 function checkEnd(){
   if(!G.legal.length){G.over={result:-E.side,why:E.inCheck(E.side)?'Checkmate':'No legal moves'};return}

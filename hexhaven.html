@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;600;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -207,6 +209,7 @@ select.tbtn{padding:6px 8px}
     <div class="brand">Hexhaven</div>
     <div class="players" id="players"></div>
     <div class="topbtns">
+      <span data-sound></span>
       <button class="tbtn" id="bLog">Log</button>
       <button class="tbtn" id="bRules">Rules</button>
       <button class="tbtn hide-sm" id="bFull">Fullscreen</button>
@@ -449,13 +452,13 @@ function updateLongest(){
   if(G.longest!==prev){if(G.longest>=0)log(`${tag(P[G.longest])} ${P[G.longest].human?'take':'takes'} Longest Road with ${max} roads. +2 points.`);else log(`Nobody holds Longest Road now.`)}
 }
 function updateArmy(p){if(p.knights>=3&&G.army!==p.id&&(G.army<0||p.knights>P[G.army].knights)){G.army=p.id;log(`${tag(p)} ${p.human?'take':'takes'} Largest Army with ${p.knights} knights. +2 points.`)}}
-function buildSettlement(p,v,free){if(!free)pay(p,COST.settlement);V[v].b={o:p.id,city:false};p.setsLeft--;updateLongest()}
-function buildCity(p,v){pay(p,COST.city);V[v].b.city=true;p.citiesLeft--;p.setsLeft++}
-function buildRoad(p,e,free){if(!free)pay(p,COST.road);E[e].road=p.id;p.roadsLeft--;updateLongest()}
-function buyDev(p){pay(p,COST.dev);const t=G.deck.pop();p.dev.push({type:t,turn:G.turnNo});return t}
+function buildSettlement(p,v,free){sfx('place');if(!free)pay(p,COST.settlement);V[v].b={o:p.id,city:false};p.setsLeft--;updateLongest()}
+function buildCity(p,v){sfx('good');pay(p,COST.city);V[v].b.city=true;p.citiesLeft--;p.setsLeft++}
+function buildRoad(p,e,free){sfx('move');if(!free)pay(p,COST.road);E[e].road=p.id;p.roadsLeft--;updateLongest()}
+function buyDev(p){sfx('card');pay(p,COST.dev);const t=G.deck.pop();p.dev.push({type:t,turn:G.turnNo});return t}
 function canPlayDev(p,type){return G.phase==='main'&&G.cur===p.id&&!G.devPlayed&&!G.pending&&G.mode!=='freeRoad'&&type!=='vp'&&p.dev.some(d=>d.type===type&&d.turn<G.turnNo)&&(type!=='road'||p.roadsLeft>0)}
-function useDev(p,type){const i=p.dev.findIndex(d=>d.type===type&&d.turn<G.turnNo);p.dev.splice(i,1);G.devPlayed=true}
-function steal(from,to){const pool=RES.flatMap(r=>Array(from.hand[r]).fill(r));const r=pool[rand(pool.length)];from.hand[r]--;to.hand[r]++;return r}
+function useDev(p,type){sfx('flip');const i=p.dev.findIndex(d=>d.type===type&&d.turn<G.turnNo);p.dev.splice(i,1);G.devPlayed=true}
+function steal(from,to){sfx('slide');const pool=RES.flatMap(r=>Array(from.hand[r]).fill(r));const r=pool[rand(pool.length)];from.hand[r]--;to.hand[r]++;return r}
 function produce(sum){
   const gains=P.map(()=>zero());
   T.forEach(t=>{if(t.num!==sum||t.id===G.robber)return;t.verts.forEach(v=>{const b=V[v].b;if(b)gains[b.o][t.res]+=b.city?2:1})});
@@ -466,7 +469,7 @@ function produce(sum){
   if(!any)log(`Nobody collects anything.`);
 }
 async function roll(){
-  const a=1+rand(6),b=1+rand(6),p=P[G.cur];G.dice=[a,b];G.rolled=true;G.diceAnim=true;
+  const a=1+rand(6),b=1+rand(6),p=P[G.cur];G.dice=[a,b];G.rolled=true;G.diceAnim=true;sfx('dice');
   G.flash={n:a+b,until:Date.now()+1900};setTimeout(()=>G&&render(),1950);
   log(`${tag(p)} rolled <b>${a+b}</b>.`);render();
   if(a+b===7)await handleSeven();else produce(a+b);
@@ -522,7 +525,7 @@ async function runSetup(){
   }
   G.phase='main';G.cur=0;G.turnNo=0;log(`Setup done. Your turn first.`);startTurn();
 }
-function startTurn(){G.rolled=false;G.devPlayed=false;G.mode=null;G.freeRoads=0;G.turnNo++;render();if(!P[G.cur].human)botTurn(P[G.cur])}
+function startTurn(){if(P[G.cur].human)setTimeout(()=>sfx('turn'),300);G.rolled=false;G.devPlayed=false;G.mode=null;G.freeRoads=0;G.turnNo++;render();if(!P[G.cur].human)botTurn(P[G.cur])}
 function endTurn(){if(G.phase!=='main')return;G.mode=null;G.freeRoads=0;G.cur=(G.cur+1)%4;startTurn()}
 
 /* ---------- bots ---------- */
@@ -759,7 +762,7 @@ function renderSheet(){
   }
   $('sheetBody').innerHTML=h;
 }
-function showWin(){
+function showWin(){sfx(G.winner===0?'win':'lose');
   const rows=P.slice().sort((a,b)=>vp(b)-vp(a)).map(p=>`<div><span style="width:12px;height:12px;border-radius:3px;background:${p.color}"></span>${p.human?'You':p.name}${p.dev.some(d=>d.type==='vp')?` <small style="color:var(--muted)">(${p.dev.filter(d=>d.type==='vp').length} hidden VP)</small>`:''}<b>${vp(p)}</b></div>`).join('');
   modal(`<h2>${G.winner===0?'You win!':P[G.winner].name+' wins'}</h2><p>${G.winner===0?'Your harbor, your island.':'Hidden victory point cards are now revealed.'}</p><div class="results">${rows}</div><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">New game</button></div>`,
     m=>{m.querySelector('#mview').onclick=closeModal;m.querySelector('#magain').onclick=newGame});

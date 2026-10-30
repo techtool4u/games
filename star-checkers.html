@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -225,7 +227,7 @@ function next(){render();if(S.over)return;
 function pass(){S.busy=false;S.turn=(S.turn+1)%S.n;next()}
 function apply(m){S.busy=false;
   if(!isCpu(S.turn))S.hist.push({b:S.b.slice(),turn:S.turn,last:S.last,moves:S.moves});
-  S.b[m.from]=-1;S.b[m.to]=S.turn;S.last=m;S.moves++;sel=-1;
+  S.b[m.from]=-1;S.b[m.to]=S.turn;S.last=m;S.moves++;sel=-1;sfx('move');
   if(won(S.b,S.turn)){finish(S.turn);return}
   if(S.moves>S.n*400){S.over={w:-1};render();toast('The game is taking too long: call it a draw.');return}
   S.turn=(S.turn+1)%S.n;next()}

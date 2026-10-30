@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -170,7 +172,7 @@ let S=null,kb=-1;
 const topCard=()=>S.disc[S.disc.length-1];
 const canPlay=c=>rank(c)===8||suit(c)===S.suit||rank(c)===rank(topCard());
 const playable=p=>S.hands[p].filter(canPlay);
-function drawOne(p){if(!S.stock.length){if(S.disc.length<2)return null;const t=S.disc.pop();S.stock=shuffle(S.disc);S.disc=[t];log('The discard pile is shuffled into a new draw pile.')}
+function drawOne(p){sfx('card');if(!S.stock.length){if(S.disc.length<2)return null;const t=S.disc.pop();S.stock=shuffle(S.disc);S.disc=[t];log('The discard pile is shuffled into a new draw pile.')}
   const c=S.stock.pop();S.hands[p].push(c);return c}
 function log(t){S.log.push(t);if(S.log.length>30)S.log.shift()}
 
@@ -196,7 +198,7 @@ function cpuChoose(p){const opts=playable(p);if(!opts.length)return null;const l
 function newGame(){$('overlay').hidden=true;const names=shuffle(NAMES.slice());
   S={players:[{name:'You',cpu:false},...[...Array(+cfg.rivals)].map((_,i)=>({name:names[i],cpu:true}))],scores:[],round:0,gen:(S?S.gen:0)+1};
   S.scores=S.players.map(()=>0);deal()}
-function deal(){const n=S.players.length,deck=shuffle([...Array(52).keys()]),hand=n===2?7:5;
+function deal(){sfx('shuffle');const n=S.players.length,deck=shuffle([...Array(52).keys()]),hand=n===2?7:5;
   Object.assign(S,{hands:S.players.map((_,i)=>deck.splice(0,hand)),stock:deck,disc:[],log:[],voids:S.players.map(()=>new Set()),drew:null,busy:false,over:false,fresh:-1,lastBy:S.players.map(()=>'')});
   // the first face-up card can't be an eight: tuck those back into the pile
   for(;;){const s=S.stock.pop();if(rank(s)!==8){S.disc.push(s);break}S.stock.unshift(s)}
@@ -211,7 +213,7 @@ function next(){render();if(S.over)return;const p=S.turn,pl=S.players[p];if(!pl.
       S.busy=false;endTurn();return}
     S.busy=false;doPlay(p,c,rank(c)===8?bestSuit(p,c):null)};
   setTimeout(act,750)}
-function doPlay(p,c,called){S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c);S.fresh=c;S.drew=null;
+function doPlay(p,c,called){sfx('card');S.hands[p]=S.hands[p].filter(x=>x!==c);S.disc.push(c);S.fresh=c;S.drew=null;
   S.suit=rank(c)===8?called:suit(c);const nm=S.players[p].name;
   const txt=`${RK[rank(c)-1]}${SUITS[suit(c)]}${rank(c)===8?` → ${SN[called]}`:''}`;log(`${nm} played ${txt}.`);S.lastBy[p]=`played ${txt}`;
   if(!S.hands[p].length){roundOver(p);return}
