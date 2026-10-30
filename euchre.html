@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -218,7 +220,7 @@ function chooseCard(p){const opts=legal(p),t=S.trump,lv=cfg.level;if(opts.length
 /* ---------- game flow ---------- */
 function newGame(){$('overlay').hidden=true;S={scores:[0,0],hist:[],hand:0,dealer:rand(4),gen:(S?S.gen:0)+1};deal()}
 const sortHand=h=>{const t=S&&S.trump>=0?S.trump:-1;h.sort((a,b)=>{const sa=t>=0?eff(a,t):suit(a),sb=t>=0?eff(b,t):suit(b);const oa=sa===t?9:[1,0,3,2][sa],ob=sb===t?9:[1,0,3,2][sb];return oa-ob||(t>=0?power(a,t,-1)-power(b,t,-1):ix(a)-ix(b))})};
-function deal(){const deck=[...Array(24).keys()].sort(()=>Math.random()-.5);S.dealer=(S.dealer+1)%4;S.gen++;
+function deal(){sfx('shuffle');const deck=[...Array(24).keys()].sort(()=>Math.random()-.5);S.dealer=(S.dealer+1)%4;S.gen++;
   Object.assign(S,{hands:[0,1,2,3].map(i=>deck.slice(i*5,i*5+5)),up:deck[20],trump:-1,maker:-1,alone:-1,round:1,turn:(S.dealer+1)%4,phase:'bid',tricks:[0,0],trick:[],played:[],busy:false,discarding:false,active:4,passes:0});
   S.hands.forEach(sortHand);render();nextBid()}
 function nextBid(){render();if(S.phase!=='bid')return;const p=S.turn;if(p===0&&!S.discarding)return;if(S.discarding)return;
@@ -226,22 +228,22 @@ function nextBid(){render();if(S.phase!=='bid')return;const p=S.turn;if(p===0&&!
     if(S.round===1){const o=cpuOrder(p);if(o)orderUp(p,o.alone);else pass(p)}
     else{const must=p===S.dealer,o=cpuName(p,must);if(o)name(p,o.suit,o.alone);else pass(p)}},750)}
 function pass(p){S.say={p,t:'Pass'};S.passes++;if(S.passes===4&&S.round===1){S.round=2;S.passes=0}S.turn=(p+1)%4;nextBid()}
-function orderUp(p,alone){S.trump=suit(S.up);S.maker=p;S.alone=alone?p:-1;S.say={p,t:p===S.dealer?'Pick it up':'Order it up'};
+function orderUp(p,alone){sfx('select');S.trump=suit(S.up);S.maker=p;S.alone=alone?p:-1;S.say={p,t:p===S.dealer?'Pick it up':'Order it up'};
   S.hands[S.dealer].push(S.up);S.hands.forEach(sortHand);
   if(S.dealer===0&&!(alone&&S.alone>=0&&team(S.alone)===0&&S.alone!==0)){S.discarding=true;S.busy=false;render();return}
   if(S.dealer!==0){const d=cpuDiscard(S.dealer);S.hands[S.dealer]=S.hands[S.dealer].filter(x=>x!==d)}else{S.hands[0]=S.hands[0].filter(x=>x!==S.up)}
   startPlay()}
-function name(p,s,alone){S.trump=s;S.maker=p;S.alone=alone?p:-1;S.say={p,t:`${SN[s][0].toUpperCase()+SN[s].slice(1)}`};S.hands.forEach(sortHand);startPlay()}
-function humanDiscard(c){if(!S.discarding)return;S.hands[0]=S.hands[0].filter(x=>x!==c);S.discarding=false;startPlay()}
+function name(p,s,alone){sfx('select');S.trump=s;S.maker=p;S.alone=alone?p:-1;S.say={p,t:`${SN[s][0].toUpperCase()+SN[s].slice(1)}`};S.hands.forEach(sortHand);startPlay()}
+function humanDiscard(c){sfx('card');if(!S.discarding)return;S.hands[0]=S.hands[0].filter(x=>x!==c);S.discarding=false;startPlay()}
 const sitsOut=p=>S.alone>=0&&p===(S.alone+2)%4;
 function startPlay(){S.phase='play';S.active=S.alone>=0?3:4;S.turn=(S.dealer+1)%4;if(sitsOut(S.turn))S.turn=(S.turn+1)%4;S.busy=false;sortHand(S.hands[0]);next()}
 function nextPlayer(p){let q=(p+1)%4;if(sitsOut(q))q=(q+1)%4;return q}
 function next(){render();if(S.phase!=='play'||S.turn===0)return;S.busy=true;const g=S.gen;
   setTimeout(()=>{if(g!==S.gen)return;S.busy=false;play(S.turn,chooseCard(S.turn))},cfg.level==='easy'?500:650)}
-function play(p,c){if(S.phase!=='play'||p!==S.turn||!legal(p).includes(c))return;
+function play(p,c){if(S.phase!=='play'||p!==S.turn||!legal(p).includes(c))return;sfx('card');
   S.hands[p]=S.hands[p].filter(x=>x!==c);S.trick.push({p,c});S.played.push(c);kb=-1;
   if(S.trick.length<S.active){S.turn=nextPlayer(p);next();return}
-  const w=trickWinner(S.trick);S.turn=-1;S.busy=true;render(w);const g=S.gen;
+  const w=trickWinner(S.trick);S.turn=-1;S.busy=true;setTimeout(()=>sfx('slide'),500);render(w);const g=S.gen;
   setTimeout(()=>{if(g!==S.gen)return;$('trick').classList.add('take'+w);
     setTimeout(()=>{if(g!==S.gen)return;$('trick').classList.remove('take'+w);S.tricks[team(w)]++;S.trick=[];S.busy=false;
       if(S.tricks[0]+S.tricks[1]===5){endHand();return}S.turn=w;next()},380)},900)}

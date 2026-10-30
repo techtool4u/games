@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -144,11 +146,11 @@ const pickScore=()=>scoreOf(pickedDice());
 // Returns false when the roll farkles (the turn is then over).
 function roll(){if(S.over)return false;let hot=false;
   if(S.rolled){const ps=pickScore();if(!ps)return false;S.turnTotal+=ps;S.avail-=S.picked.size;if(S.avail===0){S.avail=6;hot=true}}
-  S.dice=[...Array(S.avail)].map(()=>1+Math.floor(Math.random()*6));S.picked=new Set();S.rolled=true;S.anim=true;
-  if(!anyScore(S.dice)){S.log=`Farkle! ${cur().name} ${cur().name==='You'?'lose':'loses'} ${S.turnTotal} point${S.turnTotal===1?'':'s'}.`;S.turnTotal=0;render();S.anim=false;passTurn();return false}
-  S.log=hot?'Hot dice! Rolling all six again.':'';render();S.anim=false;return true}
+  S.dice=[...Array(S.avail)].map(()=>1+Math.floor(Math.random()*6));S.picked=new Set();S.rolled=true;S.anim=true;sfx('dice');
+  if(!anyScore(S.dice)){setTimeout(()=>sfx('bad'),450);S.log=`Farkle! ${cur().name} ${cur().name==='You'?'lose':'loses'} ${S.turnTotal} point${S.turnTotal===1?'':'s'}.`;S.turnTotal=0;render();S.anim=false;passTurn();return false}
+  S.log=hot?'Hot dice! Rolling all six again.':'';render();if(hot)setTimeout(()=>sfx('good'),450);S.anim=false;return true}
 function canBank(){const t=S.turnTotal+pickScore();return S.rolled&&pickScore()>0&&(cur().on||t>=500)}
-function bank(){if(!canBank())return;const t=S.turnTotal+pickScore();const p=cur();p.score+=t;p.on=true;S.log=`${p.name} ${p.name==='You'?'bank':'banks'} ${t.toLocaleString()}.`;S.turnTotal=0;S.dice=[];
+function bank(){if(!canBank())return;sfx('score');const t=S.turnTotal+pickScore();const p=cur();p.score+=t;p.on=true;S.log=`${p.name} ${p.name==='You'?'bank':'banks'} ${t.toLocaleString()}.`;S.turnTotal=0;S.dice=[];
   if(p.score>=cfg.target&&S.lastRound<0){S.lastRound=S.turn;S.log+=` ${p.name} ${p.name==='You'?'have':'has'} reached the target: everyone else gets one last turn.`}
   passTurn()}
 function passTurn(){S.busy=true;render();const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;S.turn=(S.turn+1)%S.players.length;

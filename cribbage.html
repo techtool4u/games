@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -236,7 +238,7 @@ const other=p=>1-p;
 const isCpu=p=>cfg.mode==='cpu'&&p===1;
 const NAME=p=>cfg.mode==='cpu'?(p===0?'You':'Computer'):`Player ${p+1}`;
 function newGame(){$('overlay').hidden=true;S={score:[0,0],prev:[0,0],dealer:rand(2),gen:(S?S.gen:0)+1,over:false,log:[],viewer:0};deal()}
-function deal(){const deck=[...Array(52).keys()].sort(()=>Math.random()-.5);S.gen++;
+function deal(){sfx('shuffle');const deck=[...Array(52).keys()].sort(()=>Math.random()-.5);S.gen++;
   Object.assign(S,{hands:[deck.slice(0,6),deck.slice(6,12)],kept:[[],[]],crib:[],deckRest:deck.slice(12),starter:-1,pile:[],old:[],count:0,turn:-1,phase:'discard',picked:[],discarded:[false,false],last:-1,busy:false,seq:0});
   S.hands.forEach(sortHand);S.log=[`${NAME(S.dealer)} ${S.dealer===0&&cfg.mode==='cpu'?'deal':'deals'}. The crib is ${S.dealer===0&&cfg.mode==='cpu'?'yours':NAME(S.dealer)+"'s"}.`];
   if(isCpu(1)){const t=cpuDiscard(1);discard(1,t)}
@@ -248,11 +250,11 @@ function showTo(p,then){if(cfg.mode==='cpu'||p<0){S.viewer=0;render();if(then)th
   if(S.viewer===p){render();if(then)then();return}
   S.viewer=-1;render();$('modal').innerHTML=`<h2>${NAME(p)}'s turn</h2><p>Pass the device to ${NAME(p)}. No peeking at their cards!</p><div class="row"><button class="btn primary" id="mgo">Show my cards</button></div>`;
   $('overlay').hidden=false;$('mgo').focus();$('mgo').onclick=()=>{$('overlay').hidden=true;S.viewer=p;render();if(then)then()}}
-function discard(p,cards){S.hands[p]=S.hands[p].filter(c=>!cards.includes(c));S.crib.push(...cards);S.discarded[p]=true;
+function discard(p,cards){sfx('deal',{n:cards.length});S.hands[p]=S.hands[p].filter(c=>!cards.includes(c));S.crib.push(...cards);S.discarded[p]=true;
   if(S.discarded[0]&&S.discarded[1])cut();else if(p!==1||cfg.mode!=='cpu')firstViewer()}
-function addPoints(p,n,why){if(!n||S.over)return;S.prev[p]=S.score[p];S.score[p]=Math.min(+cfg.target,S.score[p]+n);S.log.unshift(`<b>${NAME(p)} +${n}</b> ${why}`);S.log=S.log.slice(0,14);
+function addPoints(p,n,why){if(n>0)setTimeout(()=>sfx('score'),120);if(!n||S.over)return;S.prev[p]=S.score[p];S.score[p]=Math.min(+cfg.target,S.score[p]+n);S.log.unshift(`<b>${NAME(p)} +${n}</b> ${why}`);S.log=S.log.slice(0,14);
   if(S.score[p]>=+cfg.target){S.over=true;S.winner=p;render();if(S.phase!=='show')setTimeout(gameOver,700)}}
-function cut(){S.starter=S.deckRest[rand(S.deckRest.length)];S.kept=S.hands.map(h=>h.slice());
+function cut(){sfx('flip');S.starter=S.deckRest[rand(S.deckRest.length)];S.kept=S.hands.map(h=>h.slice());
   if(rank(S.starter)===11)addPoints(S.dealer,2,'his heels (a jack is cut)');
   S.phase='peg';S.turn=other(S.dealer);S.count=0;S.pile=[];if(S.over)return;showTo(S.turn,advance)}
 const canPlay=p=>S.hands[p].some(c=>val(c)+S.count<=31);
@@ -265,7 +267,7 @@ function advance(){if(S.over)return;render();
   if(S.count<31)addPoints(S.last,1,'go');S.old.push(...S.pile);S.pile=[];S.count=0;S.turn=other(S.last);later(700)}
 // Run advance after a pause, unless something (a card being played) has moved the hand on in the meantime.
 function later(ms){const s=++S.seq;setTimeout(()=>{if(s===S.seq)advance()},ms)}
-function playCard(p,c){if(S.phase!=='peg'||S.turn!==p||!S.hands[p].includes(c)||val(c)+S.count>31)return;
+function playCard(p,c){sfx('card');if(S.phase!=='peg'||S.turn!==p||!S.hands[p].includes(c)||val(c)+S.count>31)return;
   S.seq++;const items=pegPoints(S.pile,c,S.count);S.hands[p]=S.hands[p].filter(x=>x!==c);S.pile.push(c);S.count+=val(c);S.last=p;kb=-1;
   for(const[w,n]of items)addPoints(p,n,`${w} (${S.count})`);if(S.over)return;
   if(S.count===31){S.old.push(...S.pile);S.pile=[];S.count=0;S.turn=other(p);later(900);render();return}

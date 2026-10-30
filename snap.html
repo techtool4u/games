@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -128,7 +130,7 @@ const match=()=>S.pile.length>=2&&S.pile[S.pile.length-1]%13===S.pile[S.pile.len
 function start(){if(S.state==='over')newGame();S.state='run';say('','');schedule();clearInterval(clockT);clockT=setInterval(()=>{if(S.state!=='run'||document.hidden)return;S.elapsed++;render();if(S.elapsed>=LIMIT)timeUp()},1000)}
 function stopAll(){clearTimeout(flipT);cpuT.forEach(clearTimeout);cpuT=[];clearInterval(clockT)}
 function schedule(){clearTimeout(flipT);if(S.state!=='run')return;flipT=setTimeout(flip,+cfg.speed)}
-function flip(){if(S.state!=='run'||checkEnd())return;let guard=0;while(!S.players[S.turn].cards.length&&guard++<5)S.turn=(S.turn+1)%S.players.length;
+function flip(){if(S.state!=='run'||checkEnd())return;sfx('card');let guard=0;while(!S.players[S.turn].cards.length&&guard++<5)S.turn=(S.turn+1)%S.players.length;
   const p=S.players[S.turn];const c=p.cards.shift();S.pile.push(c);S.fresh=true;S.turn=(S.turn+1)%S.players.length;
   cpuT.forEach(clearTimeout);cpuT=[];S.snapOpen=match();
   if(S.snapOpen){const [lo,hi]=REACT[cfg.level];S.players.forEach((q,i)=>{if(!q.cpu)return;cpuT.push(setTimeout(()=>snap(i),lo+Math.random()*(hi-lo)))})}
@@ -137,9 +139,9 @@ function flip(){if(S.state!=='run'||checkEnd())return;let guard=0;while(!S.playe
   render();S.fresh=false;schedule()}
 function snap(i){if(S.state==='ready'){if(i===0)start();return}if(S.state!=='run')return;const p=S.players[i];
   if(S.snapOpen&&S.pile.length){const n=S.pile.length;p.cards.push(...S.pile);S.pile=[];S.snapOpen=false;cpuT.forEach(clearTimeout);cpuT=[];
-    bang(i===0?'SNAP!':`${p.name}!`);say(i===0?`You win ${n} cards!`:`${p.name} snapped first and takes ${n} cards.`,i===0?'good':'bad');flash(i);S.turn=i;clearTimeout(flipT);render();flipT=setTimeout(flip,+cfg.speed+500);return}
+    bang(i===0?'SNAP!':`${p.name}!`);sfx(i===0?'good':'bad');say(i===0?`You win ${n} cards!`:`${p.name} snapped first and takes ${n} cards.`,i===0?'good':'bad');flash(i);S.turn=i;clearTimeout(flipT);render();flipT=setTimeout(flip,+cfg.speed+500);return}
   // a false snap costs a card
-  if(p.cards.length){S.pile.unshift(p.cards.shift());say(i===0?'No match! You pay a card to the pile.':`${p.name} snapped too soon and pays a card.`,i===0?'bad':'good');render()}}
+  if(p.cards.length){S.pile.unshift(p.cards.shift());sfx('error');say(i===0?'No match! You pay a card to the pile.':`${p.name} snapped too soon and pays a card.`,i===0?'bad':'good');render()}}
 // Checked before each flip, so a player who has just played their last card still gets a chance to snap.
 function checkEnd(){const live=alive();if(!S.players[0].cards.length){finish(live.length===1?live[0]:null);return true}if(live.length===1){finish(live[0]);return true}return false}
 function timeUp(){const top=Math.max(...S.players.map(p=>p.cards.length));finish(S.players.find(p=>p.cards.length===top),true)}

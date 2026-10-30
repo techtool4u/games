@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Inter:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -122,8 +124,8 @@ function makeRows(){if(cfg.layout!=='random')return cfg.layout.split(',').map(Nu
 function newGame(){round++;const rows=makeRows();S={rows,orig:rows.slice(),turn:cfg.mode==='cpu'?(round%2?0:1):0,pick:null,over:null,busy:false,last:null,gen:(S?S.gen:0)+1};build();render();next()}
 function next(){render();if(S.over||!isCpu())return;S.busy=true;render();const g=S.gen;
   setTimeout(()=>{if(g!==S.gen)return;const m=cpuMove(S.rows);S.pick={i:m.i,n:m.n};render();setTimeout(()=>{if(g!==S.gen)return;S.busy=false;take()},650)},700)}
-function take(){if(!S.pick||S.over)return;const {i,n}=S.pick;S.rows[i]-=n;S.last={p:S.turn,i,n};S.pick=null;
-  if(S.rows.every(r=>!r)){const lastTaker=S.turn,w=cfg.normal?lastTaker:1-lastTaker;S.over={w};wins[w]++;render();return}
+function take(){if(!S.pick||S.over)return;sfx('slide');const {i,n}=S.pick;S.rows[i]-=n;S.last={p:S.turn,i,n};S.pick=null;
+  if(S.rows.every(r=>!r)){const lastTaker=S.turn,w=cfg.normal?lastTaker:1-lastTaker;S.over={w};wins[w]++;setTimeout(()=>sfx(cfg.mode==='cpu'?(w===1?'lose':'win'):'end'),250);render();return}
   S.turn=1-S.turn;next()}
 
 /* ---------- drawing ---------- */

@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -125,20 +127,20 @@ function newGame(){G={grid:[...Array(H+HID)].map(()=>Array(W).fill(null)),queue:
 function next(){if(G.queue.length<7)G.queue.push(...bag());G.cur=spawn(G.queue.shift());G.held=false;G.lock=0;
   if(!fits(G.cur)){G.cur.y=-1;if(!fits(G.cur)){gameOver();return false}}return true}
 const speed=()=>Math.max(50,1000*Math.pow(.84,G.level-1));
-function move(dx){if(G.state!=='run'||!G.cur)return;if(fits(G.cur,dx,0)){G.cur.x+=dx;G.lock=0}render()}
-function rotate(dir=1){if(G.state!=='run'||!G.cur)return;const r=rotateCells(G.cur.cells,G.cur.t,dir);
+function move(dx){if(G.state!=='run'||!G.cur)return;sfx('tick');if(fits(G.cur,dx,0)){G.cur.x+=dx;G.lock=0}render()}
+function rotate(dir=1){if(G.state!=='run'||!G.cur)return;sfx('bounce');const r=rotateCells(G.cur.cells,G.cur.t,dir);
   for(const [kx,ky] of KICKS)if(fits(G.cur,kx,ky,r)){G.cur.cells=r;G.cur.x+=kx;G.cur.y+=ky;G.lock=0;break}render()}
 function soft(){if(G.state!=='run'||!G.cur)return;if(fits(G.cur,0,1)){G.cur.y++;G.score+=1;G.dropT=0}else lockPiece();render();stats()}
 function hard(){if(G.state!=='run'||!G.cur)return;let n=0;while(fits(G.cur,0,1)){G.cur.y++;n++}G.score+=2*n;lockPiece();render();stats()}
-function hold(){if(G.state!=='run'||!G.cur||G.held)return;const t=G.cur.t;if(G.hold){G.cur=spawn(G.hold)}else{G.cur=null;next()}G.hold=t;G.held=true;drawSide();render()}
-function lockPiece(){const p=G.cur;for(const [cx,cy] of p.cells){const y=p.y+cy;if(y>=0)G.grid[y][p.x+cx]=p.t}
+function hold(){if(G.state!=='run'||!G.cur||G.held)return;sfx('slide');const t=G.cur.t;if(G.hold){G.cur=spawn(G.hold)}else{G.cur=null;next()}G.hold=t;G.held=true;drawSide();render()}
+function lockPiece(){sfx('place');const p=G.cur;for(const [cx,cy] of p.cells){const y=p.y+cy;if(y>=0)G.grid[y][p.x+cx]=p.t}
   G.cur=null;
   const full=[];for(let y=0;y<H+HID;y++)if(G.grid[y].every(Boolean))full.push(y);
-  if(full.length){G.clearing={rows:full,t:performance.now()};return}
+  if(full.length){sfx('clear',{n:full.length});G.clearing={rows:full,t:performance.now()};return}
   next();drawSide()}
 function finishClear(){const rows=G.clearing.rows;G.grid=G.grid.filter((_,y)=>!rows.includes(y));while(G.grid.length<H+HID)G.grid.unshift(Array(W).fill(null));
   G.score+=[0,100,300,500,800][rows.length]*G.level;G.lines+=rows.length;G.level=Math.max(+cfg.start,+cfg.start+Math.floor(G.lines/10));G.clearing=null;stats();next();drawSide()}
-function gameOver(){G.state='over';cancelAnimationFrame(raf);const nb=G.score>best;if(nb){best=G.score;store.set('parlor-blocks-best',best)}stats();render();
+function gameOver(){sfx('lose');G.state='over';cancelAnimationFrame(raf);const nb=G.score>best;if(nb){best=G.score;store.set('parlor-blocks-best',best)}stats();render();
   showMsg('Game over',`${G.score} points · ${G.lines} lines${nb&&G.score?' · new best!':''}`,'Play again')}
 function start(){if(G.state==='over')newGame();G.state='run';$('msg').hidden=true;last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);$('pause').textContent='Pause'}
 function pause(){if(G.state==='run'){G.state='paused';showMsg('Paused','Press P or tap Resume.','Resume');$('pause').textContent='Resume'}else if(G.state!=='over')start()}

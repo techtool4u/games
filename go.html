@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@700;800&family=Noto+Sans:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -298,8 +300,8 @@ function next(){save();render();
     doPlay(m)})}
 function doPlay(p){if(S.phase!=='play'||S.over)return false;const c=S.turn;
   if(E.play(S.B,p,c,null)<0){if(!isCpu(c)){const why=S.B.a[p]?'That point is taken.':p===S.B.ko?'Ko: you can\'t retake right away. Play somewhere else first.':'That stone would have no liberties.';toast(why)}return false}
-  S.moves.push(p);S.lastNew=p;S.turn=3-c;next();return true}
-function doPass(){if(S.phase!=='play'||S.over)return;const c=S.turn;E.play(S.B,E.PASS,c,null);S.moves.push(E.PASS);S.lastNew=-1;S.turn=3-c;
+  sfx('place');S.moves.push(p);S.lastNew=p;S.turn=3-c;next();return true}
+function doPass(){if(S.phase!=='play'||S.over)return;sfx('tap');const c=S.turn;E.play(S.B,E.PASS,c,null);S.moves.push(E.PASS);S.lastNew=-1;S.turn=3-c;
   const L=S.moves.length;toast(`${nameOf(c)} ${nameOf(c)==='You'?'pass':'passes'}.`);
   if(L>=2&&S.moves[L-2]===E.PASS){save();startScoring();return}
   next()}

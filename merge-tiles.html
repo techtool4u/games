@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -120,12 +122,12 @@ function move(dir){if(G.over||(G.won&&!G.keep))return;const n=G.n,[dr,dc]={up:[-
       break}
     if(t.gone)continue;if(nr!==r||nc!==c){at.delete(r*n+c);t.r=nr;t.c=nc;at.set(nr*n+nc,t);moved=true}}
   if(!moved){G.tiles.forEach(t=>{t.merged=false});return}
-  G.prev=before;G.score+=gained;addTile();
+  G.prev=before;G.score+=gained;addTile();sfx(gained?(gained>=256?'good':'pop'):'slide');
   if(!G.won&&G.tiles.some(t=>!t.gone&&t.v>=2048)){G.won=true}
   if(!canMove())G.over=true;
   const k=G.n,b=best[k]||0;if(G.score>b){best[k]=G.score;store.set('parlor-merge-best',best)}
   render(gained);save();
-  if(G.won&&!G.keep)setTimeout(()=>overlay('You made 2048!',`Score ${G.score}.`,[['Keep going','keep'],['New game','new']]),250);
+  if(G.won&&!G.keep)sfx('win');if(G.over)sfx('lose');if(G.won&&!G.keep)setTimeout(()=>overlay('You made 2048!',`Score ${G.score}.`,[['Keep going','keep'],['New game','new']]),250);
   else if(G.over){store.del('parlor-merge-game');setTimeout(()=>overlay('No moves left',`Score ${G.score} · top tile ${topTile()}`,[['Try again','new']]),300)}}
 function canMove(){const n=G.n,grid=Array(n*n).fill(0);G.tiles.filter(t=>!t.gone).forEach(t=>grid[t.r*n+t.c]=t.v);
   for(let r=0;r<n;r++)for(let c=0;c<n;c++){const v=grid[r*n+c];if(!v)return true;if(c+1<n&&grid[r*n+c+1]===v)return true;if(r+1<n&&grid[(r+1)*n+c]===v)return true}return false}

@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -201,19 +203,19 @@ function flip(p){if(S.over||S.busy)return;if(cfg.mode==='cpu'){if(p!==0)return;S
   S.ready=[false,false];battle(false)}
 function take(p){// next card from p's pile; Classic games recycle won cards (they are already at the bottom)
   if(!S.pile[p].length)return -1;return S.pile[p].shift()}
-function battle(isWar){const g=S.gen;
+function battle(isWar){const g=S.gen;sfx(isWar?'deal':'card',{n:4});
   if(!isWar){S.table=[[],[]];S.rounds++}
   const out=[0,1].map(p=>!S.pile[p].length);
   if(out[0]||out[1]){finish();return}
   if(isWar){S.wars++;for(const p of[0,1]){const n=Math.min(3,S.pile[p].length-1);for(let i=0;i<n;i++)S.table[p].push({c:take(p),up:false})}}
   S.up=[take(0),take(1)];S.table[0].push({c:S.up[0],up:true});S.table[1].push({c:S.up[1],up:true});
   const a=rank(S.up[0]),b=rank(S.up[1]);S.busy=true;S.lastWar=isWar;
-  if(a===b){S.msg=`${RK[a-2]} vs ${RK[b-2]}: WAR!`;render();
+  sfx('check');if(a===b){S.msg=`${RK[a-2]} vs ${RK[b-2]}: WAR!`;render();
     setTimeout(()=>{if(g!==S.gen)return;if(!S.pile[0].length||!S.pile[1].length){// someone can't fight on: the other takes the pot
         const w=S.pile[0].length>=S.pile[1].length?0:1;collect(w);return}battle(true)},delay(1300));return}
   const w=a>b?0:1;S.msg=`${NAME(w)} ${w===0&&cfg.mode==='cpu'?'win':'wins'} ${S.table[0].length+S.table[1].length} cards${isWar?' in the war':''}!`;render();
   setTimeout(()=>{if(g===S.gen)collect(w)},delay(isWar?1400:800))}
-function collect(w){const pot=shuffle(S.table[0].concat(S.table[1]).map(x=>x.c));S.biggest=Math.max(S.biggest,pot.length);
+function collect(w){sfx('slide');const pot=shuffle(S.table[0].concat(S.table[1]).map(x=>x.c));S.biggest=Math.max(S.biggest,pot.length);
   if(cfg.length==='classic')S.pile[w].push(...pot);else S.won[w].push(...pot);
   S.table=[[],[]];S.up=[-1,-1];S.busy=false;S.msg='';
   if(cfg.length==='classic'&&(!S.pile[0].length||!S.pile[1].length||S.rounds>=3000)){finish();return}

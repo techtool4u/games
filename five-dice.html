@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Work+Sans:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -226,8 +228,8 @@ function save(){if(S&&S.round<=13)store.set('parlor-fivedice-game',Object.assign
 function load(){const o=store.get('parlor-fivedice-game',null);if(!o||o.cfgp!==cfg.players||!Array.isArray(o.scores))return false;S=Object.assign(o,{busy:false,gen:(S?S.gen:0)+1});render();startTurn(true);return true}
 function startTurn(resume){if(!resume){S.held=[false,false,false,false,false];S.rolls=0}render();
   if(cur().cpu)cpuTurn()}
-function roll(){if(S.rolls>=3||S.busy&&!cur().cpu)return;S.dice=S.dice.map((v,i)=>S.rolls&&S.held[i]?v:1+Math.floor(Math.random()*6));S.rolls++;S.anim=true;if(S.rolls===1)S.held=[false,false,false,false,false];save();render();S.anim=false}
-function score(k){const sc=S.scores[S.turn];if(!S.rolls||sc[k]!=null)return;const o=options(sc,S.dice).find(x=>x.k===k);if(!o)return;
+function roll(){if(S.rolls>=3||S.busy&&!cur().cpu)return;sfx('dice');S.dice=S.dice.map((v,i)=>S.rolls&&S.held[i]?v:1+Math.floor(Math.random()*6));S.rolls++;S.anim=true;if(S.rolls===1)S.held=[false,false,false,false,false];save();render();S.anim=false}
+function score(k){const sc=S.scores[S.turn];if(!S.rolls||sc[k]!=null)return;const o=options(sc,S.dice).find(x=>x.k===k);if(!o)return;sfx(o.pts>0?(o.pts>=40?'good':'score'):'tap');
   if(Math.max(...counts(S.dice))===5&&sc.y===50)sc.yb=(sc.yb||0)+100;
   sc[k]=o.pts;S.just={p:S.turn,k};
   // next player; a full round ends when everyone has played

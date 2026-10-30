@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -194,7 +196,7 @@ function newGame(){$('overlay').hidden=true;const n=1+(+cfg.rivals),deck=[...Arr
 const sortHand=()=>S.hands[0].sort((a,b)=>rk(a)-rk(b)||suit(a)-suit(b));
 const nameOf=p=>NAMES[p];
 function log(t){S.log.unshift(t);S.log=S.log.slice(0,16)}
-function layBooks(p,quiet){const h=S.hands[p];for(let r=0;r<13;r++){const g=h.filter(c=>rk(c)===r);if(g.length===4){S.hands[p]=S.hands[p].filter(c=>rk(c)!==r);S.books[p].push(r);if(!quiet)log(`<b>${nameOf(p)} ${p?'makes':'make'} a book of ${RN[r]}!</b>`);
+function layBooks(p,quiet){const h=S.hands[p];for(let r=0;r<13;r++){const g=h.filter(c=>rk(c)===r);if(g.length===4){S.hands[p]=S.hands[p].filter(c=>rk(c)!==r);S.books[p].push(r);if(!quiet)sfx('good');if(!quiet)log(`<b>${nameOf(p)} ${p?'makes':'make'} a book of ${RN[r]}!</b>`);
   for(const row of S.known)for(const m of row)m.delete(r)}}}
 const totalBooks=()=>S.books.reduce((a,b)=>a+b.length,0);
 function refill(p){if(!S.hands[p].length&&S.pond.length){S.hands[p].push(S.pond.pop());if(p===0)sortHand();layBooks(p)}}
@@ -203,12 +205,12 @@ function ask(p,q,r){if(S.over||S.turn!==p||p===q||!S.hands[p].some(c=>rk(c)===r)
   for(let o=0;o<S.n;o++)if(o!==p)S.known[o][p].set(r,S.tick);
   S.asked[p].set(r,(S.asked[p].get(r)||0)+1);
   const got=S.hands[q].filter(c=>rk(c)===r);
-  if(got.length){S.hands[q]=S.hands[q].filter(c=>rk(c)!==r);S.hands[p].push(...got);for(let o=0;o<S.n;o++)S.known[o][q].delete(r);
+  if(got.length){S.hands[q]=S.hands[q].filter(c=>rk(c)!==r);S.hands[p].push(...got);sfx('deal',{n:got.length});for(let o=0;o<S.n;o++)S.known[o][q].delete(r);
     S.say=`${nameOf(p)}: “${nameOf(q)}, got any ${RN[r]}?” ${nameOf(q)}: “Yes, ${got.length===1?'one':got.length}.”`;log(`${nameOf(p)} ${p?'gets':'get'} ${got.length} ${got.length===1?R1[r]:RN[r]} from ${nameOf(q)}.`);
     if(p===0)sortHand();layBooks(p);refill(q);refill(p);after(p,true);return}
   S.say=`${nameOf(p)}: “${nameOf(q)}, got any ${RN[r]}?” ${nameOf(q)}: “Go fish!”`;S.fail[p][r]=S.tick;
   if(!S.pond.length){log(`${nameOf(p)} asked ${nameOf(q)} for ${RN[r]}. Go fish, but the pond is empty.`);after(p,false);return}
-  const c=S.pond.pop();S.hands[p].push(c);if(p===0)sortHand();const lucky=rk(c)===r;
+  const c=S.pond.pop();S.hands[p].push(c);sfx('card');if(p===0)sortHand();const lucky=rk(c)===r;
   log(`${nameOf(p)} asked ${nameOf(q)} for ${RN[r]}: go fish. ${p===0?`You drew the ${RK[rk(c)]}${SUITS[suit(c)]}.`:`${nameOf(p)} draws a card.`}${lucky?` It's a ${R1[r]}! ${p?'Goes':'Go'} again.`:''}`);
   if(lucky)for(let o=0;o<S.n;o++)if(o!==p)S.known[o][p].set(r,S.tick);
   layBooks(p);refill(p);after(p,lucky)}

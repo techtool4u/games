@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -142,23 +144,23 @@ function advice(h,up){const cs=h.cards,{t,soft}=total(cs),d=cardVal(up)===1?11:c
 
 /* ---------- round ---------- */
 function newRound(){S={phase:'bet',bet:0,hands:[],dealer:[],cur:0,msg:'Place your bet.',shuffled:false};if(shoe.length<78)freshShoe();render()}
-function addChip(v){if(S.phase!=='bet'||S.bet+v>W.bank)return;S.bet+=v;S.msg='';render()}
+function addChip(v){if(S.phase!=='bet'||S.bet+v>W.bank)return;sfx('chips');S.bet+=v;S.msg='';render()}
 function deal(){if(S.phase!=='bet')return;if(!S.bet){if(W.lastBet<=W.bank)S.bet=W.lastBet;else return}
-  W.bank-=S.bet;W.lastBet=S.bet;saveW();S.hands=[{cards:[drawCard(),drawCard()],bet:S.bet,done:false}];S.dealer=[drawCard(),drawCard()];S.phase='play';S.cur=0;S.msg=S.shuffled?'Fresh shoe shuffled.':'';
+  W.bank-=S.bet;W.lastBet=S.bet;saveW();sfx('deal',{n:4});S.hands=[{cards:[drawCard(),drawCard()],bet:S.bet,done:false}];S.dealer=[drawCard(),drawCard()];S.phase='play';S.cur=0;S.msg=S.shuffled?'Fresh shoe shuffled.':'';
   const pbj=isBJ(S.hands[0]),dbj=total(S.dealer).t===21;
   if(pbj||dbj){S.phase='done';settle();return}render()}
 const hand=()=>S.hands[S.cur];
-function hit(){if(S.phase!=='play')return;const h=hand();h.cards.push(drawCard());const {t}=total(h.cards);if(t>=21||h.splitAces)nextHand();else render()}
+function hit(){if(S.phase!=='play')return;sfx('card');const h=hand();h.cards.push(drawCard());const {t}=total(h.cards);if(t>=21||h.splitAces)nextHand();else render()}
 function stand(){if(S.phase!=='play')return;nextHand()}
 function canDouble(){const h=hand();return S.phase==='play'&&h&&h.cards.length===2&&!h.splitAces&&W.bank>=h.bet}
 function canSplit(){const h=hand();return S.phase==='play'&&S.hands.length===1&&h.cards.length===2&&cardVal(h.cards[0])===cardVal(h.cards[1])&&W.bank>=h.bet}
-function double(){if(!canDouble())return;const h=hand();W.bank-=h.bet;h.bet*=2;h.doubled=true;saveW();h.cards.push(drawCard());nextHand()}
-function split(){if(!canSplit())return;const h=hand();W.bank-=h.bet;saveW();const aces=rankI(h.cards[0])===0;
+function double(){if(!canDouble())return;const h=hand();W.bank-=h.bet;h.bet*=2;h.doubled=true;saveW();sfx('chips');sfx('card');h.cards.push(drawCard());nextHand()}
+function split(){if(!canSplit())return;sfx('deal',{n:2});const h=hand();W.bank-=h.bet;saveW();const aces=rankI(h.cards[0])===0;
   S.hands=[{cards:[h.cards[0],drawCard()],bet:h.bet,fromSplit:true,splitAces:aces},{cards:[h.cards[1],drawCard()],bet:h.bet,fromSplit:true,splitAces:aces}];
   S.cur=0;if(aces){S.cur=1;nextHand();return}render()}
 function nextHand(){hand().done=true;if(S.cur<S.hands.length-1){S.cur++;if(hand().splitAces){nextHand();return}render();return}dealerPlay()}
 function dealerPlay(){S.phase='dealer';render();const live=S.hands.some(h=>total(h.cards).t<=21);
-  const step=()=>{const {t,soft}=total(S.dealer);if(live&&(t<17||(t===17&&soft&&cfg.rule==='h17'))){S.dealer.push(drawCard());render();setTimeout(step,550)}else{S.phase='done';settle()}};
+  const step=()=>{const {t,soft}=total(S.dealer);if(live&&(t<17||(t===17&&soft&&cfg.rule==='h17'))){S.dealer.push(drawCard());render();sfx('card');setTimeout(step,550)}else{S.phase='done';settle()}};
   setTimeout(step,500)}
 function settle(){const d=total(S.dealer).t,dbj=S.dealer.length===2&&d===21;let net=0;
   for(const h of S.hands){const p=total(h.cards).t,pbj=isBJ(h);let r,pay=0;
@@ -170,7 +172,7 @@ function settle(){const d=total(S.dealer).t,dbj=S.dealer.length===2&&d===21;let 
     else{r='Lose';W.lost++}
     h.result=r;h.pay=pay;W.bank+=pay;net+=pay-h.bet;W.hands++}
   W.best=Math.max(W.best,W.bank);saveW();
-  S.msg=net>0?`You win ${net} chip${net===1?'':'s'}.`:net<0?`You lose ${-net} chip${net===-1?'':'s'}.`:'Your bet comes back.';
+  sfx(net>0?'win':net<0?'lose':'draw');S.msg=net>0?`You win ${net} chip${net===1?'':'s'}.`:net<0?`You lose ${-net} chip${net===-1?'':'s'}.`:'Your bet comes back.';
   if(W.bank<5){S.msg+=' Out of chips: the house spots you 1,000 more.';W.bank=1000;saveW()}
   render();S.phase='done';render()}
 

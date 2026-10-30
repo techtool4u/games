@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -293,24 +295,24 @@ function cpuNext(){const w=weights(),tot=w.reduce((a,b)=>a+b,0),left=20-S.hist.l
   if(share>.62&&S.hist.length>=4||!q||left===1||share>.4&&left<=3){S.cur={guess:top[1]};render();return}
   S.cur={k:q};render()}
 function answer(code){if(!S.cur||S.phase!=='ask')return;const[label,val]=ANS[code];
-  if(S.cur.guess!==undefined){if(code==='y'||code==='m'){S.hist.push({guess:S.cur.guess,a:'y'});S.phase='won';tally.cpu.lost++;render();return}
+  if(S.cur.guess!==undefined){if(code==='y'||code==='m'){S.hist.push({guess:S.cur.guess,a:'y'});S.phase='won';sfx('win');tally.cpu.lost++;render();return}
     S.wrong.add(S.cur.guess);S.hist.push({guess:S.cur.guess,a:'n'});S.cur=null;cpuNext();return}
-  S.hist.push({k:S.cur.k,a:code,val});S.cur=null;cpuNext()}
+  sfx('tap');S.hist.push({k:S.cur.k,a:code,val});S.cur=null;cpuNext()}
 function teach(name){name=name.trim();if(!name)return;const learned=store.get('parlor-twenty-learned',{});const key=Object.keys(learned).find(n=>n.toLowerCase()===name.toLowerCase())||name;
   const rec=learned[key]||{};for(const h of S.hist)if(h.k&&h.val!=null)rec[h.k]=h.val;learned[key]=rec;store.set('parlor-twenty-learned',learned);loadItems();
-  S.phase='taught';S.taught=name;tally.cpu.won++;render()}
+  S.phase='taught';S.taught=name;sfx('good');tally.cpu.won++;render()}
 
 /* ---------- you guess ---------- */
 function soloAsk(k){if(S.phase!=='ask'||!k||S.hist.some(h=>h.k===k))return;const v=ITEMS[S.secret].v[k];const a=v>=1?'y':v<=0?'n':'s';
-  S.hist.push({k,a,val:v});if(S.hist.length>=20){S.phase='lost';tally.solo.lost++}render()}
+  sfx(a==='y'?'good':a==='n'?'bad':'tap');S.hist.push({k,a,val:v});if(S.hist.length>=20){S.phase='lost';tally.solo.lost++}render()}
 function soloGuess(txt){if(S.phase!=='ask')return;const t=txt.trim().toLowerCase().replace(/^(a|an|the)\s+/,'');if(!t)return;
   const ok=ITEMS[S.secret].name.toLowerCase()===t||ITEMS[S.secret].name.toLowerCase()+'s'===t||ITEMS[S.secret].name.toLowerCase()===t+'s';
   S.hist.push({guessText:txt.trim(),a:ok?'y':'n'});
-  if(ok){S.phase='won';tally.solo.won++}else if(S.hist.length>=20){S.phase='lost';tally.solo.lost++}else toast(`No, it's not ${txt.trim()}.`);render()}
+  sfx(ok?'win':S.hist.length>=20?'lose':'bad');if(ok){S.phase='won';tally.solo.won++}else if(S.hist.length>=20){S.phase='lost';tally.solo.lost++}else toast(`No, it's not ${txt.trim()}.`);render()}
 function consistent(){return ITEMS.filter((it,i)=>!it.learned&&S.hist.every(h=>h.k?it.v[h.k]===h.val:h.guessText?it.name.toLowerCase()!==h.guessText.toLowerCase():true)).map(x=>x.name)}
 
 /* ---------- party tracker ---------- */
-function partyAnswer(code){if(S.phase!=='ask')return;S.hist.push({a:code,party:true});if(S.hist.length>=20){S.phase='lost';tally.group.lost++}render()}
+function partyAnswer(code){if(S.phase!=='ask')return;sfx('tap');S.hist.push({a:code,party:true});if(S.hist.length>=20){S.phase='lost';tally.group.lost++}render()}
 
 /* ---------- round flow and drawing ---------- */
 function newRound(){const m=cfg.mode;S={mode:m,hist:[],wrong:new Set(),phase:m==='cpu'?'intro':'ask',cur:null,secret:m==='solo'?pickSecret():-1};render()}
@@ -358,7 +360,7 @@ function wire(){const on=(id,f)=>{const el=$(id);if(el)el.onclick=f};
   on('ready',()=>{S.phase='ask';cpuNext()});on('again',newRound);
   document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>answer(b.dataset.a));
   document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>partyAnswer(b.dataset.p));
-  on('gotIt',()=>{S.phase='won';tally.group.won++;render()});
+  on('gotIt',()=>{S.phase='won';sfx('win');tally.group.won++;render()});
   on('teachBtn',()=>teach($('teachIn').value));on('skipTeach',()=>{S.phase='skipped';tally.cpu.won++;render()});
   const ti=$('teachIn');if(ti){ti.focus();ti.onkeydown=e=>{if(e.key==='Enter')teach(ti.value)}}
   on('askBtn',()=>soloAsk($('qsel').value));const qs=$('qsel');if(qs)qs.onchange=()=>{};

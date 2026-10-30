@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Public+Sans:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -260,7 +262,7 @@ function startTurn(){
 function snapshot(){return{b:S.b.slice(),ids:S.ids.slice(),turn:S.turn,quiet:S.quiet,log:S.log.length,last:S.last}}
 function hop(from,to){
   const v=S.b[from];S.b[to]=v;S.b[from]=0;S.ids[to]=S.ids[from];S.ids[from]=null;
-  if(Math.abs((to>>3)-(from>>3))===2){const mid=(from+to)/2;S.b[mid]=0;S.ids[mid]=null}
+  sfx(Math.abs((to>>3)-(from>>3))===2?'capture':'move');if(Math.abs((to>>3)-(from>>3))===2){const mid=(from+to)/2;S.b[mid]=0;S.ids[mid]=null}
 }
 function playMove(m,g){
   S.hist.push(snapshot());let k=1;
@@ -270,7 +272,7 @@ function playMove(m,g){
 }
 function commit(m){
   const from=m.path[0],to=m.path[m.path.length-1],v=S.b[to];
-  const crowned=Math.abs(v)===1&&(to>>3)===(v>0?7:0);if(crowned)S.b[to]=v*2;
+  const crowned=Math.abs(v)===1&&(to>>3)===(v>0?7:0);if(crowned)S.b[to]=v*2;if(crowned)setTimeout(()=>sfx('good'),120);
   S.quiet=m.caps.length||Math.abs(v)===1?0:S.quiet+1;
   S.log.push(notation(m)+(crowned?'K':''));S.last=[from,to];S.crowned=crowned?S.ids[to]:null;
   S.turn=-S.turn;startTurn();

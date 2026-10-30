@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -191,14 +193,14 @@ function newGame(){$('overlay').hidden=true;const n=+cfg.players;
   build();startTurn()}
 function startTurn(){S.phase='roll';render();if(isCpu(S.turn)){const g=S.gen;setTimeout(()=>{if(g===S.gen)roll()},delay(700))}}
 function roll(){if(S.over||S.phase!=='roll')return;const g=S.gen,pl=S.turn;
-  S.die=1+rand(6);S.rolled=true;S.anim=true;S.phase='anim';S.msg='';render();S.anim=false;
+  S.die=1+rand(6);S.rolled=true;S.anim=true;S.phase='anim';sfx('dice');S.msg='';render();S.anim=false;
   const from=S.pos[pl];let target=from+S.die,bounce=0;
   if(target>100){if(cfg.exact){bounce=target-100;target=100-bounce}else target=100}
   const path=[];for(let k=from+1;k<=Math.min(from+S.die,100);k++)path.push(k);for(let k=1;k<=bounce;k++)path.push(100-k);
-  let i=0;const walk=()=>{if(g!==S.gen)return;if(i<path.length){S.pos[pl]=path[i++];renderTokens();setTimeout(walk,delay(170));return}
+  let i=0;const walk=()=>{if(g!==S.gen)return;if(i<path.length){S.pos[pl]=path[i++];renderTokens();sfx('step');setTimeout(walk,delay(170));return}
     const land=S.pos[pl],to=S.jump.get(land);let note=`${nameOf(pl)} rolled ${S.die}: ${from||'start'} → ${land}${bounce?' (bounced back)':''}`;
     if(to){const up=to>land;up?S.climbs[pl]++:S.slides[pl]++;note+=up?`, climbed a ladder to ${to}!`:`, slid down a snake to ${to}.`;
-      setTimeout(()=>{if(g!==S.gen)return;S.pos[pl]=to;renderTokens(true);toast(up?`${nameOf(pl)} climbed to ${to}!`:`Hiss! ${nameOf(pl)} slid down to ${to}.`);setTimeout(()=>{if(g===S.gen)after(pl,note)},delay(800))},delay(250))}
+      setTimeout(()=>{if(g!==S.gen)return;S.pos[pl]=to;renderTokens(true);sfx(up?'climb':'fall');toast(up?`${nameOf(pl)} climbed to ${to}!`:`Hiss! ${nameOf(pl)} slid down to ${to}.`);setTimeout(()=>{if(g===S.gen)after(pl,note)},delay(800))},delay(250))}
     else after(pl,note)};
   setTimeout(walk,delay(350))}
 function after(pl,note){S.log.unshift(note);S.log=S.log.slice(0,30);

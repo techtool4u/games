@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -239,11 +241,11 @@ function newGame(){$('overlay').hidden=true;$('toast').hidden=true;E.setup(cfg.s
 const canSwap=()=>S.swapRule&&!S.over&&S.moves===1&&!S.swapped&&S.turn===2;
 function snapshot(){S.hist.push({b:S.b.slice(),turn:S.turn,moves:S.moves,last:S.last,swapped:S.swapped})}
 function claim(i){if(S.over||S.b[i])return false;const[r,c]=rc(i);if(r<1||r>S.n||c<1||c>S.n)return false;
-  snapshot();S.b[i]=S.turn;S.last=i;S.dropped=i;S.moves++;
+  snapshot();S.b[i]=S.turn;S.last=i;S.dropped=i;S.moves++;sfx('place');
   if(E.connected(S.b,S.turn)){finish(S.turn);return true}
   S.turn=3-S.turn;next();return true}
 // Swap: blue takes red's opening cell, mirrored across the long diagonal, and red moves again.
-function doSwap(){if(!canSwap())return;snapshot();const i=S.last,[r,c]=rc(i),j=c*E.W+r;S.b[i]=0;S.b[j]=2;S.last=j;S.dropped=j;S.swapped=true;S.moves++;S.turn=1;
+function doSwap(){if(!canSwap())return;sfx('slide');snapshot();const i=S.last,[r,c]=rc(i),j=c*E.W+r;S.b[i]=0;S.b[j]=2;S.last=j;S.dropped=j;S.swapped=true;S.moves++;S.turn=1;
   toast(`${nameOf(2)} ${cfg.mode==='cpu'&&!isCpu(2)?'swap':'swaps'}: the opening cell becomes blue at ${cellName(j)}.`);next()}
 function next(){render();if(S.over||!isCpu(S.turn))return;
   const g=S.gen,L=LEVELS[cfg.level];S.busy=true;render();

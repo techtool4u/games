@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -223,7 +225,7 @@ function newGame(){$('overlay').hidden=true;const n=+cfg.players;
   build();startTurn()}
 function startTurn(){S.phase='roll';render();if(isCpu(S.turn)){const g=S.gen;setTimeout(()=>{if(g===S.gen)roll()},delay(650))}}
 function roll(){if(S.over||S.busy||S.phase!=='roll')return;const g=S.gen;
-  S.die=1+rand(6);S.rolled=true;S.anim=true;
+  S.die=1+rand(6);S.rolled=true;S.anim=true;sfx('dice');
   if(S.die===6)S.sixes++;else S.sixes=0;
   if(S.sixes===3){S.msg='Three 6s in a row: turn lost.';S.sixes=0;S.phase='wait';render();S.anim=false;setTimeout(()=>{if(g===S.gen)endTurn(false)},delay(1100));return}
   const ms=legal(S.turn,S.die);
@@ -237,12 +239,12 @@ function roll(){if(S.over||S.busy||S.phase!=='roll')return;const g=S.gen;
 function move(i){if(S.phase!=='move'||S.busy)return;const pl=S.turn,d=S.die,p=S.tok[pl][i];if(!canMove(p,d))return;
   const g=S.gen,np=newPos(p,d);S.busy=true;S.phase='anim';kbPos=0;
   const steps=p<0?[0]:[...Array(d)].map((_,k)=>p+k+1);
-  let k=0;const walk=()=>{if(g!==S.gen)return;if(k<steps.length){S.tok[pl][i]=steps[k++];renderTokens();setTimeout(walk,delay(140));return}
+  let k=0;const walk=()=>{if(g!==S.gen)return;if(k<steps.length){S.tok[pl][i]=steps[k++];sfx('step');renderTokens();setTimeout(walk,delay(140));return}
     const vic=victims(pl,np);for(const x of vic)S.tok[x.pl][x.i]=-1;
     S.last={pl,i};S.busy=false;
     let bonus=d===6,why='';
-    if(vic.length){bonus=true;why=`${nameOf(pl)} sent ${vic.map(x=>nameOf(x.pl)).filter((v,j,a)=>a.indexOf(v)===j).join(' and ')} back to the yard!`}
-    if(np===FINISH){bonus=true;why=why||`${nameOf(pl)} got a pawn home!`}
+    if(vic.length){bonus=true;sfx('capture');why=`${nameOf(pl)} sent ${vic.map(x=>nameOf(x.pl)).filter((v,j,a)=>a.indexOf(v)===j).join(' and ')} back to the yard!`}
+    if(np===FINISH){bonus=true;sfx('good');why=why||`${nameOf(pl)} got a pawn home!`}
     if(why)toast(why);
     if(S.tok[pl].every(q=>q===FINISH)){finish(pl);return}
     render();setTimeout(()=>{if(g===S.gen)endTurn(bonus)},delay(vic.length?500:200))};

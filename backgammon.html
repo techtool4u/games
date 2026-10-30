@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Source+Sans+3:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -275,7 +277,7 @@ function opening(){let a,b;do{a=die();b=die()}while(a===b);
   beginMove()}
 function startTurn(){S.phase='roll';S.dice=[];S.played=[];S.sel=-1;save();render();
   if(isCpu(S.turn)){const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;cpuPreRoll()},500)}}
-function roll(){if(S.phase!=='roll')return;S.dice=[die(),die()];S.rolledAnim=true;beginMove()}
+function roll(){if(S.phase!=='roll')return;sfx('dice');S.dice=[die(),die()];S.rolledAnim=true;beginMove()}
 function beginMove(){const p=S.turn;S.phase='move';S.start=[S.c[0].slice(),S.c[1].slice()];S.played=[];S.sel=-1;
   S.plays=allPlays(S.c[p],S.c[1-p],S.dice);save();render();S.rolledAnim=false;
   if(!S.plays[0].seq.length){toast(`${nameOf(p)} rolled ${S.dice.join('-')} and can't move.`);const g=S.gen;setTimeout(()=>{if(g===S.gen)endTurn()},1400);return}
@@ -284,7 +286,7 @@ function nextSteps(){const k=S.played.length;const out=[];
   for(const pl of S.plays){if(pl.seq.length<=k)continue;let ok=true;for(let i=0;i<k;i++)if(pl.seq[i].from!==S.played[i].from||pl.seq[i].die!==S.played[i].die){ok=false;break}
     if(ok&&!out.some(s=>s.from===pl.seq[k].from&&s.die===pl.seq[k].die))out.push(pl.seq[k])}
   return out}
-function step(st){const p=S.turn;const hit=doStep(S.c[p],S.c[1-p],st.from,st.to);S.played.push({from:st.from,die:st.die,to:st.to,hit})}
+function step(st){const p=S.turn;const hit=doStep(S.c[p],S.c[1-p],st.from,st.to);sfx(hit?'capture':'move');S.played.push({from:st.from,die:st.die,to:st.to,hit})}
 // Destinations for a chosen checker: single steps plus the same checker using further dice in a row (prefer paths that hit).
 function destinations(from){const res=new Map();
   const explore=(f,path,hits)=>{for(const st of nextSteps()){if(st.from!==f)continue;

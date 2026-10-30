@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Work+Sans:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -211,7 +213,7 @@ function evaluatePlacement(tiles,dict=isWord){
   return{ok:true,score,words:words.map(w=>w.map(x=>x.l).join('')),bingo:tiles.length===RACK}}
 function commit(p,tiles,res){
   for(const t of tiles){G.board[t.r][t.c]={l:t.l,blank:t.blank,v:t.blank?0:VAL(t.l)};const i=p.rack.indexOf(t.blank?'?':t.l);p.rack.splice(i,1)}
-  p.score+=res.score;G.scoreless=0;G.last=tiles.map(t=>[t.r,t.c]);G.moves++;draw(p);
+  p.score+=res.score;G.scoreless=0;sfx(res.bingo?'win':'score');G.last=tiles.map(t=>[t.r,t.c]);G.moves++;draw(p);
   logMsg(`<b>${p.name}</b> played <span class="w">${res.words[0]}</span>${res.words.length>1?` (+${res.words.length-1} more)`:''} for ${res.score}${res.bingo?' · all 7 tiles!':''}`);
   if(!p.rack.length&&!G.bag.length)return endGame(p);
   nextTurn()}
@@ -279,8 +281,8 @@ function startTurn(){pend=[];selRack=-1;swapSel.clear();render();save();
 function handOver(p){$('modal').innerHTML=`<h2>${p.name}'s turn</h2><p>Pass the device to ${p.name}. Other players, no peeking at the rack!</p><div class="row"><button class="btn primary" id="mgo">Show my tiles</button></div>`;
   $('overlay').hidden=false;hideRack=true;render();$('mgo').focus();$('mgo').onclick=()=>{hideRack=false;$('overlay').hidden=true;render();setMsg(`${p.name}, your turn.`)}}
 let hideRack=false;
-function passTurn(p){G.scoreless++;logMsg(`<b>${p.name}</b> passed.`);if(G.scoreless>=6)return endGame(null);nextTurn()}
-function exchange(p,idxs){const out=idxs.map(i=>p.rack[i]);p.rack=p.rack.filter((_,i)=>!idxs.includes(i));draw(p);G.bag.push(...out);
+function passTurn(p){sfx('tap');G.scoreless++;logMsg(`<b>${p.name}</b> passed.`);if(G.scoreless>=6)return endGame(null);nextTurn()}
+function exchange(p,idxs){sfx('shuffle');const out=idxs.map(i=>p.rack[i]);p.rack=p.rack.filter((_,i)=>!idxs.includes(i));draw(p);G.bag.push(...out);
   for(let i=G.bag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[G.bag[i],G.bag[j]]=[G.bag[j],G.bag[i]]}
   G.scoreless++;logMsg(`<b>${p.name}</b> swapped ${out.length} tile${out.length>1?'s':''}.`);if(G.scoreless>=6)return endGame(null);nextTurn()}
 function endGame(outPlayer){G.over=true;busy=false;setMsg('Game over.');let bonus=0;
@@ -316,7 +318,7 @@ function logMsg(h){G.log.push(h);if(G.log.length>200)G.log.shift()}
 
 /* ---------- input ---------- */
 const human=()=>G&&!G.over&&!busy&&cur().human&&!hideRack;
-function placeAt(r,c,i){const p=cur(),l=p.rack[i];if(G.board[r][c]||pend.some(x=>x.r===r&&x.c===c)||pend.some(x=>x.rackIdx===i))return;
+function placeAt(r,c,i){const p=cur(),l=p.rack[i];if(G.board[r][c]||pend.some(x=>x.r===r&&x.c===c)||pend.some(x=>x.rackIdx===i))return;sfx('clack');
   if(l==='?'){chooseBlank(L=>{pend.push({r,c,l:L,blank:true,rackIdx:i});selRack=-1;afterPlace()});return}
   pend.push({r,c,l,blank:false,rackIdx:i});selRack=-1;afterPlace()}
 function afterPlace(){render();const res=evaluatePlacement(pend);setMsg(res.ok?`${res.words.join(', ')} · ${res.score} points`:res.why,res.ok?'ok':'')}

@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Rubik:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -184,15 +186,15 @@ function newGame(){$('overlay').hidden=true;const names=NAMES.slice().sort(()=>M
   S={players:[{name:'You',cpu:false,dice:[]},...[...Array(+cfg.rivals)].map((_,i)=>({name:names[i],cpu:true,dice:[]}))],turn:0,bids:[],log:[],phase:'bid',reveal:null,gen:(S?S.gen:0)+1,fresh:false};
   S.players.forEach(p=>p.count=START_DICE);startRound(rand(S.players.length));}
 const alive=()=>S.players.map((p,i)=>i).filter(i=>S.players[i].count>0);
-function startRound(first){S.players.forEach(p=>p.dice=[...Array(p.count)].map(()=>1+rand(6)).sort());S.bids=[];S.log=[];S.phase='bid';S.reveal=null;S.turn=first;S.fresh=true;
+function startRound(first){sfx('shake');S.players.forEach(p=>p.dice=[...Array(p.count)].map(()=>1+rand(6)).sort());S.bids=[];S.log=[];S.phase='bid';S.reveal=null;S.turn=first;S.fresh=true;
   S.pick={q:1,f:minFace()};S.log.push({t:`New round: ${alive().reduce((n,i)=>n+S.players[i].count,0)} dice on the table.`});render();S.fresh=false;next()}
 function nextAlive(i){let j=i;do j=(j+1)%S.players.length;while(S.players[j].count===0);return j}
 function next(){render();const p=S.players[S.turn];if(S.phase!=='bid'||!p.cpu)return;const g=S.gen;
   setTimeout(()=>{if(g!==S.gen)return;const a=cpuAct(S.turn);if(a.call)callLiar(S.turn);else makeBid(S.turn,a.bid)},900+rand(700))}
-function makeBid(i,b){S.bids.push({p:i,q:b.q,f:b.f});S.log.push({t:`<b>${S.players[i].name}</b> ${i===0?'bid':'bids'} ${b.q} × ${b.f}s`});S.turn=nextAlive(i);
+function makeBid(i,b){sfx('tap');S.bids.push({p:i,q:b.q,f:b.f});S.log.push({t:`<b>${S.players[i].name}</b> ${i===0?'bid':'bids'} ${b.q} × ${b.f}s`});S.turn=nextAlive(i);
   // set your picker to the smallest legal raise
   const last=S.bids[S.bids.length-1];S.pick=last.f<6?{q:last.q,f:last.f+1}:{q:last.q+1,f:minFace()};next()}
-function callLiar(i){const last=S.bids[S.bids.length-1];if(!last)return;const all=S.players.flatMap(p=>p.dice),n=counts(all,last.f);
+function callLiar(i){const last=S.bids[S.bids.length-1];if(!last)return;sfx('check');setTimeout(()=>sfx('dice'),250);const all=S.players.flatMap(p=>p.dice),n=counts(all,last.f);
   const truthful=n>=last.q,loser=truthful?i:last.p;
   S.log.push({t:`<b>${S.players[i].name}</b> ${i===0?'call':'calls'} <b>Liar!</b>`});
   S.log.push({t:`There ${n===1?'is':'are'} ${n} × ${last.f}s${cfg.wild&&last.f!==1?' (counting wild 1s)':''}. ${S.players[loser].name} ${loser===0?'lose':'loses'} a die.`,end:true});

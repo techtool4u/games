@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Lora:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -249,7 +251,7 @@ function next(){const P=S.P,p=S.turn;
   if(isCpu(p)){S.busy=true;render();const g=S.gen;
     setTimeout(()=>{if(g!==S.gen)return;const m=chooseMove(S.P,p);S.busy=false;commit(m)},cfg.level==='hard'?150:520)}}
 function commit(m){const p=S.turn;S.hist.push({P:clone(S.P),turn:p,last:S.last,quiet:S.quiet,seen:Object.assign({},S.seen)});
-  apply(S.P,m,p);S.last=m;S.sel=-1;S.pending=null;
+  apply(S.P,m,p);S.last=m;S.sel=-1;S.pending=null;sfx(m.rm>=0?'capture':'place');
   S.quiet=m.rm>=0||S.P.hand[1]||S.P.hand[2]?0:S.quiet+1;
   S.turn=3-p;next()}
 function end(w,why){S.over={w,why};wins[w||'d']++;render();

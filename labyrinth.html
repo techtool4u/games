@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@400;600;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -112,14 +114,14 @@ function startRound(first){const n=sizeFor(G.round);Object.assign(G,{n,open:make
 function begin(){$('msg').hidden=true;G.state='run';G.t0=performance.now();clearInterval(timer);
   if(cfg.mode==='clock')timer=setInterval(()=>{if(G.state!=='run'||document.hidden)return;G.left=Math.max(0,G.limit-Math.floor((performance.now()-G.t0)/1000));stats();if(G.left<=0)timeUp()},250);
   $('box').focus({preventScroll:true});draw()}
-function step(d){if(G.state!=='run')return false;if(!(G.open[G.y][G.x]>>d&1))return false;G.x+=DX[d];G.y+=DY[d];G.trail.add(G.x+','+G.y);if(G.x===G.n-1&&G.y===G.n-1){done();return false}return true}
+function step(d){if(G.state!=='run')return false;if(!(G.open[G.y][G.x]>>d&1))return false;G.x+=DX[d];G.y+=DY[d];G.trail.add(G.x+','+G.y);sfx('step');if(G.x===G.n-1&&G.y===G.n-1){done();return false}return true}
 // Keep going in one direction until the corridor branches or turns.
 function run(d){if(G.state!=='run')return;let n=0;while(step(d)){n++;const m=G.open[G.y][G.x],exits=[0,1,2,3].filter(k=>m>>k&1&&k!==(d+2)%4);if(exits.length!==1||exits[0]!==d)break;if(n>60)break}draw()}
-function done(){G.state='won';clearInterval(timer);const secs=Math.floor((performance.now()-G.t0)/1000);const bonus=cfg.mode==='clock'?Math.max(0,G.limit-secs):0;G.score+=10*G.round+bonus;
+function done(){G.state='won';clearInterval(timer);sfx(cfg.mode==='clock'||G.round<12?'good':'win');const secs=Math.floor((performance.now()-G.t0)/1000);const bonus=cfg.mode==='clock'?Math.max(0,G.limit-secs):0;G.score+=10*G.round+bonus;
   const k=cfg.mode;if(G.score>(best[k]||0)){best[k]=G.score;store.set('parlor-maze-best',best)}draw();stats();
   if(cfg.mode==='clock'||G.round<12){G.round++;setTimeout(()=>{startRound(false);showMsg('Out!',`Solved in ${secs}s${bonus?`, ${bonus}s left over`:''}. Next: a ${sizeFor(G.round)}×${sizeFor(G.round)} maze.`,'Next maze')},400)}
   else showMsg('You made it through!',`Twelve mazes, score ${G.score}.`,'New run',newRun)}
-function timeUp(){G.state='over';clearInterval(timer);const k=cfg.mode,nb=G.score>=(best[k]||0)&&G.score>0;draw(true);
+function timeUp(){G.state='over';clearInterval(timer);sfx('lose');const k=cfg.mode,nb=G.score>=(best[k]||0)&&G.score>0;draw(true);
   showMsg('Time\'s up',`You reached round ${G.round} with ${G.score} points.${nb?' A new best!':''}`,'New run',newRun)}
 function showMsg(t,p,b,fn){$('msg').innerHTML=`<div><b>${t}</b><p>${p}</p><button class="btn primary" id="go">${b}</button></div>`;$('msg').hidden=false;$('go').onclick=fn||begin}
 function stats(){$('round').textContent=G.round;$('score').textContent=G.score;$('best').textContent=best[cfg.mode]||0;

@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -136,8 +138,8 @@ const mark=p=>p===1?'X':'O';
 function newGame(){S={P:{cells:Array(81).fill(0),boards:Array(9).fill(0),next:-1,turn:1,result:0},cpu:cfg.mode==='cpu'?(cfg.side==='X'?2:1):0,hist:[],last:-1,busy:false,gen:(S?S.gen:0)+1};build();render();next()}
 function next(){render();if(!isCpu())return;S.busy=true;render();const g=S.gen;
   setTimeout(()=>think(S.P,LEVELS[cfg.level].ms,m=>{if(g!==S.gen)return;S.busy=false;doMove(m)}),60)}
-function doMove(m){if(S.P.result||!moves(S.P).includes(m))return;S.hist.push({P:clone(S.P),last:S.last});play(S.P,m);S.last=m;
-  if(S.P.result){const r=S.P.result;wins[r===3?'d':cfg.mode==='cpu'?(r===S.cpu?1:0):(r===1?0:1)]++;render();return}next()}
+function doMove(m){if(S.P.result||!moves(S.P).includes(m))return;S.hist.push({P:clone(S.P),last:S.last});play(S.P,m);S.last=m;sfx('place');
+  if(S.P.result){const r=S.P.result;wins[r===3?'d':cfg.mode==='cpu'?(r===S.cpu?1:0):(r===1?0:1)]++;setTimeout(()=>sfx(r===3?'draw':cfg.mode==='cpu'?(r===S.cpu?'lose':'win'):'end'),250);render();return}next()}
 function undo(){if(S.busy||!S.hist.length)return;if(S.P.result){const r=S.P.result;wins[r===3?'d':cfg.mode==='cpu'?(r===S.cpu?1:0):(r===1?0:1)]--}
   let h=S.hist.pop();if(cfg.mode==='cpu'){while(S.hist.length&&h.P.turn===S.cpu)h=S.hist.pop();if(h.P.turn===S.cpu){S.P=h.P;S.last=h.last;S.gen++;next();return}}
   S.P=h.P;S.last=h.last;S.gen++;render()}

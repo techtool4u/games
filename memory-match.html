@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -132,11 +134,11 @@ function newGame(){if(cfg.players==='net'&&!online()){$('overlay').hidden=true;g
 const cur=()=>G.players[G.turn];
 function flip(i){const c=G.cards[i];if(G.over||G.busy||c.up||c.done||G.picks.length>=2)return;
   if(!G.started){G.started=true;const t0=Date.now();timer=setInterval(()=>{if(!G.over&&!document.hidden){G.elapsed=Math.floor((Date.now()-t0)/1000);$('time').textContent=fmt(G.elapsed)}},500)}
-  c.up=true;G.picks.push(i);G.seen.set(i,{p:c.p,at:G.turns});render();
+  c.up=true;G.picks.push(i);G.seen.set(i,{p:c.p,at:G.turns});render();sfx('flip');
   if(G.picks.length===2){G.turns++;const [a,b]=G.picks;G.busy=true;
-    if(G.cards[a].p===G.cards[b].p){setTimeout(()=>{[a,b].forEach(k=>{G.cards[k].done=true;G.cards[k].owner=G.turn;G.seen.delete(k)});cur().pairs++;G.picks=[];G.busy=false;render();
+    if(G.cards[a].p===G.cards[b].p){setTimeout(()=>{sfx('good');[a,b].forEach(k=>{G.cards[k].done=true;G.cards[k].owner=G.turn;G.seen.delete(k)});cur().pairs++;G.picks=[];G.busy=false;render();
         if(G.cards.every(x=>x.done))finish();else if(cur().cpu)cpuTurn()},450)}
-    else{setTimeout(()=>{[a,b].forEach(k=>G.cards[k].up=false);G.picks=[];G.busy=false;G.turn=(G.turn+1)%G.players.length;render();if(cur().cpu)cpuTurn()},cur().cpu?900:1100)}}}
+    else{setTimeout(()=>{[a,b].forEach(k=>G.cards[k].up=false);sfx('flip');G.picks=[];G.busy=false;G.turn=(G.turn+1)%G.players.length;render();if(cur().cpu)cpuTurn()},cur().cpu?900:1100)}}}
 // The computer knows the cards it has seen, but may forget each one (more often on easier levels).
 function cpuTurn(){const g=G.gen,recall=RECALL[cfg.level];
   const known=[...G.seen].filter(([i])=>!G.cards[i].done&&Math.random()<recall);

@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -414,7 +416,7 @@ function play(m,animate,remote){
   if(online()&&!remote)NET.link.send({t:'move',u:E.toUci(m),n:G.moves.length});
   const from=E.FROM(m),to=E.TO(m),fl=E.FL(m),pr=E.PR(m),mover=E.board[from];
   const s=E.san(m);E.make(m);G.moves.push(E.toUci(m));G.sans.push(s);G.last=[from,to];sel=-1;hintMove=null;
-  movePieceEls(from,to,fl,pr,mover);checkEnd();save();render();
+  sfx(/[+#]/.test(s)?'check':s.includes('x')?'capture':'move');movePieceEls(from,to,fl,pr,mover);checkEnd();save();render();
   if(G.over)setTimeout(showEnd,700);else maybeCpu()}
 function checkEnd(){const st=E.status();if(!st)return;
   if(st==='checkmate')G.over={result:-E.side,why:'Checkmate'};else G.over={result:0,why:{stalemate:'Stalemate',fifty:'50-move rule',repetition:'Threefold repetition',insufficient:'Not enough material to checkmate'}[st]}}

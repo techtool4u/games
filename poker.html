@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=DM+Sans:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -222,9 +224,9 @@ async function playHand(g){
   log(`Hand ${T.hand} · blinds ${sb}/${bb}`,true);
   for(let r=0;r<2;r++)for(const p of live())p.cards.push(T.deck.pop());
   put(T.players[sbI],sb);T.players[sbI].act='SB';put(T.players[bbI],bb);T.players[bbI].act='BB';
-  T.currentBet=Math.max(T.players[sbI].bet,T.players[bbI].bet,bb);T.minRaise=bb;render(true);await wait(500);if(g!==gen)return;
+  T.currentBet=Math.max(T.players[sbI].bet,T.players[bbI].bet,bb);T.minRaise=bb;sfx('deal',{n:4});render(true);await wait(500);if(g!==gen)return;
   for(T.street=0;T.street<4;T.street++){
-    if(T.street>0){const n=T.street===1?3:1;T.deck.pop();for(let i=0;i<n;i++)T.board.push(T.deck.pop());
+    if(T.street>0){const n=T.street===1?3:1;sfx('deal',{n});T.deck.pop();for(let i=0;i<n;i++)T.board.push(T.deck.pop());
       T.players.forEach(p=>{p.bet=0;p.acted=false;if(!p.folded&&!p.allin)p.act=''});T.currentBet=0;T.minRaise=bb;
       log(`${['','Flop','Turn','River'][T.street]}: ${T.board.slice(T.street===1?0:-1).map(cardText).join(' ')}`);render();await wait(650);if(g!==gen)return}
     const first=T.street===0?nextIdx(bbI,p=>!p.out&&!p.folded&&!p.allin):nextIdx(T.dealer,p=>!p.out&&!p.folded&&!p.allin);
@@ -245,7 +247,7 @@ async function bettingRound(first,g){let i=first;
       const a=p.human?await new Promise(r=>{humanResolve=r;renderBar()}):(await wait(550+Math.random()*500),decide(p));
       humanResolve=null;if(g!==gen)return;apply(p,a);render();await wait(p.human?150:250);if(g!==gen)return}
     i=nextIdx(i,q=>!q.out&&!q.folded&&!q.allin);}}
-function apply(p,a){const toCall=T.currentBet-p.bet;
+function apply(p,a){const toCall=T.currentBet-p.bet;sfx(a.type==='fold'?'slide':a.type==='check'||toCall<=0&&a.type==='call'?'tap':'chips');
   if(a.type==='fold'){p.folded=true;p.act='Fold';log(`<b>${p.name}</b> ${p.human?'fold':'folds'}.`)}
   else if(a.type==='check'||(a.type==='call'&&toCall<=0)){p.act='Check';log(`<b>${p.name}</b> ${p.human?'check':'checks'}.`)}
   else if(a.type==='call'){const put1=put(p,toCall);p.act=p.allin?'All-in':`Call ${put1}`;log(`<b>${p.name}</b> ${p.human?'call':'calls'} ${put1}${p.allin?' and '+(p.human?'are':'is')+' all-in':''}.`)}
@@ -258,7 +260,7 @@ async function showdown(g){
   const contenders=inHand(),potTotal=T.players.reduce((s,p)=>s+p.total,0);
   if(contenders.length===1){const w=contenders[0];w.chips+=potTotal;T.winners=[w.id];$('banner').innerHTML=`<b>${w.name}</b> ${w.human?'win':'wins'} ${potTotal}`;log(`<b>${w.name}</b> ${w.human?'win':'wins'} ${potTotal}.`);
     T.players.forEach(p=>p.total=0);T.cur=-1;render();return}
-  while(T.board.length<5){T.deck.pop();T.board.push(T.deck.pop());render();await wait(500);if(g!==gen)return}
+  while(T.board.length<5){sfx('card');T.deck.pop();T.board.push(T.deck.pop());render();await wait(500);if(g!==gen)return}
   T.showdown=true;const ev=new Map(contenders.map(p=>[p.id,evaluate(p.cards.concat(T.board))]));
   // side pots: one level per distinct amount committed by players still in the hand
   const levels=[...new Set(contenders.map(p=>p.total))].sort((a,b)=>a-b),pots=[];let prev=0;

@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
 <style>
@@ -134,14 +136,14 @@ function newGame(){$('overlay').hidden=true;S={players:setup(),round:1,turn:0,ge
 const cur=()=>S.players[S.turn];
 function startTurn(){Object.assign(S,{dice:[],have:0,cargo:null,rollsLeft:3,busy:false,anim:false,done:false});render();if(cur().cpu)cpuStep()}
 // Roll every die not yet set aside, then claim 6, 5, 4 in order (several may come in one roll).
-function roll(){if(S.over||S.busy||S.done||!S.rollsLeft)return;const free=5-S.have;S.dice=[...Array(free)].map(()=>1+rand(6));S.rollsLeft--;S.anim=true;
+function roll(){if(S.over||S.busy||S.done||!S.rollsLeft)return;sfx('dice');const free=5-S.have;S.dice=[...Array(free)].map(()=>1+rand(6));S.rollsLeft--;S.anim=true;
   const need=[6,5,4];let pool=S.dice.slice();
   while(S.have<3){const want=need[S.have],i=pool.indexOf(want);if(i<0)break;pool.splice(i,1);S.have++}
   S.free=pool;S.cargo=S.have===3?pool.reduce((a,b)=>a+b,0):null;
   if(S.have===3&&!S.rollsLeft)S.log=`${cur().name} ${me()?'have':'has'} ${S.cargo} cargo.`;else if(S.have===3)S.log=`Cargo ${S.cargo}. Keep it or roll the cargo again.`;else S.log='';
   if(!S.rollsLeft){endTurn();return}render();S.anim=false}
 const me=()=>cur().name==='You';
-function keep(){if(S.over||S.busy||S.done||S.cargo==null)return;endTurn()}
+function keep(){if(S.over||S.busy||S.done||S.cargo==null)return;sfx('score');endTurn()}
 function endTurn(){S.done=true;S.busy=true;const p=cur(),c=S.cargo==null?0:S.cargo;p.last=c;p.total+=c;
   if(S.cargo==null)S.log=`${p.name}: no ship, captain and crew. No cargo this round.`;else S.log=`${p.name} ${me()?'keep':'keeps'} ${c} cargo.`;render();S.anim=false;
   const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;
