@@ -90,7 +90,7 @@ Every page has two buttons next to the "← Game Parlor" link. The speaker turns
 
 ## Online play (device to device)
 
-`p2p.js` connects two devices directly with a WebRTC data channel; there is no game server. Players pair once by swapping two short codes, shown as QR codes or copied and shared. A public STUN server (Google's) is used only to discover each device's internet address and never sees game data; on the same Wi-Fi no outside server is needed. Some strict mobile or office networks block direct connections, and those can't connect without a relay server.
+`p2p.js` connects two devices directly with a WebRTC data channel; there is no game server. Players pair once by swapping two short codes, shown as QR codes or copied and shared. A public STUN server (Google's) is used only to discover each device's internet address and never sees game data; on the same Wi-Fi no outside server is needed. Some strict mobile or office networks block direct connections, and those can't connect without a relay server. Chrome hides a device's Wi-Fi address (it shows a random `.local` name instead) unless the page may use the camera, and other devices usually can't look that name up. So when the address is hidden, the pairing dialog asks once for camera access, which makes Chrome share it. Each code shows which addresses it carries, and a failed connection says which side is missing one.
 
 The host's device runs the game and sends the table after every change; the guest's device sends its moves. Memory Match, Chess and Four in a Row have online play. In Chess and Four in a Row both devices run the rules and only moves are sent; the host's move list settles any disagreement, and a dropped game resumes after pairing again.
 

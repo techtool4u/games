@@ -56,6 +56,20 @@
   async function guestAnswer(link,code){await link.pc.setRemoteDescription(expand(code));const a=await link.pc.createAnswer();await link.pc.setLocalDescription(a);await gathered(link.pc);return compact(link.pc.localDescription)}
   const opened=(link,ms)=>new Promise((res,rej)=>{if(link.dc.readyState==='open')return res();const t=setTimeout(()=>rej(new Error('timeout')),ms);link.dc.addEventListener('open',()=>{clearTimeout(t);res()})});
 
+  // Chrome hides a device's Wi-Fi address behind a random "….local" name unless the page may use the camera or
+  // microphone. Another browser on the same computer can look that name up, but a phone or a second computer
+  // often can't, so two devices on the same Wi-Fi fail to find each other. Granting camera access once fixes it.
+  const hostAddrs=sdp=>[...sdp.matchAll(/a=candidate:\S+ 1 udp \d+ (\S+) \d+ typ host/gi)].map(m=>m[1]);
+  async function addressHidden(){try{const pc=new RTCPeerConnection({iceServers:[]});pc.createDataChannel('probe');
+      await pc.setLocalDescription(await pc.createOffer());await Promise.race([gathered(pc),new Promise(r=>setTimeout(r,1500))]);
+      const hs=hostAddrs(pc.localDescription.sdp);pc.close();return hs.length>0&&hs.every(h=>/\.local$/i.test(h))}catch(e){return false}}
+  async function unhide(){for(const c of[{video:true},{audio:true}]){try{const st=await navigator.mediaDevices.getUserMedia(c);st.getTracks().forEach(t=>t.stop());return true}catch(e){}}return false}
+  // What a code tells about the routes to that device, in words.
+  function routes(code){const cl=String(code).trim().split('~')[6]||'',r={wifi:false,hidden:false,net:false};
+    for(const c of cl.split(';')){const[k,ip]=c.split(',');if(k==='h'){if(/\.local$/i.test(ip||''))r.hidden=true;else r.wifi=true}else if(k==='s'||k==='r')r.net=true}
+    return r}
+  const routeText=r=>`Wi-Fi address: ${r.wifi?'yes':r.hidden?'hidden':'none'} · internet address: ${r.net?'yes':'none'}`;
+
   /* ---------- the pairing dialog ---------- */
   const css=`.p2p-ov{position:fixed;inset:0;background:rgba(10,10,20,.6);display:grid;padding:14px;z-index:5000;overflow:auto}
 .p2p{margin:auto;background:var(--panel,#fff);color:var(--fg,#1d1d22);border-radius:18px;padding:18px;width:100%;max-width:400px;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;font-family:var(--body,system-ui,sans-serif);box-shadow:0 20px 40px rgba(0,0,0,.35)}
@@ -110,25 +124,44 @@
     const connected=()=>{done=true;stopScan();ov.remove();window.onAppBack=prevBack;link.open=true;opts.onOpen(link)};
     const fail=(msg)=>{const m=box.querySelector('[data-msg]');if(m){m.className='err';m.textContent=msg}};
 
+    // Before making a code, make sure this device's Wi-Fi address can go in it (see addressHidden).
+    async function prep(then){show(`<h2>Getting ready</h2><p>Checking this device's network…</p><div class="row"><button data-cancel>Cancel</button></div>`);
+      if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)||!(await addressHidden())){then();return}
+      show(`<h2>Let the other device find this one</h2><p>This browser keeps its Wi-Fi address private unless the page is allowed to use the camera, and without it a phone on the same Wi-Fi usually can't connect.</p>
+        <p>Tap Allow, then allow camera access when the browser asks. The camera switches on for a moment and nothing is recorded. The browser remembers it, so this is a one-time step.</p>
+        <div class="row"><button class="pri" data-allow>Allow</button><button data-skip>Skip</button></div><p data-msg></p><div class="row"><button data-cancel>Cancel</button></div>`);
+      box.querySelector('[data-skip]').onclick=then;
+      box.querySelector('[data-allow]').onclick=async()=>{const b=box.querySelector('[data-allow]');b.disabled=true;
+        const ok=await unhide();if(ok&&!(await addressHidden())){then();return}
+        b.disabled=false;fail(ok?'The address is still hidden in this browser. Tap Skip to try anyway; connecting over the internet may still work.':'Camera access wasn\'t allowed. You can allow it in the browser\'s site settings, or tap Skip to try anyway.')}}
+    const failHelp=(mine,theirs)=>{const a=routes(mine),b=routes(theirs);let tip='';
+      if(a.hidden&&!a.wifi||b.hidden&&!b.wifi)tip=' A Wi-Fi address is hidden: on that device start again and tap Allow when asked about the camera.';
+      else if(!a.wifi||!b.wifi)tip=' One device has no Wi-Fi address in its code: check it is on Wi-Fi, not mobile data.';
+      else tip=' Both devices shared their Wi-Fi address, so the network may be blocking devices from talking to each other (common on guest, hotel and office Wi-Fi), or a firewall on the computer is blocking the browser.';
+      return `Couldn't connect.${tip} (This device: ${routeText(a)}. Other device: ${routeText(b)}.)`};
+
     function start(){show(`<h2>Play ${esc(opts.game)} online</h2><p>Connect two devices directly: no account and no game server. It works best when both are on the same Wi-Fi, and usually works over mobile data too.</p>
       <div class="row"><button class="pri" data-host>Host a game</button><button data-join>Join a game</button></div><div class="row"><button data-cancel>Cancel</button></div>`);
-      box.querySelector('[data-host]').onclick=asHost;box.querySelector('[data-join]').onclick=asGuest;box.querySelector('[data-host]').focus()}
+      box.querySelector('[data-host]').onclick=()=>prep(asHost);box.querySelector('[data-join]').onclick=()=>prep(asGuest);box.querySelector('[data-host]').focus()}
     async function asHost(){show(`<h2>Hosting</h2><p>Making your invite code…</p><div class="row"><button data-cancel>Cancel</button></div>`);
       link=makeLink('host');let code;try{code=await hostOffer(link)}catch(e){show(`<h2>Can't host</h2><p class="err">${esc(e.message)}</p><div class="row"><button data-cancel>Close</button></div>`);return}
-      show(`<span class="step">Step 1 of 2</span><h2>Send this invite</h2><p>On your friend's device, open ${esc(opts.game)}, choose Online, then Join, and scan or paste this code.</p>${codeBlock(code,'Invite code')}
+      show(`<span class="step">Step 1 of 2</span><h2>Send this invite</h2><p>On your friend's device, open ${esc(opts.game)}, choose Online, then Join, and scan or paste this code.</p>${codeBlock(code,'Invite code')}<p style="font-size:12px">${routeText(routes(code))}</p>
         <span class="step">Step 2 of 2</span><p>Now scan or paste the reply code from your friend's screen.</p>${pasteBlock('Reply code','Connect')}<div class="row"><button data-cancel>Cancel</button></div>`);
       wireCode(code);const ta=box.querySelector('[data-in]');
       const go=async()=>{const v=ta.value.trim();if(!v){fail('First send the invite above to your friend. Their device then shows a reply code: scan it or paste it here, then tap Connect.');ta.focus();return}let d;try{d=expand(v);if(d.type!=='answer')throw new Error('That\'s an invite code. Paste the reply from the other device.')}catch(e){fail(e.message);return}
         const m=box.querySelector('[data-msg]');m.className='';m.textContent='Connecting…';
-        try{await link.pc.setRemoteDescription(d);await opened(link,20000);connected()}catch(e){fail(e.message==='timeout'?'Couldn\'t connect. Check that both devices are online (the same Wi-Fi is most reliable) and try again.':e.message)}};
+        try{await link.pc.setRemoteDescription(d);await opened(link,20000);connected()}catch(e){fail(e.message==='timeout'?failHelp(code,v):e.message)}};
       box.querySelector('[data-go]').onclick=go;const sc=box.querySelector('[data-scan]');if(sc)sc.onclick=()=>{sc.disabled=true;scanInto(ta,go)}}
     async function asGuest(){show(`<span class="step">Step 1 of 2</span><h2>Join a game</h2><p>Scan or paste the invite code shown on the host's screen.</p>${pasteBlock('Invite code','Next')}<div class="row"><button data-cancel>Cancel</button></div>`);
       const ta=box.querySelector('[data-in]');
       const go=async()=>{const v=ta.value.trim();if(!v){fail('Scan the QR code on the host\'s screen, or paste their invite code here first.');ta.focus();return}let d;try{d=expand(v);if(d.type!=='offer')throw new Error('That\'s a reply code. Paste the invite from the host.')}catch(e){fail(e.message);return}
         box.querySelector('[data-go]').disabled=true;const m=box.querySelector('[data-msg]');m.className='';m.textContent='Making your reply…';
         link=makeLink('guest');let code;try{code=await guestAnswer(link,v)}catch(e){fail('That code didn\'t work: '+e.message);box.querySelector('[data-go]').disabled=false;return}
-        show(`<span class="step">Step 2 of 2</span><h2>Send this reply</h2><p>Show this to the host to scan, or copy it and send it to them.</p>${codeBlock(code,'Reply code')}<p data-msg>Waiting for the host to connect…</p><div class="row"><button data-cancel>Cancel</button></div>`);
-        wireCode(code);try{await opened(link,10*60*1000);connected()}catch(e){fail('The host didn\'t connect in time. Start again with a new invite.')}};
+        show(`<span class="step">Step 2 of 2</span><h2>Send this reply</h2><p>Show this to the host to scan, or copy it and send it to them.</p>${codeBlock(code,'Reply code')}<p style="font-size:12px">${routeText(routes(code))}</p><p data-msg>Waiting for the host to connect…</p><div class="row"><button data-cancel>Cancel</button></div>`);
+        wireCode(code);
+        // the guest can tell early that the connection attempt failed, instead of waiting for the timeout
+        link.pc.addEventListener('iceconnectionstatechange',()=>{if(link.pc.iceConnectionState==='failed')fail(failHelp(code,v))});
+        try{await opened(link,10*60*1000);connected()}catch(e){fail('The host didn\'t connect in time. Start again with a new invite.')}};
       box.querySelector('[data-go]').onclick=go;const sc=box.querySelector('[data-scan]');if(sc)sc.onclick=()=>{sc.disabled=true;scanInto(ta,go)};ta.focus()}
     start()}
 
