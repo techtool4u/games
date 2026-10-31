@@ -13,7 +13,7 @@
     dice: 'bunco horse-race farkle five-dice liars-dice pig ship-captain-crew shut-the-box ludo snakes-and-ladders',
     board: 'backgammon checkers chess go hex mancala morris reversi shogi xiangqi star-checkers four-in-a-row tic-tac-toe ultimate-tic-tac-toe dots-and-boxes nim fleet-hunt dominoes hexhaven',
     puzzle: 'memory-match mahjong-solitaire sudoku mine-sweep peg-solitaire sliding-fifteen code-breaker labyrinth lineup-detective',
-    word: 'word-search word-guess hangman word-ladder word-tiles twenty-questions',
+    word: 'word-search word-guess word-jumble mini-crossword hangman word-ladder word-tiles twenty-questions',
     arcade: 'snake block-drop sweet-swap merge-tiles'
   };
   var kind = 'lobby';

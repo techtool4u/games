@@ -65,6 +65,8 @@ Self-contained HTML files. No install or build step.
 - `horse-race.html` — Horse Race, bet on horses 2 to 12 and roll the dice to run them, with fair odds over 3 to 8 races.
 - `word-search.html` — Word Search, 12 themed word lists in three grid sizes, drag or tap to circle words.
 - `word-guess.html` — Word Guess, find the five-letter word in six tries, with a daily word, practice, hard mode and stats.
+- `word-jumble.html` — Word Jumble, unscramble 10 words against the clock, solo or 2 players, with any valid anagram accepted.
+- `mini-crossword.html` — Mini Crossword, 18 hand-clued 5×5 crosswords with check, reveal, timer and saved progress.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
