@@ -733,7 +733,7 @@ function renderChips(){const base=GAMES.filter(g=>matches(g,'genres'));
 function refresh(){gen++;loading=false;shown=0;list=compute();renderChips();container();skeleton(false);$('end').hidden=true;
   document.querySelectorAll('#layouts button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===S.layout));updateCount();loadMore()}
 function renderTop(){const ready=GAMES.filter(g=>g.url);
-  $('tally').innerHTML=`<span><b>${ready.length}</b> ready to play</span><span><b>${GAMES.length-ready.length}</b> coming soon</span><span><b>${GENRES.length}</b> genres</span>`;
+  $('tally').innerHTML=`<span><b>${ready.length}</b> ready to play</span>${GAMES.length>ready.length?`<span><b>${GAMES.length-ready.length}</b> coming soon</span>`:''}<span><b>${GENRES.length}</b> genres</span>`;
   $('ready').innerHTML=ready.map(g=>`<div class="rcard" data-open="${g.id}" tabindex="0" role="button" aria-label="${esc(g.name)} details"><div class="cv">${cover(g)}</div><div class="tx"><h3>${esc(g.name)}</h3><div class="meta"><span>${g.mins} min</span>${diffDots(g.diff)}<span>${esc(g.plabel)}</span></div><p>${esc(g.blurb)}</p><div class="go">${playBtn(g,'sm')}</div></div></div>`).join('')}
 
 /* ---------- detail ---------- */
