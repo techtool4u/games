@@ -70,6 +70,8 @@ Self-contained HTML files. No install or build step.
 - `letter-grid.html` — Letter Grid, chain touching letters into words against the clock on 4×4 or 5×5 grids, 1 to 4 players.
 - `picture-cross.html` — Picture Cross, 21 nonogram pictures in three sizes, each checked to be solvable without guessing.
 - `lights-off.html` — Lights Off, switch every light off on 3×3 to 7×7 grids, with exact fewest-move counts and hints.
+- `tower-of-hanoi.html` — Tower of Hanoi, 3 to 8 discs with move counting, undo and a demo that solves from any position.
+- `bridges.html` — Bridges, link numbered islands with bridges; generated puzzles with exactly one solution in three sizes.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
