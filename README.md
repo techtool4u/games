@@ -61,6 +61,8 @@ Self-contained HTML files. No install or build step.
 - `euchre.html` — Euchre: you and a computer partner against two computers, with bowers, going alone and stick the dealer.
 - `shut-the-box.html` — Shut the Box, solo or for up to 4 players (or vs computers), with an optional best-move hint.
 - `ship-captain-crew.html` — Ship, Captain and Crew, the five-dice game, for 2 to 6 players or vs computers.
+- `bunco.html` — Bunco, the team dice party game: six rounds, Buncos and three-of-a-kinds, vs computers or 4 players.
+- `horse-race.html` — Horse Race, bet on horses 2 to 12 and roll the dice to run them, with fair odds over 3 to 8 races.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

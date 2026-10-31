@@ -10,7 +10,7 @@
   var page = (location.pathname.split('/').pop() || 'index.html').replace(/\.html$/, '') || 'index';
   var KINDS = {
     cards: 'blackjack crazy-eights cribbage euchre free-cell gin-rummy go-fish hearts klondike poker pyramid-solitaire rummy snap spades spider-solitaire war',
-    dice: 'farkle five-dice liars-dice pig ship-captain-crew shut-the-box ludo snakes-and-ladders',
+    dice: 'bunco horse-race farkle five-dice liars-dice pig ship-captain-crew shut-the-box ludo snakes-and-ladders',
     board: 'backgammon checkers chess go hex mancala morris reversi shogi xiangqi star-checkers four-in-a-row tic-tac-toe ultimate-tic-tac-toe dots-and-boxes nim fleet-hunt dominoes hexhaven',
     puzzle: 'memory-match mahjong-solitaire sudoku mine-sweep peg-solitaire sliding-fifteen code-breaker labyrinth lineup-detective',
     word: 'hangman word-ladder word-tiles twenty-questions',
