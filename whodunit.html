@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Whodunit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with number of rival detectives and their skill; the manor map (nine rooms, detective tokens) beside the action panel (roll, choose a room, make a suggestion, accuse); your cards; the detective's notebook (who holds what); the case log; rules below. */
+:root{
+  --bg:#f4ece6; --fg:#2b1720; --muted:#7a6068; --panel:#fffaf6; --line:#e6d4cc; --chip:#f3e4dc; --accent:#4a2a3a; --accent-ink:#ffffff; --room:#efe0d4; --room-2:#e6d0c0; --hl:#2e7d4f; --yes:#1f8a4c; --no:#b8a8ae; --maybe:#d08a2e;
+  --display:"Playfair Display", Georgia, serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#140c10; --fg:#f2e4ea; --muted:#b39aa4; --panel:#1e1318; --line:#3a2830; --chip:#2a1a21; --accent:#d8a7bf; --accent-ink:#140c10; --room:#2a1c22; --room-2:#33232a; --no:#5d4b52; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#140c10; --fg:#f2e4ea; --muted:#b39aa4; --panel:#1e1318; --line:#3a2830; --chip:#2a1a21; --accent:#d8a7bf; --accent-ink:#140c10; --room:#2a1c22; --room-2:#33232a; --no:#5d4b52; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:980px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+.map{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--accent);padding:6px;border-radius:16px;aspect-ratio:1;max-width:460px;width:100%;margin:0 auto;box-sizing:border-box}
+.rm{background:var(--room);border-radius:10px;padding:6px;display:flex;flex-direction:column;justify-content:space-between;position:relative;cursor:default;font-weight:800;font-size:clamp(11px,2.6vw,14px);min-height:0}
+.rm:nth-child(even){background:var(--room-2)}
+.rm.can{cursor:pointer;box-shadow:inset 0 0 0 3px var(--hl)}
+.rm.can::after{content:'Go';position:absolute;right:6px;top:6px;font-size:11px;color:var(--hl)}
+.rm small{font-weight:700;color:var(--muted);font-size:10.5px}
+.toks{display:flex;flex-wrap:wrap;gap:3px}
+.tok{width:18px;height:18px;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,.4);font-size:9px;color:#fff;display:grid;place-items:center;font-weight:800}
+.act{display:flex;flex-direction:column;gap:10px}
+.turnline{font-weight:800}
+.die{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--panel);border:2px solid var(--line);font-family:var(--display);font-size:22px;margin-right:8px;vertical-align:middle}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 11px;font-weight:700;font-size:13.5px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.known{text-decoration:line-through;opacity:.6}
+.hand{display:flex;gap:6px;flex-wrap:wrap}
+.card{border-radius:10px;padding:8px 10px;background:var(--chip);border:1px solid var(--line);font-weight:800;font-size:13px;min-width:80px;text-align:center}
+.card small{display:block;font-weight:700;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+.notes{overflow-x:auto}
+.notes table{border-collapse:collapse;font-size:13px;width:100%}
+.notes th,.notes td{padding:3px 4px;border-bottom:1px solid var(--line);text-align:center}
+.notes th:first-child,.notes td:first-child{text-align:left;white-space:nowrap}
+.notes tr.cat td{font-weight:800;color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.08em;padding-top:8px}
+.notes td.m{cursor:pointer;min-width:26px;font-weight:800}
+.notes .y{color:var(--yes)}.notes .n{color:var(--no)}.notes .q{color:var(--maybe)}
+.notes tr.sol td:first-child{color:var(--yes);font-weight:800}
+.notes tr.out td:first-child{color:var(--no);text-decoration:line-through}
+.log{max-height:220px;overflow:auto;font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+.log div{padding:3px 0;border-bottom:1px dashed var(--line)}
+.log b{color:var(--accent)}
+.row2{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:760px){.top{grid-template-columns:1fr}}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:14px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.top{display:contents}.map{grid-column:1;grid-row:1/span 6;width:calc(100vh - 20px);max-width:none}h1{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Whodunit</h1>
+    </div>
+    <div class="controls">
+      <select id="rivals" aria-label="Rival detectives"><option value="2">2 rival detectives</option><option value="3">3 rival detectives</option><option value="4">4 rival detectives</option><option value="5">5 rival detectives</option></select>
+      <select id="level" aria-label="Rivals' skill"><option value="easy">Rookies</option><option value="medium">Sharp</option><option value="hard">Master sleuths</option></select>
+      <button class="btn primary" id="newgame">New case</button>
+    </div>
+  </header>
+  <div class="top">
+    <div class="map" id="map" role="grid" aria-label="Manor map"></div>
+    <div class="act panel" id="act" aria-live="polite"></div>
+  </div>
+  <div class="panel"><p class="label">Your cards (nobody else can have these)</p><div class="hand" id="hand"></div></div>
+  <div class="panel notes"><p class="label">Notebook: <span class="y">✓</span> has it · <span class="n">✗</span> doesn't · <span class="q">?</span> your own marks (tap a square)</p><div id="notes"></div></div>
+  <div class="panel"><p class="label">Case log</p><div class="log" id="log"></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Someone was done in at the manor. One suspect, one item and one room are sealed in the case file. Every other card is dealt out to the detectives, you included. Be the first to name all three.</li>
+        <li>On your turn, roll and move to a room up to half the roll away (rounded up). The corner rooms have secret passages to the opposite corner. Then suggest a suspect and an item for that room.</li>
+        <li>Going round the table, the first detective who holds one of the three cards must show you one of them, in secret. If nobody can, those cards might be in the case file (or in your own hand).</li>
+        <li>When you're sure, accuse. You can accuse at any point in your turn. Right, and you solve the case. Wrong, and you're out (you still show cards when asked).</li>
+        <li>The notebook fills in what you've been shown, what nobody could show, and what follows from that. Tap a square to add your own ? marks.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const SUS=['Lady Violet','Dr. Moore','Captain Vale','Mr. Pell','Miss Reed','Chef Crane'];
+const ITM=['Letter opener','Teacup','Garden shears','Old pistol','Silk scarf','Bookend'];
+const RMS=['Library','Greenhouse','Gallery','Wine cellar','Music room','Observatory','Kitchen','Boathouse','Chapel'];
+const CARDS=[...SUS,...ITM,...RMS],CAT=c=>c<6?0:c<12?1:2,CATN=['Suspect','Item','Room'];
+const DETS=['You','Inspector Hale','Ms. Okafor','Mr. Lindqvist','Sgt. Ruiz','Professor Tam'],DCOL=['#c0392b','#2c58c4','#2e9e5b','#d68910','#8e44ad','#16a085'];
+const cfg=Object.assign({rivals:3,level:'medium'},store.get('parlor-whodunit',{}));
+const tally=store.get('parlor-whodunit-tally',{w:0,p:0});
+let G=null;
+const dist=(a,b)=>{const pass=(a===0&&b===8)||(a===8&&b===0)||(a===2&&b===6)||(a===6&&b===2);return pass?1:Math.abs(a%3-b%3)+Math.abs(Math.floor(a/3)-Math.floor(b/3))};
+// ---------- deduction: who holds each card (players 0..n-1, n = the case file) ----------
+function Know(n,sizes,full){this.n=n;this.sizes=sizes;this.full=full;this.K=[...Array(n+1)].map(()=>new Array(21).fill(null));this.clauses=[]}
+Know.prototype.has=function(p,c){if(this.K[p][c]===1)return;this.K[p][c]=1;this.prop()};
+Know.prototype.not=function(p,c){if(this.K[p][c]===0)return;this.K[p][c]=0;this.prop()};
+Know.prototype.oneOf=function(p,cs){this.clauses.push({p,cs:cs.slice()});this.prop()};
+Know.prototype.prop=function(){const K=this.K,n=this.n;let ch=true,g=0;
+  const set=(p,c,v)=>{if(K[p][c]===null){K[p][c]=v;ch=true}};
+  while(ch&&g++<60){ch=false;
+    for(let c=0;c<21;c++){const h=[...Array(n+1).keys()].filter(p=>K[p][c]===1);if(h.length)for(let p=0;p<=n;p++)if(p!==h[0])set(p,c,0);
+      if(!this.full)continue;const open=[...Array(n+1).keys()].filter(p=>K[p][c]!==0);if(open.length===1)set(open[0],c,1)}
+    if(!this.full)continue;
+    for(let p=0;p<n;p++){const yes=K[p].filter(v=>v===1).length,open=K[p].filter(v=>v!==0).length;if(yes===this.sizes[p])for(let c=0;c<21;c++)if(K[p][c]===null)set(p,c,0);if(open===this.sizes[p])for(let c=0;c<21;c++)if(K[p][c]===null)set(p,c,1)}
+    for(const [a,b] of[[0,6],[6,12],[12,21]]){const yes=[],open=[];for(let c=a;c<b;c++){if(K[n][c]===1)yes.push(c);if(K[n][c]!==0)open.push(c)}if(yes.length)for(let c=a;c<b;c++)if(c!==yes[0])set(n,c,0);if(open.length===1)set(n,open[0],1)}
+    for(const cl of this.clauses){if(cl.cs.some(c=>K[cl.p][c]===1))continue;const left=cl.cs.filter(c=>K[cl.p][c]!==0);if(left.length===1)set(cl.p,left[0],1)}}};
+Know.prototype.solution=function(){const n=this.n,s=[];for(const [a,b] of[[0,6],[6,12],[12,21]]){let f=-1;for(let c=a;c<b;c++)if(this.K[n][c]===1)f=c;if(f<0)return null;s.push(f)}return s};
+Know.prototype.cands=function(a,b){return[...Array(b-a)].map((_,k)=>a+k).filter(c=>this.K[this.n][c]!==0)};
+// ---------- setup ----------
+function newGame(){closeModal();const n=1+(+cfg.rivals);const sol=[rand(6),6+rand(6),12+rand(9)];const rest=shuffle([...Array(21).keys()].filter(c=>!sol.includes(c)));
+  const hands=[...Array(n)].map(()=>[]);rest.forEach((c,k)=>hands[k%n].push(c));const sizes=hands.map(h=>h.length);
+  G={n,sol,hands,sizes,pos:[...Array(n)].map(()=>rand(9)),turn:0,phase:'roll',roll:0,out:new Array(n).fill(false),log:[],marks:{},sel:{s:null,i:null},over:false,gen:(G?G.gen:0)+1,moved:false};
+  G.know=[...Array(n)].map((_,p)=>{const k=new Know(n,sizes,p===0||cfg.level!=='easy');hands[p].forEach(c=>k.has(p,c));for(let c=0;c<21;c++)if(!hands[p].includes(c))k.not(p,c);return k});
+  log(`A body in the manor. ${n} detectives take the case.`);render()}
+function log(t){G.log.unshift(t);if(G.log.length>80)G.log.pop()}
+const nm=p=>DETS[p];
+// ---------- turns ----------
+function roll(){if(G.phase!=='roll')return;G.roll=1+rand(6);G.phase='move';sfx('dice');render();if(G.turn!==0)setTimeout(()=>cpuMove(G.gen),700)}
+const reach=p=>[...Array(9).keys()].filter(r=>dist(G.pos[p],r)<=Math.ceil(G.roll/2));
+function moveTo(r){if(G.phase!=='move')return;G.pos[G.turn]=r;G.phase='suggest';sfx('step');log(`${nm(G.turn)} ${G.turn?'goes':'go'} to the ${RMS[r]}.`);render();if(G.turn!==0)setTimeout(()=>cpuSuggest(G.gen),800)}
+function suggest(s,i){if(G.phase!=='suggest')return;const p=G.turn,r=12+G.pos[p],cards=[s,i,r];G.phase='busy';
+  log(`<b>${nm(p)}</b> ${p?'suggests':'suggest'}: ${SUS[s]} with the ${ITM[i-6].toLowerCase()} in the ${RMS[r-12]}.`);sfx('select');
+  // go round the table
+  const order=[...Array(G.n-1)].map((_,k)=>(p+1+k)%G.n);
+  const step=k=>{if(k>=order.length){log(`Nobody could show a card.`);sfx('check');G.know.forEach((kn,o)=>{order.forEach(q=>cards.forEach(c=>kn.not(q,c)))});afterSuggest(null);return}
+    const q=order[k],have=cards.filter(c=>G.hands[q].includes(c));
+    if(!have.length){log(`${nm(q)} can't help.`);G.know.forEach(kn=>cards.forEach(c=>kn.not(q,c)));setTimeout(()=>step(k+1),p===0||q===0?350:180);return}
+    const show=c=>{G.know[p].has(q,c);G.know.forEach((kn,o)=>{if(o!==p&&o!==q)kn.oneOf(q,cards)});
+      if(p===0){log(`<b>${nm(q)}</b> shows you <b>${CARDS[c]}</b>.`);sfx('flip')}else if(q===0)log(`You show ${nm(p)} <b>${CARDS[c]}</b>.`);else log(`${nm(q)} shows ${nm(p)} a card.`);afterSuggest(q)};
+    if(q===0){// you choose which card to show
+      if(have.length===1){setTimeout(()=>show(have[0]),400);return}
+      modal(`<h2>Show a card</h2><p>${nm(p)} suggested ${SUS[s]}, ${ITM[i-6].toLowerCase()}, ${RMS[r-12]}. Which of yours will you show?</p><div class="row">${have.map(c=>`<button class="btn" data-c="${c}">${CARDS[c]}</button>`).join('')}</div>`);
+      $('modal').querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{closeModal();show(+b.dataset.c)});return}
+    // a computer shows a card it already showed to this detective, if it can
+    const seen=have.filter(c=>G.know[p].K[q][c]===1);show(seen.length?seen[0]:have[rand(have.length)])};
+  render();setTimeout(()=>step(0),500)}
+function afterSuggest(){if(G.over)return;G.phase=G.turn===0?'after':'busy';render();if(G.turn!==0){const g=G.gen;setTimeout(()=>{if(g===G.gen)cpuMaybeAccuse(true)},900)}}
+function accuse(s,i,r){const p=G.turn,ok=s===G.sol[0]&&i===G.sol[1]&&r===G.sol[2];log(`<b>${nm(p)}</b> ${p?'accuses':'accuse'} ${SUS[s]} with the ${ITM[i-6].toLowerCase()} in the ${RMS[r-12]}.`);
+  if(ok){G.over=true;tally.p++;if(p===0)tally.w++;store.set('parlor-whodunit-tally',tally);render();sfx(p===0?'win':'lose');
+    modal(`<h2>${p===0?'Case closed!':nm(p)+' solves it'}</h2><p>It was <b>${SUS[G.sol[0]]}</b> with the <b>${ITM[G.sol[1]-6].toLowerCase()}</b> in the <b>${RMS[G.sol[2]-12]}</b>.</p><p>You've solved ${tally.w} of ${tally.p} cases.</p><div class="row"><button class="btn primary" id="mnew">New case</button></div>`);$('mnew').onclick=newGame;return}
+  G.out[p]=true;log(`Wrong! ${nm(p)} ${p?'is':'are'} out of the running.`);sfx('bad');
+  if(G.out.every(Boolean)||(G.out[0]&&G.out.slice(1).every(Boolean))){G.over=true;render();modal(`<h2>Unsolved</h2><p>Everyone guessed wrong. It was ${SUS[G.sol[0]]} with the ${ITM[G.sol[1]-6].toLowerCase()} in the ${RMS[G.sol[2]-12]}.</p><div class="row"><button class="btn primary" id="mnew">New case</button></div>`);$('mnew').onclick=newGame;return}
+  if(p===0){render();modal(`<h2>Wrong!</h2><p>That's not it, so you're out of the running. You'll keep showing cards, and you can watch how the case ends.</p><div class="row"><button class="btn primary" id="mok">Watch</button></div>`);$('mok').onclick=()=>{closeModal();endTurn()};return}
+  endTurn()}
+function endTurn(){if(G.over)return;let t=G.turn;for(let k=0;k<G.n;k++){t=(t+1)%G.n;if(!G.out[t]||t===0&&false)break}
+  // if you're out, only the others keep taking turns
+  if(G.out[t]){t=(G.turn+1)%G.n;while(G.out[t])t=(t+1)%G.n}
+  G.turn=t;G.phase='roll';G.sel={s:null,i:null};render();if(t!==0){const g=G.gen;setTimeout(()=>{if(g===G.gen)roll()},800)}else sfx('turn')}
+// ---------- computer detectives ----------
+function cpuMaybeAccuse(after){const p=G.turn,k=G.know[p],sol=k.solution();
+  if(sol&&(cfg.level!=='easy'||Math.random()<.8)){accuse(...sol);return}
+  // a rookie sometimes guesses when it's nearly there
+  if(cfg.level==='easy'&&after){const c=[k.cands(0,6),k.cands(6,12),k.cands(12,21)];if(c.every(x=>x.length)&&c[0].length*c[1].length*c[2].length<=2&&Math.random()<.4){accuse(c[0][rand(c[0].length)],c[1][rand(c[1].length)],c[2][rand(c[2].length)]);return}}
+  if(after)endTurn()}
+function cpuMove(g){if(g!==G.gen)return;const p=G.turn,k=G.know[p],rooms=k.cands(12,21).map(c=>c-12),opts=reach(p);
+  let target=null;if(rooms.length>1){const near=opts.filter(r=>rooms.includes(r));target=near.length?near[rand(near.length)]:null;
+    if(target==null){// get closer to the nearest unknown room
+      const goal=rooms.sort((a,b)=>dist(G.pos[p],a)-dist(G.pos[p],b))[0];target=opts.sort((a,b)=>dist(a,goal)-dist(b,goal))[0]}}
+  else{// room known: go to it, or to a room it holds (a safe probe)
+    const own=G.hands[p].filter(c=>c>=12).map(c=>c-12),goal=rooms.length?rooms[0]:own[0];target=opts.includes(goal)?goal:opts.sort((a,b)=>dist(a,goal)-dist(b,goal))[0]}
+  moveTo(target)}
+function cpuSuggest(g){if(g!==G.gen)return;const p=G.turn,k=G.know[p];
+  const pick=(a,b)=>{const c=k.cands(a,b);if(c.length===1&&cfg.level==='hard'){// already known: probe with one of its own cards instead
+      const own=G.hands[p].filter(x=>x>=a&&x<b);if(own.length)return own[rand(own.length)]}
+    return c.length?c[rand(c.length)]:a+rand(b-a)};
+  suggest(pick(0,6),pick(6,12))}
+// ---------- drawing ----------
+function render(){const me=G.turn===0&&!G.over&&!G.out[0],can=me&&G.phase==='move'?reach(0):[];
+  $('map').innerHTML=RMS.map((r,k)=>`<div class="rm${can.includes(k)?' can':''}" data-r="${k}"><span>${r}${[0,2,6,8].includes(k)?`<small><br>passage to ${RMS[8-k]}</small>`:''}</span><span class="toks">${G.pos.map((pp,d)=>pp===k?`<span class="tok" style="--c:${DCOL[d]}" title="${DETS[d]}">${d?DETS[d].split(' ').pop()[0]:'Y'}</span>`:'').join('')}</span></div>`).join('');
+  const a=$('act'),who=G.over?'Case over':G.out[0]&&G.turn===0?'You are out':G.turn===0?'Your turn':`${nm(G.turn)}'s turn`;let h=`<div class="turnline">${who}</div>`;
+  if(G.turn===0&&!G.over&&!G.out[0]){
+    if(G.phase==='roll')h+=`<p style="margin:0">Roll to move through the manor.</p><div class="row2"><button class="btn primary" id="roll">Roll</button><button class="btn" id="acc">Accuse…</button></div>`;
+    else if(G.phase==='move')h+=`<p style="margin:0"><span class="die">${G.roll}</span>You can move up to ${Math.ceil(G.roll/2)} room${Math.ceil(G.roll/2)>1?'s':''}. Tap a highlighted room${reach(0).includes(G.pos[0])?' (or stay where you are)':''}.</p>`;
+    else if(G.phase==='suggest'){const K=G.know[0];h+=`<p style="margin:0">You're in the <b>${RMS[G.pos[0]]}</b>. Who did it, and with what?</p>
+      <div class="chips">${SUS.map((s,k)=>`<button class="chip${K.K[G.n][k]===0?' known':''}" data-s="${k}" aria-pressed="${G.sel.s===k}">${s}</button>`).join('')}</div>
+      <div class="chips">${ITM.map((s,k)=>`<button class="chip${K.K[G.n][6+k]===0?' known':''}" data-i="${6+k}" aria-pressed="${G.sel.i===6+k}">${s}</button>`).join('')}</div>
+      <div class="row2"><button class="btn primary" id="sug"${G.sel.s==null||G.sel.i==null?' disabled':''}>Suggest</button><button class="btn" id="acc">Accuse…</button></div>`}
+    else if(G.phase==='after')h+=`<div class="row2"><button class="btn primary" id="end">End turn</button><button class="btn" id="acc">Accuse…</button></div>`;
+    else h+=`<p style="margin:0">Asking around…</p>`}
+  else if(!G.over)h+=`<p style="margin:0;color:var(--muted)">${G.phase==='move'&&G.roll?`<span class="die">${G.roll}</span>`:''}Watch the log below.</p>`;
+  else h+=`<button class="btn primary" id="again">New case</button>`;
+  a.innerHTML=h;
+  const on=(id,f)=>{const b=$(id);if(b)b.onclick=f};on('roll',roll);on('sug',()=>suggest(G.sel.s,G.sel.i));on('end',endTurn);on('acc',accuseDialog);on('again',newGame);
+  a.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{G.sel.s=+b.dataset.s;sfx('tap');render()});a.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{G.sel.i=+b.dataset.i;sfx('tap');render()});
+  $('hand').innerHTML=G.hands[0].slice().sort((x,y)=>x-y).map(c=>`<div class="card"><small>${CATN[CAT(c)]}</small>${CARDS[c]}</div>`).join('');
+  // notebook
+  const K=G.know[0].K;let t=`<table><tr><th></th>${[...Array(G.n)].map((_,p)=>`<th title="${DETS[p]}"><span class="tok" style="--c:${DCOL[p]};display:inline-grid">${p?DETS[p].split(' ').pop()[0]:'Y'}</span></th>`).join('')}<th>File</th></tr>`;
+  for(let cat=0;cat<3;cat++){t+=`<tr class="cat"><td colspan="${G.n+2}">${['Suspects','Items','Rooms'][cat]}</td></tr>`;
+    for(let c=[0,6,12][cat];c<[6,12,21][cat];c++){const env=K[G.n][c];t+=`<tr class="${env===1?'sol':env===0?'out':''}"><td>${CARDS[c]}</td>${[...Array(G.n+1)].map((_,p)=>{const v=K[p][c],m=G.marks[p+'|'+c];return`<td class="m ${v===1?'y':v===0?'n':m?'q':''}" data-p="${p}" data-c="${c}">${v===1?'✓':v===0?'✗':m?'?':''}</td>`}).join('')}</tr>`}}
+  $('notes').innerHTML=t+'</table>';
+  $('log').innerHTML=G.log.map(l=>`<div>${l}</div>`).join('')}
+function accuseDialog(){modal(`<h2>Accuse</h2><p>Get all three right and you win. Get any wrong and you're out.</p>
+  <select id="aS">${SUS.map((s,k)=>`<option value="${k}">${s}</option>`).join('')}</select><select id="aI">${ITM.map((s,k)=>`<option value="${6+k}">${s}</option>`).join('')}</select><select id="aR">${RMS.map((s,k)=>`<option value="${12+k}">${s}</option>`).join('')}</select>
+  <div class="row"><button class="btn" id="aC">Cancel</button><button class="btn primary" id="aGo">Accuse</button></div>`);
+  const sol=G.know[0].solution();if(sol){$('aS').value=sol[0];$('aI').value=sol[1];$('aR').value=sol[2]}
+  $('aC').onclick=closeModal;$('aGo').onclick=()=>{const s=+$('aS').value,i=+$('aI').value,r=+$('aR').value;closeModal();accuse(s,i,r)}}
+$('map').addEventListener('click',e=>{const r=e.target.closest('.rm.can');if(r&&G.turn===0)moveTo(+r.dataset.r)});
+$('notes').addEventListener('click',e=>{const td=e.target.closest('td.m');if(!td)return;const k=td.dataset.p+'|'+td.dataset.c;if(G.know[0].K[+td.dataset.p][+td.dataset.c]!=null)return;G.marks[k]=!G.marks[k];render()});
+function setCfg(k,v){cfg[k]=v;store.set('parlor-whodunit',cfg);newGame()}
+$('rivals').onchange=e=>setCfg('rivals',+e.target.value);$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-whodunit',cfg)};$('newgame').onclick=newGame;
+window.onAppBack=()=>{if(!$('overlay').hidden&&G.phase!=='busy'){closeModal();return true}return false};
+for(const[k,ok]of[['rivals',[2,3,4,5]],['level',['easy','medium','hard']]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+newGame();
+</script>
+</body>
+</html>
