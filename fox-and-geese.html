@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fox and Geese</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with opponent, side and level; status and geese captured; the cross-shaped board (SVG) with lines, holes, the fox and the geese; Undo; rules below. */
+:root{
+  --bg:#f6f1e4; --fg:#2c3a1e; --muted:#6c7458; --panel:#fffdf6; --line:#e2dcc6; --chip:#ece6d2; --accent:#3d5a2a; --accent-ink:#ffffff; --board:#c8a165; --board-2:#a87f45; --groove:#6b4a22; --fox:#e2672b; --goose:#fbfbf7; --move:#2e7d4f;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#11140d; --fg:#e7ecd9; --muted:#a3ab8f; --panel:#1a1e15; --line:#2e3426; --chip:#242a1d; --accent:#8fbf4f; --accent-ink:#11140d; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#11140d; --fg:#e7ecd9; --muted:#a3ab8f; --panel:#1a1e15; --line:#2e3426; --chip:#242a1d; --accent:#8fbf4f; --accent-ink:#11140d; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.status{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-weight:800;align-items:center}
+.status small{color:var(--muted);font-weight:700}
+.geese{display:flex;gap:3px;flex-wrap:wrap}
+.geese i{width:12px;height:12px;border-radius:50%;background:var(--goose);border:1.5px solid #8a856f}
+.geese i.lost{background:transparent;border-style:dashed;opacity:.6}
+.stage{display:flex;justify-content:center}
+svg.board{width:min(100%,calc(100vh - 230px),560px);aspect-ratio:1;touch-action:manipulation}
+.plate{fill:url(#wood)}
+.ln{stroke:var(--groove);stroke-width:.05;stroke-linecap:round}
+.hole{fill:var(--groove);opacity:.55}
+.tg{fill:var(--move);opacity:.8}
+.hit{fill:transparent;cursor:pointer}
+.goose circle{fill:var(--goose);stroke:#a9a38e;stroke-width:.04}
+.goose.sel circle,.fox.sel circle{stroke:var(--move);stroke-width:.1}
+.fox circle{fill:var(--fox);stroke:#8a3a10;stroke-width:.05}
+.last{fill:none;stroke:#ffd84a;stroke-width:.07}
+.acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.stage{grid-column:1;grid-row:1/span 5}svg.board{width:calc(100vh - 20px)}h1{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Fox and Geese</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="side" aria-label="Your side"><option value="g">You play the geese</option><option value="f">You play the fox</option></select>
+      <select id="level" aria-label="Level"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="status"><span id="who"></span><span class="geese" id="geese" aria-label="Geese"></span></div>
+  <div class="stage"><svg class="board" id="board" viewBox="-.7 -.7 7.4 7.4" role="img" aria-label="Board"></svg></div>
+  <div class="acts"><button class="btn" id="stop" hidden>End the fox's turn</button><button class="btn" id="undo">Undo</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Thirteen geese try to trap one fox on a cross-shaped board. The geese move first.</li>
+        <li>A goose moves one step along a line: down or sideways, never back up. Geese can't jump.</li>
+        <li>The fox moves one step in any direction along a line, or jumps over a goose to an empty point just beyond it, capturing the goose. It can keep jumping in the same turn.</li>
+        <li><b>The geese win</b> if the fox can't move. <b>The fox wins</b> by capturing 6 geese (then too few are left to trap it), or if the geese can't move.</li>
+        <li>Tap a piece, then a green dot. During a chain of jumps, tap the fox or "End the fox's turn" to stop.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const FOXWIN=6;
+const cfg=Object.assign({mode:'cpu',side:'g',level:'medium'},store.get('parlor-foxgeese',{}));
+const tally=store.get('parlor-foxgeese-tally',{w:0,l:0});
+// points of the cross: (x,y) with x or y in 2..4; lines join orthogonal neighbors
+const ON=(x,y)=>x>=0&&y>=0&&x<7&&y<7&&((x>=2&&x<=4)||(y>=2&&y<=4));
+const PTS=[];for(let y=0;y<7;y++)for(let x=0;x<7;x++)if(ON(x,y))PTS.push(y*7+x);
+const D4=[[1,0],[-1,0],[0,1],[0,-1]];
+let S=null,sel=-1;
+function newGame(){closeModal();const b=new Array(49).fill(0);for(const i of PTS){const y=Math.floor(i/7);if(y<=2)b[i]=1}b[4*7+3]=2;// fox just below the middle
+  S={b,turn:1,hist:[],chain:false,caps:0,last:null,over:0,gen:(S?S.gen:0)+1,moves:0};sel=-1;render();maybeCpu()}
+const foxAt=b=>b.indexOf(2);
+function gooseMoves(b){const out=[];for(const i of PTS){if(b[i]!==1)continue;const x=i%7,y=Math.floor(i/7);for(const[dx,dy]of[[1,0],[-1,0],[0,1]]){const X=x+dx,Y=y+dy;if(ON(X,Y)&&!b[Y*7+X])out.push([i,Y*7+X])}}return out}
+function foxSteps(b,f,jumpsOnly){const out=[];const x=f%7,y=Math.floor(f/7);for(const[dx,dy]of D4){const X=x+dx,Y=y+dy;if(!ON(X,Y))continue;const j=Y*7+X;
+    if(!b[j]){if(!jumpsOnly)out.push([f,j,-1])}else if(b[j]===1){const X2=X+dx,Y2=Y+dy;if(ON(X2,Y2)&&!b[Y2*7+X2])out.push([f,Y2*7+X2,j])}}return out}
+const geeseLeft=b=>b.filter(v=>v===1).length;
+function winner(b,toMove,caps){if(caps>=FOXWIN)return 2;if(toMove===2&&!foxSteps(b,foxAt(b)).length)return 1;if(toMove===1&&!gooseMoves(b).length)return 2;return 0}
+// ---------- computer ----------
+// The fox's whole turn (a step, or a chain of jumps) is one move in the search.
+function foxTurns(b){const f=foxAt(b);const out=foxSteps(b,f).filter(m=>m[2]<0).map(m=>({path:[m],caps:0}));
+  const jump=(b,f,path)=>{const js=foxSteps(b,f,true);if(!js.length&&path.length){out.push({path:path.slice(),caps:path.length});return}
+    for(const m of js){b[m[0]]=0;b[m[2]]=0;b[m[1]]=2;path.push(m);jump(b,m[1],path);path.pop();b[m[1]]=0;b[m[2]]=1;b[m[0]]=2}
+    if(path.length&&js.length)out.push({path:path.slice(),caps:path.length})};
+  jump(b,f,[]);return out}
+function doTurn(b,t){if(t.goose){b[t.goose[1]]=1;b[t.goose[0]]=0;return}for(const m of t.path){b[m[0]]=0;if(m[2]>=0)b[m[2]]=0;b[m[1]]=2}}
+function undoTurn(b,t){if(t.goose){b[t.goose[0]]=1;b[t.goose[1]]=0;return}for(const m of t.path.slice().reverse()){b[m[1]]=0;if(m[2]>=0)b[m[2]]=1;b[m[0]]=2}}
+function evalB(b,caps){// from the geese's side
+  const f=foxAt(b),fs=foxSteps(b,f);let jumps=fs.filter(m=>m[2]>=0).length,mob=fs.length;
+  let adv=0,holes=0;for(const i of PTS){if(b[i]===1){adv+=Math.floor(i/7);const x=i%7,y=Math.floor(i/7);// a goose with nothing behind it can be jumped
+      if(ON(x,y-1)&&!b[(y-1)*7+x]&&b[(y+1)*7+x]===2)holes++}}
+  // the room the fox has: empty points it can walk to
+  const seen=new Set([f]),st=[f];while(st.length){const i=st.pop(),x=i%7,y=Math.floor(i/7);for(const[dx,dy]of D4){const X=x+dx,Y=y+dy,j=Y*7+X;if(ON(X,Y)&&!b[j]&&!seen.has(j)){seen.add(j);st.push(j)}}}
+  return -caps*120-mob*14-jumps*45+adv*3-holes*10-seen.size*9}
+function search(b,p,caps,depth,alpha,beta){const w=winner(b,p,caps);if(w)return w===1?1e5+depth:-1e5-depth;if(!depth)return evalB(b,caps);
+  if(p===1){let best=-Infinity;for(const g of gooseMoves(b)){const t={goose:g};doTurn(b,t);const v=search(b,2,caps,depth-1,alpha,beta);undoTurn(b,t);if(v>best)best=v;if(v>alpha)alpha=v;if(alpha>=beta)break}return best}
+  let best=Infinity;for(const t of foxTurns(b)){doTurn(b,t);const v=search(b,1,caps+t.caps,depth-1,alpha,beta);undoTurn(b,t);if(v<best)best=v;if(v<beta)beta=v;if(alpha>=beta)break}return best}
+function cpuTurn(){const b=S.b.slice(),p=S.turn,lv=cfg.level,depth=lv==='easy'?1:lv==='medium'?3:5;
+  const opts=p===1?gooseMoves(b).map(g=>({goose:g})):foxTurns(b);
+  const sc=opts.map(t=>{doTurn(b,t);const v=search(b,3-p,S.caps+(t.caps||0),depth-1,-Infinity,Infinity);undoTurn(b,t);return{t,v:(p===1?v:-v)+Math.random()*(lv==='easy'?60:3)}});
+  sc.sort((a,c)=>c.v-a.v);return sc[0].t}
+const isCpu=()=>cfg.mode==='cpu'&&!S.over&&S.turn!==(cfg.side==='g'?1:2);
+function maybeCpu(){if(!isCpu())return;const g=S.gen;S.busy=true;render();setTimeout(()=>{if(g!==S.gen)return;const t=cpuTurn();
+    if(t.goose){S.busy=false;play(t.goose)}else{let k=0;const step=()=>{if(g!==S.gen)return;const m=t.path[k++];playFox(m,k<t.path.length);if(k<t.path.length)setTimeout(step,380);else S.busy=false};step()}},350)}
+// ---------- play ----------
+function snapshot(){S.hist.push({b:S.b.slice(),turn:S.turn,caps:S.caps,last:S.last,chain:S.chain,over:S.over})}
+function play(g){snapshot();S.b[g[1]]=1;S.b[g[0]]=0;S.last=[g[0],g[1]];S.turn=2;sfx('move');S.moves++;afterMove()}
+function playFox(m,more){if(!S.chain)snapshot();S.b[m[0]]=0;S.b[m[1]]=2;S.last=[m[0],m[1]];if(m[2]>=0){S.b[m[2]]=0;S.caps++;sfx('capture')}else sfx('move');
+  // keep jumping if possible (the computer decides itself; a person may stop)
+  if(m[2]>=0&&S.caps<FOXWIN&&foxSteps(S.b,m[1],true).length&&(more||!isCpuSide(2))){S.chain=true;sel=m[1];render();return}
+  S.chain=false;S.turn=1;S.moves++;afterMove()}
+const isCpuSide=p=>cfg.mode==='cpu'&&p!==(cfg.side==='g'?1:2);
+function endChain(){if(!S.chain)return;S.chain=false;S.turn=1;sel=-1;S.moves++;afterMove()}
+function afterMove(){sel=-1;const w=winner(S.b,S.turn,S.caps)||(S.moves>=200?-1:0);if(w){S.over=w;render();finish();return}render();maybeCpu()}
+function finish(){const w=S.over,vs=cfg.mode==='cpu',me=cfg.side==='g'?1:2;if(vs&&w>0){if(w===me)tally.w++;else tally.l++;store.set('parlor-foxgeese-tally',tally)}
+  const why=w<0?'Too many moves: a draw.':w===1?'The fox is trapped.':S.caps>=FOXWIN?`The fox caught ${S.caps} geese.`:'The geese are stuck.';
+  setTimeout(()=>{modal(`<h2>${w<0?'A draw':vs?(w===me?'You win!':'Computer wins'):w===1?'The geese win!':'The fox wins!'}</h2><p>${why}</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="mnew">Play again</button></div>`);$('mview').onclick=closeModal;$('mnew').onclick=newGame},500)}
+function targets(){if(sel<0)return[];if(S.b[sel]===1)return gooseMoves(S.b).filter(m=>m[0]===sel).map(m=>({to:m[1],m}));return foxSteps(S.b,sel,S.chain).map(m=>({to:m[1],m}))}
+function render(){const xy=i=>[i%7,Math.floor(i/7)];let h=`<defs><linearGradient id="wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--board)"/><stop offset="1" stop-color="var(--board-2)"/></linearGradient></defs>`;
+  h+=`<path class="plate" d="M1.5 -.5 H4.5 V1.5 H6.5 V4.5 H4.5 V6.5 H1.5 V4.5 H-.5 V1.5 H1.5 Z" rx=".3"/>`;
+  for(const i of PTS){const [x,y]=xy(i);if(ON(x+1,y))h+=`<line class="ln" x1="${x}" y1="${y}" x2="${x+1}" y2="${y}"/>`;if(ON(x,y+1))h+=`<line class="ln" x1="${x}" y1="${y}" x2="${x}" y2="${y+1}"/>`}
+  for(const i of PTS){const [x,y]=xy(i);h+=`<circle class="hole" cx="${x}" cy="${y}" r=".1"/>`}
+  if(S.last)for(const i of S.last){const [x,y]=xy(i);h+=`<circle class="last" cx="${x}" cy="${y}" r=".42"/>`}
+  for(const i of PTS){const v=S.b[i];if(!v)continue;const [x,y]=xy(i);
+    if(v===1)h+=`<g class="goose${i===sel?' sel':''}"><circle cx="${x}" cy="${y}" r=".36"/><path d="M${x-.12} ${y+.06}q.12-.24.24 0" fill="none" stroke="#e2a72b" stroke-width=".07"/></g>`;
+    else h+=`<g class="fox${i===sel?' sel':''}"><circle cx="${x}" cy="${y}" r=".4"/><path d="M${x-.24} ${y-.12}l.08-.26.12.18M${x+.24} ${y-.12}l-.08-.26-.12.18" fill="#8a3a10"/><circle cx="${x-.12}" cy="${y-.02}" r=".05" fill="#2a1406"/><circle cx="${x+.12}" cy="${y-.02}" r=".05" fill="#2a1406"/><path d="M${x-.1} ${y+.16}h.2l-.1.1z" fill="#2a1406"/></g>`}
+  for(const t of targets()){const [x,y]=xy(t.to);h+=`<circle class="tg" cx="${x}" cy="${y}" r=".14"/>`}
+  for(const i of PTS){const [x,y]=xy(i);h+=`<circle class="hit" data-i="${i}" cx="${x}" cy="${y}" r=".48"/>`}
+  $('board').innerHTML=h;
+  const nm=p=>p===1?'Geese':'Fox';$('who').textContent=S.over?'Game over':cfg.mode==='cpu'?(isCpu()?`Computer (${nm(S.turn).toLowerCase()}) is thinking…`:`Your move (${nm(S.turn).toLowerCase()})${S.chain?': jump again or stop':''}`):`${nm(S.turn)} to move${S.chain?': jump again or stop':''}`;
+  $('geese').innerHTML=[...Array(13)].map((_,k)=>`<i class="${k<geeseLeft(S.b)?'':'lost'}"></i>`).join('');
+  $('stop').hidden=!(S.chain&&!isCpu());$('side').hidden=$('level').hidden=cfg.mode!=='cpu';$('undo').disabled=!S.hist.length||S.busy}
+$('board').addEventListener('click',e=>{const h=e.target.closest('.hit');if(!h||S.over||isCpu()||S.busy)return;const i=+h.dataset.i,v=S.b[i];
+  if(S.chain){if(i===foxAt(S.b)){endChain();return}const t=targets().find(t=>t.to===i);if(t)playFox(t.m);return}
+  const mine=S.turn===1?v===1:v===2;if(mine){sel=sel===i?-1:i;sfx('tap');render();return}
+  const t=targets().find(t=>t.to===i);if(t){if(S.turn===1)play(t.m);else playFox(t.m)}else{sel=-1;render()}});
+$('stop').onclick=endChain;
+$('undo').onclick=()=>{if(!S.hist.length||S.busy)return;S.gen++;const back=cfg.mode==='cpu'&&S.hist.length>=2&&!S.chain&&!S.over?2:1;for(let k=0;k<back&&S.hist.length;k++){const h=S.hist.pop();Object.assign(S,{b:h.b,turn:h.turn,caps:h.caps,last:h.last,chain:false,over:0})}sel=-1;sfx('slide');render();maybeCpu()};
+function setCfg(k,v){cfg[k]=v;store.set('parlor-foxgeese',cfg);newGame()}
+$('mode').onchange=e=>setCfg('mode',e.target.value);$('side').onchange=e=>setCfg('side',e.target.value);$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-foxgeese',cfg)};$('newgame').onclick=newGame;
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+for(const[k,ok]of[['mode',['cpu','two']],['side',['g','f']],['level',['easy','medium','hard']]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+newGame();
+</script>
+</body>
+</html>

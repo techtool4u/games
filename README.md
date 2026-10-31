@@ -78,6 +78,7 @@ Self-contained HTML files. No install or build step.
 - `cross-sums.html` — Cross Sums (kakuro), 42 single-solution puzzles in three sizes with notes, run hints and saved progress.
 - `five-in-a-row.html` — Five in a Row, line up five stones on a 15×15 board, vs a three-level computer or 2 players.
 - `viking-chess.html` — Viking Chess (hnefatafl), 9×9 or 11×11, escape with the king or trap it, vs computer or 2 players.
+- `fox-and-geese.html` — Fox and Geese, trap the fox with 13 geese or jump your way to 6 captures, vs computer or 2 players.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
