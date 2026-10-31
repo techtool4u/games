@@ -10,9 +10,9 @@
   var page = (location.pathname.split('/').pop() || 'index.html').replace(/\.html$/, '') || 'index';
   var KINDS = {
     cards: 'blackjack crazy-eights cribbage euchre free-cell gin-rummy go-fish hearts klondike poker pyramid-solitaire rummy snap spades spider-solitaire war',
-    dice: 'bunco horse-race farkle five-dice liars-dice pig ship-captain-crew shut-the-box ludo snakes-and-ladders',
+    dice: 'bingo rock-paper-scissors bunco horse-race farkle five-dice liars-dice pig ship-captain-crew shut-the-box ludo snakes-and-ladders',
     board: 'five-in-a-row viking-chess fox-and-geese royal-game-of-ur backgammon checkers chess go hex mancala morris reversi shogi xiangqi star-checkers four-in-a-row tic-tac-toe ultimate-tic-tac-toe dots-and-boxes nim fleet-hunt dominoes hexhaven',
-    puzzle: 'picture-cross lights-off box-pusher tower-of-hanoi bridges pipe-connect cross-sums memory-match mahjong-solitaire sudoku mine-sweep peg-solitaire sliding-fifteen code-breaker labyrinth lineup-detective',
+    puzzle: 'whodunit logic-grid picture-cross lights-off box-pusher tower-of-hanoi bridges pipe-connect cross-sums memory-match mahjong-solitaire sudoku mine-sweep peg-solitaire sliding-fifteen code-breaker labyrinth lineup-detective',
     word: 'word-search word-guess word-jumble mini-crossword letter-grid hangman word-ladder word-tiles twenty-questions',
     arcade: 'tile-clear brick-breaker paddle-ball bubble-pop air-hockey mini-golf color-echo snake block-drop sweet-swap merge-tiles'
   };
@@ -112,6 +112,7 @@
     drop: function () { tone(700, 0.18, { to: 260, vol: 0.15, type: 'triangle' }); FX.place({ at: 0.17 }); },
     good: function () { notes([784, 1175], 0.08, { vol: 0.2, dur: 0.35 }); tone(2350, 0.3, { vol: 0.04, at: 0.08 }); },
     bad: function () { tone(220, 0.14, { type: 'square', vol: 0.06 }); tone(185, 0.2, { type: 'square', vol: 0.06, at: 0.12 }); },
+    note: function (o) { tone(o.f || 440, o.d || 0.4, { type: 'triangle', vol: 0.22 }); tone((o.f || 440) * 2, o.d || 0.4, { vol: 0.05 }); },
     step: function () { tone(R(560, 640), 0.04, { type: 'triangle', vol: 0.1 }); },
     climb: function () { notes([523, 659, 784, 988, 1175, 1319], 0.06, { type: 'triangle', vol: 0.12, dur: 0.15 }); },
     fall: function () { noise(0.45, { filter: 'highpass', f: 4500, vol: 0.12, attack: 0.05 }); tone(900, 0.6, { to: 160, type: 'triangle', vol: 0.12, at: 0.1 }); },

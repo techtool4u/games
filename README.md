@@ -83,6 +83,8 @@ Self-contained HTML files. No install or build step.
 - `paddle-ball.html` — Paddle Ball, one-screen tennis vs computer or a friend, with angled shots and speeding rallies.
 - `bubble-pop.html` — Bubble Pop, aim and match three to pop bubbles and drop hanging clusters before they reach the bottom.
 - `air-hockey.html` — Air Hockey, one-table hockey vs a three-level computer or a friend on the same screen.
+- `mini-golf.html` — Mini Golf, nine holes of pull-back putting with hazards, for 1 to 4 players.
+- `color-echo.html` — Color Echo, repeat the growing sequence of lights and notes, in classic, strict or reverse mode.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
