@@ -68,6 +68,8 @@ Self-contained HTML files. No install or build step.
 - `word-jumble.html` — Word Jumble, unscramble 10 words against the clock, solo or 2 players, with any valid anagram accepted.
 - `mini-crossword.html` — Mini Crossword, 18 hand-clued 5×5 crosswords with check, reveal, timer and saved progress.
 - `letter-grid.html` — Letter Grid, chain touching letters into words against the clock on 4×4 or 5×5 grids, 1 to 4 players.
+- `picture-cross.html` — Picture Cross, 21 nonogram pictures in three sizes, each checked to be solvable without guessing.
+- `lights-off.html` — Lights Off, switch every light off on 3×3 to 7×7 grids, with exact fewest-move counts and hints.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

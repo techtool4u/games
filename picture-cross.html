@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Picture Cross</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with size and picture picker; a tool row (fill or cross, undo, check); the puzzle with column clues above and row clues to the left; rules below. */
+:root{
+  --bg:#f0e6d2; --fg:#2a2a3a; --muted:#7a7266; --panel:#fffaf0; --line:#ddd0b6; --chip:#e8dcc4; --accent:#e2563a; --accent-ink:#ffffff; --cell:#fffdf8; --fill:#2a2a3a; --grid:#b9ab90; --thick:#6d6352; --hl:#ffe7a8; --wrong:#e2563a; --done:#b6ad9d;
+  --display:"Bungee", "Arial Black", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#16151d; --fg:#ece6da; --muted:#a59c8c; --panel:#211f2b; --line:#383547; --chip:#2b2937; --accent:#ff7b5c; --accent-ink:#16151d; --cell:#252331; --fill:#ece6da; --grid:#3f3c50; --thick:#7d7890; --hl:#4a4230; --done:#5d586a; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#16151d; --fg:#ece6da; --muted:#a59c8c; --panel:#211f2b; --line:#383547; --chip:#2b2937; --accent:#ff7b5c; --accent-ink:#16151d; --cell:#252331; --fill:#ece6da; --grid:#3f3c50; --thick:#7d7890; --hl:#4a4230; --done:#5d586a; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:820px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:none;padding:8px 14px;font-weight:800;cursor:pointer;min-height:40px;display:flex;align-items:center;gap:6px}
+.seg button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+.seg i{display:inline-block;width:14px;height:14px;background:currentColor;border-radius:2px}
+.time{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums}
+.boardwrap{display:flex;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none}
+.board{display:grid;grid-template-columns:auto repeat(var(--n),var(--cs));grid-template-rows:auto repeat(var(--n),var(--cs));font-size:calc(var(--cs)*.5)}
+.cc{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:3px;font-weight:800;line-height:1.15;gap:1px}
+.rc{display:flex;justify-content:flex-end;align-items:center;padding-right:5px;font-weight:800;gap:calc(var(--cs)*.28);white-space:nowrap}
+.cc.ok,.rc.ok{color:var(--done)}
+.cc.hl,.rc.hl{background:var(--hl);border-radius:6px}
+.c{background:var(--cell);border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);position:relative;cursor:pointer}
+.c.f{background:var(--fill)}
+.c.x::before,.c.x::after{content:'';position:absolute;left:22%;right:22%;top:50%;height:2px;background:var(--muted);transform:rotate(45deg)}
+.c.x::after{transform:rotate(-45deg)}
+.c.bad{box-shadow:inset 0 0 0 3px var(--wrong)}
+.c.hl{background:color-mix(in srgb,var(--hl) 60%,var(--cell))}
+.c.f.hl{background:var(--fill)}
+.c.t{border-top:2px solid var(--thick)}.c.l{border-left:2px solid var(--thick)}.c.r5{border-right:2px solid var(--thick)}.c.b5{border-bottom:2px solid var(--thick)}
+.board.won .c{border-color:transparent;transition:background .4s,border-color .4s}
+.board.won .c.x::before,.board.won .c.x::after{display:none}
+.row2{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;align-items:center}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.boardwrap{grid-column:1;grid-row:1/span 5}h1{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Picture Cross</h1>
+    </div>
+    <div class="controls">
+      <select id="size" aria-label="Size"><option value="5">Small 5×5</option><option value="10">Medium 10×10</option><option value="15">Large 15×15</option></select>
+      <select id="pick" aria-label="Picture"></select>
+      <button class="btn primary" id="next">Next</button>
+    </div>
+  </header>
+  <div class="tools">
+    <div class="seg" role="group" aria-label="Tool"><button id="tFill" aria-pressed="true"><i></i>Fill</button><button id="tX" aria-pressed="false">✕ Cross</button></div>
+    <button class="btn" id="undo">Undo</button><button class="btn" id="clear">Clear</button>
+    <span class="time" id="time">0:00</span>
+  </div>
+  <div class="boardwrap" id="bw"><div class="board" id="board" role="grid" aria-label="Puzzle"></div></div>
+  <div class="panel"><div class="row2"><label><input type="checkbox" id="mist"> Show mistakes</label><span id="count"></span></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Fill squares to reveal a hidden picture. The numbers on each row and column give the runs of filled squares in that line, in order. "3 1" means a run of 3, then at least one gap, then a run of 1.</li>
+        <li>Tap a square to fill it. Switch to <b>Cross</b> (or right-click, or press X) to mark squares you know are empty. Drag to fill or cross a whole run at once. Tap again to clear.</li>
+        <li>A clue turns gray when its line matches. Every puzzle can be solved by logic alone, with no guessing.</li>
+        <li>Show mistakes outlines any filled square that shouldn't be.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const PICS=[{"name":"Heart","rows":[".#.#.","#####","#####",".###.","..#.."]},{"name":"Arrow","rows":["..#..",".###.","#.#.#","..#..","..#.."]},{"name":"Bell","rows":["..#..",".###.",".###.","#####","..#.."]},{"name":"Cup","rows":["#####","#####",".###.","..#..",".###."]},{"name":"Plus","rows":["..#..","..#..","#####","..#..","..#.."]},{"name":"Cat","rows":["#........#","##......##","###....###","##########","#.##..##.#","##########","###.##.###",".########.","..######..","...####..."]},{"name":"House","rows":["....##....","...####...","..######..",".########.","##########",".#......#.",".#.##.#.#.",".#.##.#.#.",".#.##...#.",".########."]},{"name":"Tree","rows":["....##....","...####...","..######..","...####...","..######..",".########.","##########","....##....","....##....","..######.."]},{"name":"Fish","rows":["..........","...####...","#.######..","##########","###.#####.","##########","#.######..","...####...","..........",".........."]},{"name":"Mushroom","rows":["...####...",".########.","##.####.##","##########","#.######.#","##########","...#..#...","...#..#...","...####...",".........."]},{"name":"Star","rows":["....##....","....##....","...####...","##########",".########.","..######..","..######..",".###..###.",".##....##.",".#......#."]},{"name":"Boat","rows":["....#.....","....##....","....###...","....####..","....#####.","....#.....","##########",".########.","..######..",".........."]},{"name":"Note","rows":[".....#####",".....#####",".....#...#",".....#...#",".....#...#",".....#...#","..####.###",".#########",".####.####","..##...##."]},{"name":"Ghost","rows":["...####...",".########.","##########","##..##..##","##..##..##","##########","##########","##########","##########","#.##..##.#"]},{"name":"Bird","rows":["..........","..##......",".####.....","##.##.....",".#####...#","..#######.","...#####..","....###...","....#.#...","...##.##.."]},{"name":"Turtle","rows":["...............",".....#####.....","....#######....","...#########...","..###########..",".#############.","###############","###############",".#############.","..##.......##..","..##.......##..","...............","...............","...............","..............."]},{"name":"Castle","rows":["#.#.#.....#.#.#","#####.....#####","#####.#.#.#####","###############","###############","###############","######...######","#####.....#####","#####.....#####","###############","...............","...............","...............","...............","..............."]},{"name":"Owl","rows":["...#.......#...","...##.....##...","...#########...","..###########..","..##..###..##..","..#.##.#.##.#..","..##..###..##..","..#####.#####..","..#####.#####..","..###########..","..##.#####.##..","..###########..","...#########...","....#.....#....","...##.....##..."]},{"name":"Tee","rows":["#####","..#..","..#..","..#..",".###."]},{"name":"Crown","rows":["#...##...#","##..##..##","###.##.###","##########","##########","#.##.##.##","##########","..........","##########","##########"]},{"name":"Duck","rows":["..###.....",".#####....",".##.###...","####.##...","..####....","..#####..#",".#########",".#########","..#######.","...#####.."]}];
+const prog=store.get('parlor-nonogram',{size:10,cur:{},fills:{},done:{}});
+let P=null,tool='f',drag=null,timer=0;
+const clue=line=>{const r=[];let k=0;for(const c of line){if(c)k++;else if(k){r.push(k);k=0}}if(k)r.push(k);return r.length?r:[0]};
+const pics=()=>PICS.map((p,i)=>({...p,i})).filter(p=>p.rows.length===+prog.size);
+function load(i){clearInterval(timer);const p=PICS[i],n=p.rows.length,sol=p.rows.join('').split('').map(c=>c==='#'?1:0);
+  const saved=prog.fills[i]||{};P={i,n,name:p.name,sol,rows:[...Array(n)].map((_,r)=>clue(sol.slice(r*n,r*n+n))),cols:[...Array(n)].map((_,c)=>clue([...Array(n)].map((_,r)=>sol[r*n+c]))),
+    g:saved.g?saved.g.split('').map(Number):new Array(n*n).fill(0),secs:saved.t||0,hist:[],done:!!prog.done[i],hl:-1};
+  prog.cur[n]=i;store.set('parlor-nonogram',prog);
+  $('pick').innerHTML=pics().map((q,k)=>`<option value="${q.i}">${prog.done[q.i]?q.name+' ✓':'Puzzle '+(k+1)}</option>`).join('');$('pick').value=i;
+  timer=setInterval(()=>{if(!P.done&&!document.hidden&&$('overlay').hidden&&P.started){P.secs++;$('time').textContent=fmt(P.secs);if(P.secs%5===0)save()}},1000);
+  build();render()}
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+function save(){prog.fills[P.i]={g:P.g.join(''),t:P.secs};store.set('parlor-nonogram',prog)}
+function size(){const n=P.n,bw=$('bw').clientWidth||360,mr=Math.max(...P.rows.map(r=>r.length)),mc=Math.max(...P.cols.map(c=>c.length));
+  const land=matchMedia('(max-height:520px) and (orientation:landscape)').matches;
+  const availH=land?innerHeight-24:Math.max(260,innerHeight-230);
+  // row clues take about 0.55 of a cell per number, column clues about 0.6 of a cell per number
+  const cs=Math.floor(Math.min((land?innerHeight*1.15:bw)/(n+mr*0.62+.4),availH/(n+mc*0.66+.4),n===5?64:n===10?42:34));
+  $('board').style.setProperty('--cs',Math.max(14,cs)+'px');$('board').style.setProperty('--n',n)}
+function build(){const n=P.n,b=$('board');let h='<div></div>';
+  for(let c=0;c<n;c++)h+=`<div class="cc" data-c="${c}">${P.cols[c].map(x=>`<span>${x}</span>`).join('')}</div>`;
+  for(let r=0;r<n;r++){h+=`<div class="rc" data-r="${r}">${P.rows[r].map(x=>`<span>${x}</span>`).join('')}</div>`;
+    for(let c=0;c<n;c++)h+=`<div class="c${r===0?' t':''}${c===0?' l':''}${c%5===4?' r5':''}${r%5===4?' b5':''}" data-i="${r*n+c}" role="gridcell"></div>`}
+  b.innerHTML=h;size()}
+function lineOk(cells,cl){const got=clue(cells.map(v=>v===1?1:0));return got.length===cl.length&&got.every((x,k)=>x===cl[k])}
+function render(){const n=P.n,b=$('board'),cells=b.querySelectorAll('.c'),mist=$('mist').checked;const hr=P.hl>=0?Math.floor(P.hl/n):-1,hc=P.hl>=0?P.hl%n:-1;
+  cells.forEach((el,i)=>{const v=P.g[i];el.className=el.className.replace(/ (f|x|bad|hl)\b/g,'');if(v===1)el.classList.add('f');if(v===2&&!P.done)el.classList.add('x');if(mist&&v===1&&!P.sol[i])el.classList.add('bad');
+    if(!P.done&&!drag&&(Math.floor(i/n)===hr||i%n===hc))el.classList.add('hl');el.setAttribute('aria-label',`Row ${Math.floor(i/n)+1}, column ${i%n+1}: ${v===1?'filled':v===2?'crossed':'empty'}`)});
+  b.querySelectorAll('.rc').forEach(el=>{const r=+el.dataset.r;el.classList.toggle('ok',lineOk(P.g.slice(r*n,r*n+n),P.rows[r]));el.classList.toggle('hl',r===hr&&!P.done)});
+  b.querySelectorAll('.cc').forEach(el=>{const c=+el.dataset.c;el.classList.toggle('ok',lineOk([...Array(n)].map((_,r)=>P.g[r*n+c]),P.cols[c]));el.classList.toggle('hl',c===hc&&!P.done)});
+  b.classList.toggle('won',P.done);$('time').textContent=fmt(P.secs);
+  const k=pics().filter(q=>prog.done[q.i]).length;$('count').textContent=`${k} of ${pics().length} ${n}×${n} pictures solved`;
+  $('tFill').setAttribute('aria-pressed',tool==='f');$('tX').setAttribute('aria-pressed',tool==='x')}
+function check(){if(P.g.every((v,i)=>(v===1)===(P.sol[i]===1))){P.done=true;P.hl=-1;prog.done[P.i]=P.secs||1;save();render();sfx('win');
+  setTimeout(()=>{const next=pics().find(q=>!prog.done[q.i]);modal(`<h2>${P.name}!</h2><p>Solved in ${fmt(P.secs)}.</p><div class="row"><button class="btn" id="mclose">Admire it</button>${next?'<button class="btn primary" id="mnext">Next puzzle</button>':''}</div>`);
+    $('mclose').onclick=closeModal;const b=$('mnext');if(b)b.onclick=()=>{closeModal();load(next.i)}},700)}}
+// a press decides what the drag does (fill, cross or clear), then the drag paints that along one row or column
+function cellAt(e){const el=document.elementFromPoint(e.clientX,e.clientY);const c=el&&el.closest('.c');return c?+c.dataset.i:null}
+$('board').addEventListener('pointerdown',e=>{if(P.done)return;const i=cellAt(e);if(i==null)return;e.preventDefault();P.started=true;
+  const want=e.button===2||tool==='x'?2:1,to=P.g[i]===want?0:want;drag={from:i,to,axis:null,before:P.g.slice()};paint(i);try{$('board').setPointerCapture(e.pointerId)}catch(x){}});
+$('board').addEventListener('pointermove',e=>{const i=cellAt(e);if(i==null)return;if(!drag){if(i!==P.hl&&matchMedia('(hover:hover)').matches){P.hl=i;render()}return}
+  const n=P.n,fr=Math.floor(drag.from/n),fc=drag.from%n,r=Math.floor(i/n),c=i%n;if(!drag.axis&&i!==drag.from)drag.axis=r===fr?'r':c===fc?'c':null;
+  if(drag.axis==='r')paintRange(fr*n+Math.min(fc,c),fr*n+Math.max(fc,c),1);else if(drag.axis==='c')paintRange(Math.min(fr,r)*n+fc,Math.max(fr,r)*n+fc,n)});
+$('board').addEventListener('pointerleave',()=>{if(!drag&&P.hl>=0){P.hl=-1;render()}});
+document.addEventListener('pointerup',()=>{if(!drag)return;if(P.g.some((v,k)=>v!==drag.before[k])){P.hist.push(drag.before);if(P.hist.length>200)P.hist.shift();save()}drag=null;check()});
+$('board').addEventListener('contextmenu',e=>e.preventDefault());
+function paint(i){const old=P.g[i];if(drag.to===1&&old===2)return;if(old!==drag.to){P.g[i]=drag.to;sfx(drag.to===1?'tap':drag.to===2?'tick':'slide');render()}}
+function paintRange(a,b,step){for(let i=a;i<=b;i+=step)if(P.g[i]!==drag.to&&!(drag.to===1&&P.g[i]===2)&&(drag.to||P.g[i]===drag.before[drag.from]))P.g[i]=drag.to;render()}
+$('tFill').onclick=()=>{tool='f';render()};$('tX').onclick=()=>{tool='x';render()};
+$('undo').onclick=()=>{if(P.done||!P.hist.length)return;P.g=P.hist.pop();save();sfx('slide');render()};
+$('clear').onclick=()=>{if(P.done||!P.g.some(v=>v))return;if(!confirm('Clear this puzzle?'))return;P.hist.push(P.g.slice());P.g.fill(0);save();render()};
+$('mist').onchange=render;
+$('size').onchange=e=>{prog.size=+e.target.value;store.set('parlor-nonogram',prog);const ps=pics();load((ps.find(q=>q.i===prog.cur[prog.size])||ps.find(q=>!prog.done[q.i])||ps[0]).i)};
+$('pick').onchange=e=>load(+e.target.value);
+$('next').onclick=()=>{const ps=pics(),k=ps.findIndex(q=>q.i===P.i),nx=ps.slice(k+1).concat(ps.slice(0,k+1)).find(q=>!prog.done[q.i])||ps[(k+1)%ps.length];load(nx.i)};
+document.addEventListener('keydown',e=>{if((e.target.closest&&e.target.closest('select,input'))||!$('overlay').hidden)return;const k=e.key.toLowerCase();
+  if(k==='x'){tool=tool==='x'?'f':'x';render()}else if(k==='f'){tool='f';render()}else if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();$('undo').click()}});
+addEventListener('resize',()=>{if(P)size()});
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(![5,10,15].includes(+prog.size))prog.size=10;$('size').value=prog.size;
+{const ps=pics();load((ps.find(q=>q.i===prog.cur[prog.size])||ps[0]).i)}
+</script>
+</body>
+</html>
