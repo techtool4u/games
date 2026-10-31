@@ -81,6 +81,8 @@ Self-contained HTML files. No install or build step.
 - `fox-and-geese.html` — Fox and Geese, trap the fox with 13 geese or jump your way to 6 captures, vs computer or 2 players.
 - `brick-breaker.html` — Brick Breaker, 8 levels of bricks with power-ups, touch, mouse or keyboard control.
 - `paddle-ball.html` — Paddle Ball, one-screen tennis vs computer or a friend, with angled shots and speeding rallies.
+- `bubble-pop.html` — Bubble Pop, aim and match three to pop bubbles and drop hanging clusters before they reach the bottom.
+- `air-hockey.html` — Air Hockey, one-table hockey vs a three-level computer or a friend on the same screen.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
