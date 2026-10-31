@@ -87,6 +87,7 @@ Self-contained HTML files. No install or build step.
 - `color-echo.html` — Color Echo, repeat the growing sequence of lights and notes, in classic, strict or reverse mode.
 - `royal-game-of-ur.html` — Royal Game of Ur, the ancient race game with pyramid dice and rosettes, vs computer or 2 players.
 - `bingo.html` — Bingo, play a card against computer rivals, or use it as the caller for a room.
+- `rock-paper-scissors.html` — Rock Paper Scissors, best-of matches against a computer that learns your habits, or 2 players.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
