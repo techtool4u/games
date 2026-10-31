@@ -14,7 +14,7 @@
     board: 'five-in-a-row viking-chess fox-and-geese royal-game-of-ur backgammon checkers chess go hex mancala morris reversi shogi xiangqi star-checkers four-in-a-row tic-tac-toe ultimate-tic-tac-toe dots-and-boxes nim fleet-hunt dominoes hexhaven',
     puzzle: 'picture-cross lights-off box-pusher tower-of-hanoi bridges pipe-connect cross-sums memory-match mahjong-solitaire sudoku mine-sweep peg-solitaire sliding-fifteen code-breaker labyrinth lineup-detective',
     word: 'word-search word-guess word-jumble mini-crossword letter-grid hangman word-ladder word-tiles twenty-questions',
-    arcade: 'tile-clear snake block-drop sweet-swap merge-tiles'
+    arcade: 'tile-clear brick-breaker paddle-ball bubble-pop air-hockey mini-golf color-echo snake block-drop sweet-swap merge-tiles'
   };
   var kind = 'lobby';
   for (var k in KINDS) if ((' ' + KINDS[k] + ' ').indexOf(' ' + page + ' ') >= 0) kind = k;

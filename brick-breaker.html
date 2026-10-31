@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brick Breaker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header; score, level, lives and best; the playfield canvas (bricks, ball, paddle) with a message card over it between lives; Pause; rules below. */
+:root{
+  --bg:#141432; --fg:#f3f3ff; --muted:#a9a9d6; --panel:#1d1d45; --line:#2e2e66; --chip:#26265a; --accent:#ffd84a; --accent-ink:#141432; --field:#0b0b24;
+  --display:"Press Start 2P", monospace;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0b0b1e; --panel:#141434; --field:#05051a; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0b0b1e; --panel:#141434; --field:#05051a; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:640px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+h1{font-size:clamp(20px,5vw,30px);line-height:1.2}
+.hud{display:flex;gap:8px}
+.hud div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px 10px;font-size:12px;color:var(--muted)}
+.hud b{display:block;font-weight:800;font-size:20px;color:var(--fg);font-variant-numeric:tabular-nums}
+.screen{position:relative;width:min(100%,calc((100vh - 230px)*3/4));aspect-ratio:3/4;margin:0 auto;border-radius:14px;overflow:hidden;background:var(--field);border:2px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{width:100%;height:100%;display:block}
+.msg{position:absolute;inset:0;display:grid;place-items:center;background:rgba(5,5,26,.55);text-align:center;padding:20px}
+.msg div{display:flex;flex-direction:column;gap:10px;align-items:center}
+.msg b{font-family:var(--display);font-size:16px;line-height:1.5;color:var(--accent)}
+.msg p{margin:0;color:var(--fg)}
+.acts{display:flex;gap:8px;justify-content:center}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.screen{grid-column:1;grid-row:1/span 5;width:calc((100vh - 20px)*3/4)}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Brick Breaker</h1>
+    </div>
+    <div class="controls"><button class="btn" id="pause">Pause</button><button class="btn primary" id="newgame">New game</button></div>
+  </header>
+  <div class="hud"><div><b id="score">0</b>score</div><div><b id="level">1</b>level</div><div><b id="lives">3</b>balls</div><div><b id="best">0</b>best</div></div>
+  <div class="screen" id="screen"><canvas id="cv"></canvas><div class="msg" id="msg" hidden></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Move the paddle to bounce the ball into the bricks. Drag anywhere on the screen, move the mouse, or use the arrow keys. Tap or press Space to launch.</li>
+        <li>Where the ball hits the paddle sets its angle: near the edges sends it out wide.</li>
+        <li>Silver bricks take two hits, gold ones three. Clear every brick to reach the next level (there are 8).</li>
+        <li>Some bricks drop a power-up: <b>W</b> widens the paddle, <b>M</b> splits the ball into three, <b>S</b> slows it down, <b>+</b> is an extra ball.</li>
+        <li>You start with 3 balls. P or Escape pauses.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const W=360,H=480,COLORS=['#ff5a5f','#ff9f43','#ffd84a','#2ed573','#1e90ff','#a55eea'];
+// level patterns: digits are rows of bricks (1-6 color, s silver = 2 hits, g gold = 3 hits, . gap)
+const LEVELS=[
+ ['1111111111','2222222222','3333333333','4444444444','5555555555'],
+ ['..111111..','.22222222.','3333333333','4444..4444','5555..5555','..666666..'],
+ ['s1s1s1s1s1','2222222222','3.3.3.3.3.','4444444444','.5.5.5.5.5','6666666666'],
+ ['1........1','12......21','123....321','1234..4321','12345543 1'.replace(' ','2'),'ssssssssss'],
+ ['gg......gg','1111111111','s22222222s','3333333333','s44444444s','5555555555'],
+ ['.s.s.s.s.s','1111111111','2.2.2.2.2.','3333333333','.4.4.4.4.4','5555555555','g........g'],
+ ['6666666666','5ssssssss5','4s......s4','3s.gggg.s3','2s......s2','1ssssssss1'],
+ ['gsgsgsgsgs','1111111111','2222222222','sgsgsgsgsg','3333333333','4444444444','5555555555']];
+const best=store.get('parlor-breakout-best',0);let bestScore=best;
+const cv=$('cv'),cx=cv.getContext('2d');
+let G=null,raf=0,last=0,keys={};
+function newGame(){G={score:0,level:0,lives:3,state:'ready'};loadLevel();showMsg('Brick Breaker','Tap or press Space to launch.','Start')}
+function loadLevel(){const pat=LEVELS[G.level%LEVELS.length];const bw=W/10,bh=16,top=56;G.bricks=[];
+  pat.forEach((row,r)=>[...row].forEach((ch,c)=>{if(ch==='.')return;const hp=ch==='s'?2:ch==='g'?3:1;G.bricks.push({x:c*bw+1,y:top+r*(bh+3),w:bw-2,h:bh,hp,max:hp,col:ch==='s'?'#c8d0e0':ch==='g'?'#ffcf40':COLORS[(+ch-1)%6],drop:Math.random()<.12?'WMS+'[rand(4)]:null})}));
+  G.paddle={x:W/2,w:64,wideT:0};G.balls=[];G.drops=[];G.speed=250+G.level*16;G.slowT=0;resetBall()}
+function resetBall(){G.balls=[{x:G.paddle.x,y:H-44,vx:0,vy:0,stuck:true}]}
+function launch(){for(const b of G.balls)if(b.stuck){b.stuck=false;const a=(-90+(Math.random()*40-20))*Math.PI/180;b.vx=Math.cos(a)*G.speed;b.vy=Math.sin(a)*G.speed;sfx('bounce')}}
+function start(){$('msg').hidden=true;if(G.state==='over'){newGame();$('msg').hidden=true}G.state='run';last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
+function showMsg(t,p,b){$('msg').innerHTML=`<div><b>${t}</b><p>${p}</p><button class="btn primary" id="go">${b}</button></div>`;$('msg').hidden=false;$('go').onclick=e=>{e.stopPropagation();start();if(G.balls.some(x=>x.stuck))launch()}}
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;const steps=Math.ceil(dt/(1/240));for(let k=0;k<steps;k++)step(dt/steps);draw();updHud();if(G.state==='run')raf=requestAnimationFrame(loop)}
+function step(dt){const p=G.paddle;
+  if(keys.ArrowLeft)p.x-=420*dt;if(keys.ArrowRight)p.x+=420*dt;p.w=p.wideT>0?96:64;p.wideT-=dt;p.x=Math.max(p.w/2,Math.min(W-p.w/2,p.x));
+  const slow=G.slowT>0?.65:1;G.slowT-=dt;
+  for(const b of G.balls){if(b.stuck){b.x=p.x;b.y=H-44;continue}
+    b.x+=b.vx*dt*slow;b.y+=b.vy*dt*slow;const r=6;
+    if(b.x<r){b.x=r;b.vx=Math.abs(b.vx);sfx('tick')}if(b.x>W-r){b.x=W-r;b.vx=-Math.abs(b.vx);sfx('tick')}if(b.y<r){b.y=r;b.vy=Math.abs(b.vy);sfx('tick')}
+    // paddle
+    const py=H-34;if(b.vy>0&&b.y+r>=py&&b.y+r<=py+12&&Math.abs(b.x-p.x)<=p.w/2+r){const off=(b.x-p.x)/(p.w/2),ang=(-90+off*62)*Math.PI/180,sp=Math.hypot(b.vx,b.vy);b.vx=Math.cos(ang)*sp;b.vy=Math.sin(ang)*sp;b.y=py-r;sfx('bounce')}
+    // bricks
+    for(const k of G.bricks){if(k.hp<=0)continue;const nx=Math.max(k.x,Math.min(b.x,k.x+k.w)),ny=Math.max(k.y,Math.min(b.y,k.y+k.h)),dx=b.x-nx,dy=b.y-ny;if(dx*dx+dy*dy>r*r)continue;
+      if(Math.abs(dx)>Math.abs(dy))b.vx=dx>0?Math.abs(b.vx):-Math.abs(b.vx);else b.vy=dy>0?Math.abs(b.vy):-Math.abs(b.vy);
+      k.hp--;if(k.hp<=0){G.score+=10*k.max+G.level*2;sfx(k.max>1?'pop':'tap');if(k.drop)G.drops.push({x:k.x+k.w/2,y:k.y,t:k.drop});
+        // speed up a little as the wall comes down
+        const sp=Math.hypot(b.vx,b.vy),ns=Math.min(G.speed*1.35,sp*1.006);b.vx*=ns/sp;b.vy*=ns/sp}else sfx('clack');break}}
+  G.balls=G.balls.filter(b=>b.y<H+10);
+  for(const d of G.drops){d.y+=110*dt;if(d.y>H-38&&d.y<H-22&&Math.abs(d.x-p.x)<p.w/2+8){d.got=true;sfx('score');
+      if(d.t==='W')p.wideT=14;else if(d.t==='S')G.slowT=10;else if(d.t==='+'){G.lives++}else if(d.t==='M'){const b=G.balls.find(x=>!x.stuck)||G.balls[0];if(b){for(const a of[-25,25]){const s=Math.hypot(b.vx,b.vy)||G.speed,an=Math.atan2(b.vy||-1,b.vx)+a*Math.PI/180;G.balls.push({x:b.x,y:b.y,vx:Math.cos(an)*s,vy:Math.sin(an)*s})}}}}}
+  G.drops=G.drops.filter(d=>!d.got&&d.y<H);
+  if(!G.balls.length){G.lives--;sfx('bad');if(G.lives<=0){G.state='over';if(G.score>bestScore){bestScore=G.score;store.set('parlor-breakout-best',bestScore)}sfx('lose');showMsg('Game over',`Score ${G.score}. Level ${G.level+1}.`,'Play again');return}
+    resetBall();G.drops=[];G.state='ready';showMsg(`${G.lives} ball${G.lives>1?'s':''} left`,'Tap to launch the next ball.','Go')}
+  if(G.bricks.every(k=>k.hp<=0)){G.level++;sfx('win');G.score+=100;G.state='ready';if(G.score>bestScore){bestScore=G.score;store.set('parlor-breakout-best',bestScore)}loadLevel();showMsg(`Level ${G.level} cleared!`,G.level%LEVELS.length===0?'All 8 levels done. Round two, faster!':`On to level ${G.level+1}.`,'Next level')}}
+function draw(){const d=cv.width/W;cx.setTransform(d,0,0,d,0,0);cx.clearRect(0,0,W,H);
+  for(const k of G.bricks){if(k.hp<=0)continue;cx.fillStyle=k.col;cx.globalAlpha=k.max>1?.55+.45*k.hp/k.max:1;rr(k.x,k.y,k.w,k.h,4);cx.fill();cx.globalAlpha=1;cx.fillStyle='rgba(255,255,255,.25)';cx.fillRect(k.x+3,k.y+2,k.w-6,3);if(k.drop){cx.fillStyle='rgba(0,0,0,.35)';cx.beginPath();cx.arc(k.x+k.w/2,k.y+k.h/2,3,0,7);cx.fill()}}
+  for(const dr of G.drops){cx.fillStyle={W:'#1e90ff',M:'#a55eea',S:'#2ed573','+':'#ff5a5f'}[dr.t];rr(dr.x-11,dr.y-8,22,16,8);cx.fill();cx.fillStyle='#fff';cx.font='bold 11px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(dr.t,dr.x,dr.y+1)}
+  const p=G.paddle;const gr=cx.createLinearGradient(0,H-34,0,H-22);gr.addColorStop(0,'#ffe680');gr.addColorStop(1,'#d9a400');cx.fillStyle=gr;rr(p.x-p.w/2,H-34,p.w,11,6);cx.fill();
+  for(const b of G.balls){cx.fillStyle='#fff';cx.shadowColor='#fff';cx.shadowBlur=8;cx.beginPath();cx.arc(b.x,b.y,6,0,7);cx.fill();cx.shadowBlur=0}}
+function rr(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.arcTo(x+w,y,x+w,y+h,r);cx.arcTo(x+w,y+h,x,y+h,r);cx.arcTo(x,y+h,x,y,r);cx.arcTo(x,y,x+w,y,r);cx.closePath()}
+function updHud(){$('score').textContent=G.score;$('level').textContent=G.level+1;$('lives').textContent=G.lives;$('best').textContent=bestScore}
+function size(){const r=$('screen').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,3);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);draw()}
+// controls
+const scr=$('screen');
+function toField(e){const r=scr.getBoundingClientRect();return(e.clientX-r.left)/r.width*W}
+scr.addEventListener('pointerdown',e=>{if(!$('msg').hidden)return;G.paddle.x=toField(e);if(G.state==='run'&&G.balls.some(b=>b.stuck))launch();try{scr.setPointerCapture(e.pointerId)}catch(x){}});
+scr.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||e.buttons)G.paddle.x=toField(e)});
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;keys[e.key]=true;if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!$('msg').hidden)$('go').click();else launch()}if(e.key==='ArrowLeft'||e.key==='ArrowRight')e.preventDefault();if(e.key==='p'||e.key==='Escape')pause()});
+document.addEventListener('keyup',e=>{keys[e.key]=false});
+function pause(){if(G.state==='run'){G.state='paused';cancelAnimationFrame(raf);showMsg('Paused','','Resume')}}
+$('pause').onclick=pause;$('newgame').onclick=()=>{cancelAnimationFrame(raf);newGame();size()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
+addEventListener('resize',size);
+window.onAppBack=()=>{if(G.state==='run'){pause();return true}return false};
+newGame();size();
+</script>
+</body>
+</html>
