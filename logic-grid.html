@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Logic Grid</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;800&family=Libre+Baskerville:wght@700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with size; the numbered clues beside the grid on wide screens (above it on phones); the logic grid (one block for each pair of categories, tap for ✗ then ✓); Check, Hint, Undo; rules below. */
+:root{
+  --bg:#f6f1e4; --fg:#2a2a3a; --muted:#6d6a62; --panel:#ffffff; --line:#e0d8c4; --chip:#efe8d6; --accent:#1d9a62; --accent-ink:#ffffff; --cell:#fffdf8; --block:#2a2a3a; --yes:#1d9a62; --no:#9a9488; --bad:#c0392b; --hd:#efe8d6;
+  --display:"Libre Baskerville", Georgia, serif;
+  --body:"Libre Franklin", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#13131a; --fg:#ececf2; --muted:#a2a0ab; --panel:#1c1c25; --line:#33333f; --chip:#25252f; --accent:#46c98b; --accent-ink:#13131a; --cell:#1f1f29; --block:#000; --no:#6f6c78; --hd:#25252f; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#13131a; --fg:#ececf2; --muted:#a2a0ab; --panel:#1c1c25; --line:#33333f; --chip:#25252f; --accent:#46c98b; --accent-ink:#13131a; --cell:#1f1f29; --block:#000; --no:#6f6c78; --hd:#25252f; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1000px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.game{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:16px;align-items:start}
+.clues ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:15px}
+.clues li{cursor:pointer;padding:2px 4px;border-radius:6px}
+.clues li.done{color:var(--muted);text-decoration:line-through}
+.clues li.hint{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+.gridwrap{overflow-x:auto;padding-bottom:4px}
+table.g{border-collapse:collapse;margin:0 auto;user-select:none;-webkit-user-select:none}
+table.g td,table.g th{padding:0}
+.g th{background:var(--hd);font-weight:700;font-size:12.5px;color:var(--fg)}
+.g th.top{height:96px;vertical-align:bottom;width:var(--cs);min-width:var(--cs);max-width:var(--cs)}
+.g th.top span{display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg);padding:4px 0;white-space:nowrap}
+.g th.left{text-align:right;padding:0 6px;white-space:nowrap;height:var(--cs)}
+.g th.cat{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:transparent}
+.g td.c{width:var(--cs);height:var(--cs);background:var(--cell);border:1px solid var(--line);text-align:center;font-weight:800;font-size:calc(var(--cs)*.55);cursor:pointer;line-height:1}
+.g td.c.y{color:var(--yes)}.g td.c.n{color:var(--no)}.g td.c.bad{background:color-mix(in srgb,var(--bad) 22%,var(--cell))}
+.g td.c.bl{border-left:2px solid var(--block)}.g td.c.bt{border-top:2px solid var(--block)}.g td.c.br{border-right:2px solid var(--block)}.g td.c.bb{border-bottom:2px solid var(--block)}
+.g td.void{background:transparent;border:0}
+.g td.c.hint{box-shadow:inset 0 0 0 3px var(--accent)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tools .time{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums}
+.ans{display:grid;gap:4px;font-size:14px}
+@media (max-width:820px){.game{grid-template-columns:minmax(0,1fr)}}
+@media (max-height:520px) and (orientation:landscape){.game{grid-template-columns:minmax(0,300px) minmax(0,1fr)}h1{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Logic Grid</h1>
+    </div>
+    <div class="controls">
+      <select id="size" aria-label="Size"><option value="easy">Easy: 3 friends, 3 things</option><option value="medium">Medium: 4 friends, houses</option><option value="hard">Hard: 5 friends, 4 things</option></select>
+      <button class="btn primary" id="newgame">New puzzle</button>
+    </div>
+  </header>
+  <div class="game">
+    <div class="panel clues"><p class="label" id="story"></p><ol id="clues"></ol></div>
+    <div>
+      <div class="tools"><button class="btn" id="check">Check</button><button class="btn" id="hint">Hint</button><button class="btn" id="undo">Undo</button><button class="btn" id="clear">Clear</button><label><input type="checkbox" id="autox" checked> Auto ✗</label><span class="time" id="time">0:00</span></div>
+      <div class="gridwrap" style="margin-top:10px"><table class="g" id="grid"></table></div>
+    </div>
+  </div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Each friend has exactly one of each thing, and no two friends share one. Use the clues to work out who has what.</li>
+        <li>Each block of the grid compares two categories. Tap a square once for ✗ (can't be), twice for ✓ (yes), three times to clear.</li>
+        <li>With Auto ✗ on, a ✓ crosses out the rest of its row and column in that block.</li>
+        <li>Houses stand in a row, numbered from left to right. "Next door" means one house either side.</li>
+        <li>Every puzzle can be solved by logic alone. Check shows wrong marks; Hint points at a clue you can use next. Tap a clue to cross it off.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const CATS={name:{label:'Friend',vals:['Ana','Ben','Cleo','Dev','Eli']},pet:{label:'Pet',vals:['cat','dog','parrot','rabbit','goldfish']},drink:{label:'Drink',vals:['tea','coffee','juice','cocoa','lemonade']},
+  color:{label:'Bike',vals:['red','blue','green','yellow','purple']},house:{label:'House',vals:['1','2','3','4','5'],ord:true}};
+const SIZES={easy:{n:3,cats:['name','pet','drink']},medium:{n:4,cats:['name','pet','drink','house']},hard:{n:5,cats:['name','pet','drink','color','house']}};
+const cfg=Object.assign({size:'medium'},store.get('parlor-logicgrid',{}));
+const solvedCt=store.get('parlor-logicgrid-solved',{});
+let P=null,timer=0;
+// ---------- phrases ----------
+const subj=(c,v)=>{const x=CATS[c].vals[v];return c==='name'?x:c==='pet'?`the ${x} owner`:c==='drink'?`the ${x} drinker`:c==='color'?`the one with the ${x} bike`:`the person in house ${x}`};
+const pred=(c,v,neg)=>{const x=CATS[c].vals[v];if(c==='name')return neg?`isn't ${x}`:`is ${x}`;if(c==='pet')return neg?`doesn't own the ${x}`:`owns the ${x}`;if(c==='drink')return neg?`doesn't drink ${x}`:`drinks ${x}`;if(c==='color')return neg?`doesn't ride the ${x} bike`:`rides the ${x} bike`;return neg?`doesn't live in house ${x}`:`lives in house ${x}`};
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+function clueText(k){if(k.t==='is')return cap(`${subj(k.a.c,k.a.v)} ${pred(k.b.c,k.b.v)}.`);if(k.t==='not')return cap(`${subj(k.a.c,k.a.v)} ${pred(k.b.c,k.b.v,true)}.`);
+  if(k.t==='either')return cap(`${subj(k.a.c,k.a.v)} ${pred(k.b.c,k.b.v)} or ${pred(k.b.c,k.b2)} `).replace(/ or (owns|drinks|rides|lives in|is) /,' or ').trim()+'.';
+  if(k.t==='next')return cap(`${subj(k.a.c,k.a.v)} lives next door to ${subj(k.b.c,k.b.v)}.`);if(k.t==='left')return cap(`${subj(k.a.c,k.a.v)} lives directly left of ${subj(k.b.c,k.b.v)}.`);
+  if(k.t==='before')return cap(`${subj(k.a.c,k.a.v)} lives somewhere left of ${subj(k.b.c,k.b.v)}.`);return''}
+// ---------- solver: one N×N matrix per pair of categories ----------
+function Board(n,cats){this.n=n;this.k=cats.length;this.M={};for(let a=0;a<this.k;a++)for(let b=a+1;b<this.k;b++)this.M[a+','+b]=[...Array(n)].map(()=>new Array(n).fill(null))}
+Board.prototype.get=function(a,i,b,j){if(a===b)return i===j?1:0;return a<b?this.M[a+','+b][i][j]:this.M[b+','+a][j][i]};
+Board.prototype.set=function(a,i,b,j,v){if(a===b)return i===j===!!v?false:(this.bad=true,false);const m=a<b?this.M[a+','+b]:this.M[b+','+a],[x,y]=a<b?[i,j]:[j,i];if(m[x][y]===v)return false;if(m[x][y]!==null){this.bad=true;return false}m[x][y]=v;return true};
+Board.prototype.clone=function(){const b=new Board(this.n,{length:this.k});for(const key in this.M)b.M[key]=this.M[key].map(r=>r.slice());return b};
+function propagate(B,clues,cats){const n=B.n,k=B.k;let ch=true,g=0;const ordC=cats.findIndex(c=>CATS[c].ord);
+  const posCands=(e)=>{if(ordC<0)return[];const c=cats.indexOf(e.c);if(c===ordC)return[e.v];return[...Array(n).keys()].filter(p=>B.get(c,e.v,ordC,p)!==0)};
+  while(ch&&g++<100&&!B.bad){ch=false;const S=(a,i,b,j,v)=>{if(B.set(a,i,b,j,v))ch=true};
+    for(let a=0;a<k;a++)for(let b=a+1;b<k;b++){const m=B.M[a+','+b];
+      for(let i=0;i<n;i++){const row=m[i];const y=row.indexOf(1);if(y>=0)for(let j=0;j<n;j++)if(j!==y)S(a,i,b,j,0);const open=row.map((v,j)=>v!==0?j:-1).filter(j=>j>=0);if(open.length===1)S(a,i,b,open[0],1);if(!open.length)B.bad=true}
+      for(let j=0;j<n;j++){const col=m.map(r=>r[j]);const y=col.indexOf(1);if(y>=0)for(let i=0;i<n;i++)if(i!==y)S(a,i,b,j,0);const open=col.map((v,i)=>v!==0?i:-1).filter(i=>i>=0);if(open.length===1)S(a,open[0],b,j,1);if(!open.length)B.bad=true}}
+    // through a third category: yes+yes gives yes, yes+no gives no
+    for(let a=0;a<k;a++)for(let b=0;b<k;b++)for(let c=0;c<k;c++){if(a===b||b===c||a===c)continue;
+      for(let i=0;i<n;i++)for(let j=0;j<n;j++){if(B.get(a,i,b,j)!==1)continue;for(let l=0;l<n;l++){const v=B.get(b,j,c,l);if(v===1)S(a,i,c,l,1);else if(v===0)S(a,i,c,l,0)}}}
+    for(const cl of clues){const a=cats.indexOf(cl.a.c),b=cats.indexOf(cl.b.c);
+      if(cl.t==='is')S(a,cl.a.v,b,cl.b.v,1);else if(cl.t==='not')S(a,cl.a.v,b,cl.b.v,0);
+      else if(cl.t==='either'){for(let j=0;j<n;j++)if(j!==cl.b.v&&j!==cl.b2)S(a,cl.a.v,b,j,0)}
+      else{// house relations: keep only positions that have a partner
+        const ok=(p,q)=>cl.t==='next'?Math.abs(p-q)===1:cl.t==='left'?q===p+1:p<q;const A=posCands(cl.a),Bq=posCands(cl.b),ca=cats.indexOf(cl.a.c),cb=cats.indexOf(cl.b.c);
+        for(const p of A)if(!Bq.some(q=>q!==p&&ok(p,q))){if(ca!==ordC)S(ca,cl.a.v,ordC,p,0)}
+        for(const q of Bq)if(!A.some(p=>p!==q&&ok(p,q))){if(cb!==ordC)S(cb,cl.b.v,ordC,q,0)}
+        // the two are different people
+        if(ca!==cb&&ca!==ordC&&cb!==ordC)S(ca,cl.a.v,cb,cl.b.v,0)}}}
+  return B}
+const solved=B=>Object.values(B.M).every(m=>m.every(r=>r.every(v=>v!==null)));
+function generate(size){const {n,cats}=SIZES[size],k=cats.length;
+  for(let attempt=0;attempt<40;attempt++){// sol[c][person] = value
+    const sol=cats.map((c,ci)=>ci===0?[...Array(n).keys()]:shuffle([...Array(n).keys()]));const who=(ci,v)=>sol[ci].indexOf(v);
+    const ordC=cats.findIndex(c=>CATS[c].ord);const pool=[];const ent=()=>{const ci=rand(k);return{c:cats[ci],v:rand(n),ci}};
+    for(let t=0;t<400;t++){const r=Math.random();let a=ent(),b=ent();if(a.ci===b.ci)continue;const pa=who(a.ci,a.v);
+      if(r<.18){b.v=sol[b.ci][pa];pool.push({t:'is',a,b})}
+      else if(r<.5){if(sol[b.ci][pa]===b.v)continue;pool.push({t:'not',a,b})}
+      else if(r<.68){const right=sol[b.ci][pa];let other=rand(n);if(other===right)continue;const flip=Math.random()<.5;b.v=flip?right:other;pool.push({t:'either',a,b,b2:flip?other:right})}
+      else if(ordC>=0){const pos=(e)=>sol[ordC][who(e.ci,e.v)];if(a.ci===ordC||b.ci===ordC)continue;const p=pos(a),q=pos(b);if(p===q)continue;
+        if(Math.abs(p-q)===1&&Math.random()<.5)pool.push({t:'next',a,b});else if(q===p+1)pool.push({t:'left',a,b});else if(p<q)pool.push({t:'before',a,b})}}
+    shuffle(pool);const clues=[];let B=new Board(n,cats);
+    for(const c of pool){clues.push(c);B=propagate(new Board(n,cats),clues,cats);if(B.bad){clues.pop();continue}if(solved(B))break}
+    if(!solved(B))continue;
+    // drop clues that aren't needed
+    for(let i=clues.length-1;i>=0;i--){const t=clues.slice(0,i).concat(clues.slice(i+1));const T=propagate(new Board(n,cats),t,cats);if(solved(T)&&!T.bad)clues.splice(i,1)}
+    return{n,cats,sol,clues,answer:propagate(new Board(n,cats),clues,cats)}}
+  return null}
+// ---------- play ----------
+function newGame(){closeModal();clearInterval(timer);const g=generate(cfg.size);P={...g,marks:new Board(g.n,g.cats),hist:[],secs:0,done:false,bad:new Set(),hint:-1,struck:new Set(),hintCell:null};
+  timer=setInterval(()=>{if(!P.done&&!document.hidden&&$('overlay').hidden){P.secs++;$('time').textContent=fmt(P.secs)}},1000);render()}
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+// The grid: columns are categories 1..k-1, rows are category 0 then k-1 down to 2 (the usual staircase).
+function layout(){const k=P.cats.length;const cols=[...Array(k-1)].map((_,i)=>i+1),rows=[0,...[...Array(k-2)].map((_,i)=>k-1-i)];return{cols,rows}}
+function render(){const {n,cats}=P,{cols,rows}=layout(),cs=Math.max(22,Math.min(34,Math.floor((Math.min(innerWidth,1000)-130)/(cols.length*n))));$('grid').style.setProperty('--cs',cs+'px');
+  let h='<tr><th></th><th></th>'+cols.map(c=>CATS[cats[c]].vals.slice(0,n).map((v,j)=>`<th class="top"><span>${j===0?`<b>${CATS[cats[c]].label}:</b> `:''}${cap(v)}</span></th>`).join('')).join('')+'</tr>';
+  rows.forEach((r,ri)=>{for(let i=0;i<n;i++){h+='<tr>'+(i===0?`<th class="cat" rowspan="${n}"><span style="writing-mode:vertical-rl;transform:rotate(180deg)">${CATS[cats[r]].label}</span></th>`:'')+`<th class="left">${cap(CATS[cats[r]].vals[i])}</th>`;
+      cols.forEach(c=>{if(r!==0&&c>=r){for(let j=0;j<n;j++)h+='<td class="void"></td>';return}
+        for(let j=0;j<n;j++){const v=P.marks.get(r,i,c,j),key=[r,i,c,j].join(',');h+=`<td class="c${v===1?' y':v===0?' n':''}${P.bad.has(key)?' bad':''}${P.hintCell===key?' hint':''}${j===0?' bl':''}${j===n-1?' br':''}${i===0?' bt':''}${i===n-1?' bb':''}" data-k="${key}">${v===1?'✓':v===0?'✗':''}</td>`}});h+='</tr>'}});
+  $('grid').innerHTML=h;
+  $('story').textContent=`${n} friends each have a different ${cats.slice(1).map(c=>CATS[c].label.toLowerCase()).join(', ').replace(/, ([^,]*)$/,' and $1')}.`;
+  $('clues').innerHTML=P.clues.map((c,k)=>`<li class="${P.struck.has(k)?'done':''}${P.hint===k?' hint':''}" data-k="${k}">${clueText(c)}</li>`).join('');$('time').textContent=fmt(P.secs)}
+function mark(key){if(P.done)return;const [r,i,c,j]=key.split(',').map(Number);P.hist.push(P.marks.clone());const v=P.marks.get(r,i,c,j),nv=v===null?0:v===0?1:null;
+  const m=r<c?P.marks.M[r+','+c]:P.marks.M[c+','+r],[x,y]=r<c?[i,j]:[j,i];m[x][y]=nv;
+  if(nv===1&&$('autox').checked){for(let t=0;t<P.n;t++){if(t!==y&&m[x][t]===null)m[x][t]=0;if(t!==x&&m[t][y]===null)m[t][y]=0}}
+  P.bad.clear();P.hintCell=null;sfx(nv===1?'tap':nv===0?'tick':'slide');render();checkWin()}
+function checkWin(){const A=P.answer;for(const key in A.M){const a=A.M[key],m=P.marks.M[key];for(let i=0;i<P.n;i++)for(let j=0;j<P.n;j++){if(a[i][j]===1&&m[i][j]!==1)return}}
+  P.done=true;solvedCt[cfg.size]=(solvedCt[cfg.size]||0)+1;store.set('parlor-logicgrid-solved',solvedCt);sfx('win');
+  const {cats,n,sol}=P;modal(`<h2>Solved!</h2><p>In ${fmt(P.secs)}.</p><div class="ans">${[...Array(n)].map((_,p)=>`<div><b>${CATS.name.vals[p]}</b>: ${cats.slice(1).map((c,ci)=>CATS[c].ord?'house '+CATS[c].vals[sol[ci+1][p]]:CATS[c].vals[sol[ci+1][p]]).join(', ')}</div>`).join('')}</div><div class="row"><button class="btn primary" id="mnew">New puzzle</button></div>`);$('mnew').onclick=newGame}
+$('grid').addEventListener('click',e=>{const td=e.target.closest('td.c');if(td)mark(td.dataset.k)});
+$('clues').addEventListener('click',e=>{const li=e.target.closest('li');if(!li)return;const k=+li.dataset.k;if(P.struck.has(k))P.struck.delete(k);else P.struck.add(k);render()});
+$('check').onclick=()=>{P.bad.clear();const A=P.answer;let wrong=0;for(const key in A.M){const [a,b]=key.split(',').map(Number);for(let i=0;i<P.n;i++)for(let j=0;j<P.n;j++){const m=P.marks.M[key][i][j];if(m!==null&&m!==A.M[key][i][j]){P.bad.add([a,i,b,j].join(','));wrong++}}}
+  toast(wrong?`${wrong} wrong mark${wrong>1?'s':''}`:'No mistakes so far');sfx(wrong?'bad':'good');render()};
+// Hint: find a clue that tells you something new from the correct marks you already have
+$('hint').onclick=()=>{if(P.done)return;const base=new Board(P.n,P.cats),A=P.answer;for(const key in P.marks.M){const [a,b]=key.split(',').map(Number);for(let i=0;i<P.n;i++)for(let j=0;j<P.n;j++){const m=P.marks.M[key][i][j];if(m!==null&&m===A.M[key][i][j])base.set(a,i,b,j,m)}}
+  const known=propagate(base.clone(),[],P.cats);
+  for(let k=0;k<P.clues.length;k++){const t=propagate(known.clone(),[P.clues[k]],P.cats);let gain=null;
+    for(const key in t.M){const [a,b]=key.split(',').map(Number);for(let i=0;i<P.n&&!gain;i++)for(let j=0;j<P.n&&!gain;j++)if(t.M[key][i][j]!==null&&known.M[key][i][j]===null&&P.marks.M[key][i][j]===null)gain=[a,i,b,j].join(',')}
+    if(gain){P.hint=k;P.hintCell=gain;sfx('select');render();return}}
+  // nothing from a single clue: show a deduction from the grid itself
+  for(const key in known.M){const [a,b]=key.split(',').map(Number);for(let i=0;i<P.n;i++)for(let j=0;j<P.n;j++)if(known.M[key][i][j]!==null&&P.marks.M[key][i][j]===null){P.hint=-1;P.hintCell=[a,i,b,j].join(',');toast('The grid itself tells you this square.');render();return}}
+  toast('Fix the marks Check shows first.')};
+$('undo').onclick=()=>{if(P.done||!P.hist.length)return;P.marks=P.hist.pop();P.bad.clear();sfx('slide');render()};
+$('clear').onclick=()=>{if(P.done||!confirm('Clear the grid?'))return;P.hist.push(P.marks.clone());P.marks=new Board(P.n,P.cats);P.bad.clear();render()};
+$('size').onchange=e=>{cfg.size=e.target.value;store.set('parlor-logicgrid',cfg);newGame()};$('newgame').onclick=newGame;
+addEventListener('resize',()=>P&&render());
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(!SIZES[cfg.size])cfg.size='medium';$('size').value=cfg.size;newGame();
+</script>
+</body>
+</html>

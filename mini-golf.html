@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mini Golf</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with players; hole, par and whose turn; the course canvas (green, walls, bumpers, sand, water, cup) where you pull back from the ball to shoot; the scorecard below. */
+:root{
+  --bg:#e8f3e4; --fg:#183018; --muted:#5d7559; --panel:#ffffff; --line:#cfe3c9; --chip:#dcedd6; --accent:#2f6f2c; --accent-ink:#ffffff; --p0:#e2362f; --p1:#2c58c4; --p2:#f2b400; --p3:#8a3fc4;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0f1a0f; --fg:#e2f0dc; --muted:#9db797; --panel:#162416; --line:#264026; --chip:#1d301d; --accent:#6fc46a; --accent-ink:#0f1a0f; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0f1a0f; --fg:#e2f0dc; --muted:#9db797; --panel:#162416; --line:#264026; --chip:#1d301d; --accent:#6fc46a; --accent-ink:#0f1a0f; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:800}
+.bar .pl{display:flex;align-items:center;gap:6px}
+.bar i{width:14px;height:14px;border-radius:50%;background:var(--c)}
+.screen{position:relative;width:min(100%,calc((100vh - 230px)*5/8));aspect-ratio:5/8;margin:0 auto;border-radius:18px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:0 10px 26px -16px rgba(0,40,0,.6)}
+canvas{width:100%;height:100%;display:block}
+.card{overflow-x:auto}
+.card table{border-collapse:collapse;width:100%;font-size:13.5px;text-align:center}
+.card th,.card td{padding:4px 3px;border-bottom:1px solid var(--line);min-width:22px}
+.card th:first-child,.card td:first-child{text-align:left;padding-left:2px;white-space:nowrap}
+.card td.cur{background:var(--chip);font-weight:800}
+.card .under{color:#1f8a4c;font-weight:800}.card .over{color:#c0392b}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.screen{grid-column:1;grid-row:1/span 5;width:calc((100vh - 20px)*5/8)}h1{font-size:28px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Mini Golf</h1>
+    </div>
+    <div class="controls">
+      <select id="players" aria-label="Players"><option value="1">1 player</option><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option></select>
+      <button class="btn primary" id="newgame">New round</button>
+    </div>
+  </header>
+  <div class="bar"><span id="hole"></span><span class="pl" id="turn"></span></div>
+  <div class="screen" id="screen"><canvas id="cv"></canvas></div>
+  <div class="panel card" id="card"></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Touch the ball (or anywhere), pull back away from where you want it to go, and let go. The further you pull, the harder the shot. The dotted line shows the aim.</li>
+        <li>Get the ball in the cup in as few strokes as you can. Par is the target. A ball that's moving too fast skims over the cup.</li>
+        <li>Sand slows the ball right down. Water costs a stroke and puts you back where you shot from. Bumpers bounce the ball hard.</li>
+        <li>With friends, everyone plays the hole in turn (the furthest from the cup goes next). After 8 strokes you pick up and score 9 on that hole.</li>
+        <li>Lowest total after nine holes wins.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const W=300,H=480,BR=6,CUP=10,MAX=8,COLORS=['#e2362f','#2c58c4','#f2b400','#8a3fc4'];
+// rect walls [x,y,w,h], bumpers [x,y,r], sand and water rects
+const HOLES=[
+ {par:2,start:[150,420],cup:[150,80],walls:[],bump:[],sand:[],water:[]},
+ {par:3,start:[60,430],cup:[240,70],walls:[[0,230,200,22]],bump:[],sand:[[200,120,100,40]],water:[]},
+ {par:3,start:[150,440],cup:[150,60],walls:[],bump:[[100,200,18],[200,200,18],[150,280,18],[150,130,14]],sand:[],water:[]},
+ {par:3,start:[60,440],cup:[220,90],walls:[[120,260,180,20],[0,160,170,20]],bump:[],sand:[[180,60,90,30]],water:[]},
+ {par:3,start:[150,440],cup:[150,70],walls:[],bump:[[150,190,16]],sand:[],water:[[0,250,120,60],[180,250,120,60]]},
+ {par:4,start:[40,440],cup:[260,60],walls:[[70,330,230,18],[0,230,230,18],[70,130,230,18]],bump:[],sand:[],water:[]},
+ {par:3,start:[150,440],cup:[150,60],walls:[[0,240,128,18],[172,240,128,18],[60,140,180,14]],bump:[],sand:[[120,300,60,30]],water:[]},
+ {par:3,start:[150,450],cup:[150,120],walls:[],bump:[],sand:[],water:[[0,40,300,40],[0,80,95,120],[205,80,95,120],[0,200,300,40]].concat([]),bridge:[[125,200,50,40]]},
+ {par:4,start:[50,450],cup:[250,50],walls:[[0,370,220,16],[80,280,220,16],[0,190,220,16],[80,100,220,16]],bump:[[260,330,12],[40,240,12],[260,150,12]],sand:[[230,40,70,20]],water:[]}];
+const cfg=Object.assign({players:1},store.get('parlor-golf',{}));
+const best=store.get('parlor-golf-best',null);
+const cv=$('cv'),cx=cv.getContext('2d');
+let G=null,raf=0,last=0,aim=null;
+function newGame(){G={hole:0,players:[...Array(+cfg.players)].map((_,k)=>({name:+cfg.players>1?`Player ${k+1}`:'You',scores:[]})),turn:0};startHole();draw();renderCard()}
+function startHole(){const h=HOLES[G.hole];G.balls=G.players.map(()=>({x:h.start[0],y:h.start[1],vx:0,vy:0,strokes:0,done:false,last:h.start.slice(),moving:false}));G.turn=0;G.msg='';G.flash=0;G.advancing=false;render()}
+const hole=()=>HOLES[G.hole];
+function inRect(x,y,[rx,ry,rw,rh]){return x>=rx&&x<=rx+rw&&y>=ry&&y<=ry+rh}
+function onWater(x,y){const h=hole();return h.water.some(r=>inRect(x,y,r))&&!(h.bridge||[]).some(r=>inRect(x,y,r))}
+function shoot(dx,dy){const b=G.balls[G.turn];if(b.moving||b.done||G.advancing)return;const p=Math.min(1,Math.hypot(dx,dy)/120);if(p<.04)return;b.last=[b.x,b.y];b.vx=-dx/Math.hypot(dx,dy)*p*620;b.vy=-dy/Math.hypot(dx,dy)*p*620;b.strokes++;b.moving=true;sfx('tap');
+  cancelAnimationFrame(raf);last=performance.now();raf=requestAnimationFrame(loop)}
+function loop(t){const dt=Math.min(.04,(t-last)/1000);last=t;const n=Math.ceil(dt/(1/360));for(let k=0;k<n;k++)step(dt/n);draw();if(G.balls.some(b=>b.moving))raf=requestAnimationFrame(loop);else settle()}
+function step(dt){const h=hole();for(const b of G.balls){if(!b.moving)continue;
+  b.x+=b.vx*dt;b.y+=b.vy*dt;const sand=h.sand.some(r=>inRect(b.x,b.y,r));const f=Math.pow(sand?.08:.42,dt);b.vx*=f;b.vy*=f;
+  // edges
+  if(b.x<BR+8){b.x=BR+8;b.vx=Math.abs(b.vx)*.8;sfx('tick')}if(b.x>W-BR-8){b.x=W-BR-8;b.vx=-Math.abs(b.vx)*.8;sfx('tick')}
+  if(b.y<BR+8){b.y=BR+8;b.vy=Math.abs(b.vy)*.8;sfx('tick')}if(b.y>H-BR-8){b.y=H-BR-8;b.vy=-Math.abs(b.vy)*.8;sfx('tick')}
+  for(const r of h.walls){const nx=Math.max(r[0],Math.min(b.x,r[0]+r[2])),ny=Math.max(r[1],Math.min(b.y,r[1]+r[3])),dx=b.x-nx,dy=b.y-ny,d=Math.hypot(dx,dy);
+    if(d<BR){if(d===0){b.vy=-b.vy;continue}const ux=dx/d,uy=dy/d;b.x=nx+ux*BR;b.y=ny+uy*BR;const vn=b.vx*ux+b.vy*uy;if(vn<0){b.vx-=1.8*vn*ux;b.vy-=1.8*vn*uy;sfx('tick')}}}
+  for(const[x,y,r]of h.bump){const dx=b.x-x,dy=b.y-y,d=Math.hypot(dx,dy);if(d<r+BR){const ux=dx/d,uy=dy/d;b.x=x+ux*(r+BR);b.y=y+uy*(r+BR);const vn=b.vx*ux+b.vy*uy;if(vn<0){b.vx-=2.2*vn*ux;b.vy-=2.2*vn*uy;sfx('bounce')}}}
+  // the cup: slow enough and close enough drops in; otherwise it bends the ball a little
+  const cdx=h.cup[0]-b.x,cdy=h.cup[1]-b.y,cd=Math.hypot(cdx,cdy),sp=Math.hypot(b.vx,b.vy);
+  if(cd<CUP){if(sp<230){b.done=true;b.moving=false;b.x=h.cup[0];b.y=h.cup[1];sfx(b.strokes===1?'win':'good');continue}b.vx+=cdx*6*dt*60/60;b.vy+=cdy*6*dt*60/60}
+  if(onWater(b.x,b.y)){b.x=b.last[0];b.y=b.last[1];b.vx=b.vy=0;b.moving=false;b.strokes++;sfx('splash');G.msg='Splash! +1 stroke';continue}
+  if(sp<6){b.vx=b.vy=0;b.moving=false}}}
+function settle(){if(G.advancing)return;const h=hole();for(const b of G.balls)if(!b.done&&b.strokes>=MAX){b.done=true;b.strokes=MAX+1}
+  if(G.balls.every(b=>b.done)){G.advancing=true;G.players.forEach((p,k)=>p.scores[G.hole]=G.balls[k].strokes);renderCard();
+    const s=G.balls.map(b=>b.strokes);setTimeout(()=>{if(G.hole<HOLES.length-1){toast(G.players.length===1?scoreWord(s[0],h.par):`Hole ${G.hole+1} done`);G.hole++;startHole();draw();renderCard()}else finish()},700);return}
+  // next: the unfinished ball furthest from the cup
+  const left=G.balls.map((b,k)=>({k,d:Math.hypot(b.x-h.cup[0],b.y-h.cup[1]),b})).filter(x=>!x.b.done);left.sort((a,c)=>c.d-a.d);G.turn=left[0].k;render();draw()}
+function scoreWord(s,par){const d=s-par;return s===1?'Hole in one!':d<=-2?'Eagle!':d===-1?'Birdie!':d===0?'Par':d===1?'Bogey':`${s} strokes`}
+function finish(){const tot=G.players.map(p=>p.scores.reduce((a,b)=>a+b,0)),par=HOLES.reduce((a,h)=>a+h.par,0),top=Math.min(...tot),win=G.players.filter((_,k)=>tot[k]===top);
+  let nb=false;if(G.players.length===1&&(!best||tot[0]<best)){store.set('parlor-golf-best',tot[0]);nb=true}
+  sfx('win');modal(`<h2>${G.players.length===1?`${tot[0]} strokes`:win.length>1?'A tie!':win[0].name+' wins!'}</h2><p>${G.players.map((p,k)=>`${p.name} ${tot[k]} (${tot[k]-par>=0?'+':''}${tot[k]-par})`).join(' · ')}. Par is ${par}.</p>${nb?'<p>A new best round!</p>':best&&G.players.length===1?`<p>Your best: ${best}</p>`:''}<div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);$('mnew').onclick=()=>{closeModal();newGame()}}
+function draw(){const d=cv.width/W;cx.setTransform(d,0,0,d,0,0);const h=hole();
+  cx.fillStyle='#4e8f3a';cx.fillRect(0,0,W,H);cx.fillStyle='#5aa244';for(let y=0;y<H;y+=24){cx.fillRect(0,y,W,12)}
+  cx.strokeStyle='#7a4f24';cx.lineWidth=8;cx.strokeRect(4,4,W-8,H-8);
+  for(const r of h.water){cx.fillStyle='#3a8fd6';rr(...r,8);cx.fill()}for(const r of h.bridge||[]){cx.fillStyle='#a0703c';cx.fillRect(...r);cx.strokeStyle='#7a4f24';cx.lineWidth=2;for(let y=r[1]+5;y<r[1]+r[3];y+=8){cx.beginPath();cx.moveTo(r[0],y);cx.lineTo(r[0]+r[2],y);cx.stroke()}}
+  for(const r of h.sand){cx.fillStyle='#e9d9a6';rr(...r,12);cx.fill()}
+  for(const r of h.walls){cx.fillStyle='#7a4f24';cx.fillRect(...r);cx.fillStyle='rgba(255,255,255,.15)';cx.fillRect(r[0],r[1],r[2],3)}
+  for(const[x,y,r]of h.bump){cx.fillStyle='#e2362f';cx.beginPath();cx.arc(x,y,r,0,7);cx.fill();cx.fillStyle='#fff';cx.beginPath();cx.arc(x,y,r*.45,0,7);cx.fill()}
+  cx.fillStyle='#173017';cx.beginPath();cx.arc(h.cup[0],h.cup[1],CUP,0,7);cx.fill();cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.moveTo(h.cup[0],h.cup[1]);cx.lineTo(h.cup[0],h.cup[1]-34);cx.stroke();cx.fillStyle='#ffd84a';cx.beginPath();cx.moveTo(h.cup[0],h.cup[1]-34);cx.lineTo(h.cup[0]+18,h.cup[1]-28);cx.lineTo(h.cup[0],h.cup[1]-22);cx.fill();
+  G.balls.forEach((b,k)=>{if(b.done)return;cx.fillStyle='rgba(0,0,0,.25)';cx.beginPath();cx.arc(b.x+1.5,b.y+2,BR,0,7);cx.fill();cx.fillStyle='#fff';cx.beginPath();cx.arc(b.x,b.y,BR,0,7);cx.fill();
+    if(G.players.length>1){cx.strokeStyle=COLORS[k];cx.lineWidth=2.5;cx.stroke()}});
+  if(aim){const b=G.balls[G.turn],p=Math.min(1,Math.hypot(aim.dx,aim.dy)/120),ux=-aim.dx/(Math.hypot(aim.dx,aim.dy)||1),uy=-aim.dy/(Math.hypot(aim.dx,aim.dy)||1);
+    cx.strokeStyle='rgba(255,255,255,.85)';cx.setLineDash([3,6]);cx.lineWidth=2;cx.beginPath();cx.moveTo(b.x,b.y);cx.lineTo(b.x+ux*(30+p*150),b.y+uy*(30+p*150));cx.stroke();cx.setLineDash([]);
+    cx.fillStyle=`hsl(${120-p*120},80%,50%)`;rr(10,H-22,(W-20)*p,8,4);cx.fill()}}
+function rr(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.arcTo(x+w,y,x+w,y+h,r);cx.arcTo(x+w,y+h,x,y+h,r);cx.arcTo(x,y+h,x,y,r);cx.arcTo(x,y,x+w,y,r);cx.closePath()}
+function render(){const b=G.balls[G.turn],h=hole();$('hole').textContent=`Hole ${G.hole+1} of 9 · par ${h.par}`;
+  $('turn').innerHTML=`${G.players.length>1?`<i style="--c:${COLORS[G.turn]}"></i>${G.players[G.turn].name} · `:''}stroke ${b.strokes+1}${G.msg?` · ${G.msg}`:''}`;G.msg=''}
+function renderCard(){const par=HOLES.map(h=>h.par);let h=`<table><tr><th>Hole</th>${par.map((_,k)=>`<th>${k+1}</th>`).join('')}<th>Tot</th></tr><tr><td>Par</td>${par.map(p=>`<td>${p}</td>`).join('')}<td>${par.reduce((a,b)=>a+b,0)}</td></tr>`;
+  for(const p of G.players){const tot=p.scores.reduce((a,b)=>a+(b||0),0);h+=`<tr><td>${p.name}</td>${par.map((pp,k)=>{const s=p.scores[k];return`<td class="${k===G.hole?'cur':''}${s!=null?(s<pp?' under':s>pp?' over':''):''}">${s??''}</td>`}).join('')}<td><b>${tot||''}</b></td></tr>`}
+  $('card').innerHTML=h+'</table>'+(best&&G.players.length===1?`<p class="label" style="margin:8px 0 0">Best round: ${best}</p>`:'')}
+function size(){const r=$('screen').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,3);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);draw()}
+const scr=$('screen');let from=null;
+function fpos(e){const r=scr.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H}}
+scr.addEventListener('pointerdown',e=>{const b=G.balls[G.turn];if(!$('overlay').hidden||b.moving||b.done)return;from=fpos(e);aim={dx:0,dy:0};try{scr.setPointerCapture(e.pointerId)}catch(x){}draw()});
+scr.addEventListener('pointermove',e=>{if(!from)return;const p=fpos(e);aim={dx:p.x-from.x,dy:p.y-from.y};draw()});
+scr.addEventListener('pointerup',()=>{if(!from)return;const a=aim;from=null;aim=null;shoot(a.dx,a.dy);render();draw()});
+scr.addEventListener('pointercancel',()=>{from=null;aim=null;draw()});
+$('players').onchange=e=>{cfg.players=+e.target.value;store.set('parlor-golf',cfg);newGame()};$('newgame').onclick=newGame;
+addEventListener('resize',size);
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(![1,2,3,4].includes(+cfg.players))cfg.players=1;$('players').value=cfg.players;newGame();size();
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Jumble</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with length and players; score strip; a timer bar; the answer slots above the scrambled letter tiles; Shuffle, Hint, Clear, Skip; rules below. */
+:root{
+  --bg:#fff1e0; --fg:#3d1608; --muted:#8c5a45; --panel:#ffffff; --line:#f4d7bf; --chip:#fde4cf; --accent:#e85d3f; --accent-ink:#ffffff; --tile:#fffaf3; --tile-edge:#e9c9a8; --good:#2e9e5b; --bad:#d23b2a;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#1d0f09; --fg:#fde7d8; --muted:#d0a28c; --panel:#2a1610; --line:#47271b; --chip:#3a1f15; --accent:#ff7a5c; --accent-ink:#1d0f09; --tile:#3a2219; --tile-edge:#5a3426; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#1d0f09; --fg:#fde7d8; --muted:#d0a28c; --panel:#2a1610; --line:#47271b; --chip:#3a1f15; --accent:#ff7a5c; --accent-ink:#1d0f09; --tile:#3a2219; --tile-edge:#5a3426; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:620px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.scores{display:flex;gap:8px;flex-wrap:wrap}
+.sc{flex:1 1 120px;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;font-weight:800}
+.sc.cur{border-color:var(--accent)}
+.sc b{font-family:var(--display);font-size:26px}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:16px 12px;display:flex;flex-direction:column;gap:16px;align-items:center}
+.meta{display:flex;justify-content:space-between;width:100%;font-size:14px;color:var(--muted);font-weight:700}
+.timer{width:100%;height:10px;border-radius:99px;background:var(--chip);overflow:hidden}
+.timer i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .25s linear}
+.timer.low i{background:var(--bad)}
+.slots,.pool{display:flex;gap:6px;justify-content:center;flex-wrap:nowrap;width:100%}
+.s,.tile{flex:0 1 54px;aspect-ratio:1;min-width:0;border-radius:12px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:clamp(20px,6.5vw,30px);text-transform:uppercase}
+.s{border:2px dashed var(--tile-edge);background:transparent}
+.s.on{border-style:solid;background:var(--tile);box-shadow:0 3px 0 var(--tile-edge);cursor:pointer}
+.s.locked{background:var(--good);color:#fff;border-color:var(--good);box-shadow:none}
+.tile{background:var(--tile);border:2px solid var(--tile-edge);box-shadow:0 4px 0 var(--tile-edge);cursor:pointer;transition:transform .12s}
+.tile:active{transform:translateY(3px);box-shadow:0 1px 0 var(--tile-edge)}
+.tile.used{visibility:hidden}
+.stage.ok .s.on{background:var(--good);color:#fff;border-color:var(--good)}
+.stage.no .slots{animation:shake .35s}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.say{min-height:22px;font-weight:800;text-align:center}
+.say.good{color:var(--good)}.say.bad{color:var(--bad)}
+.acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.acts .btn{min-width:84px}
+.start{display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
+.start p{margin:0;color:var(--muted)}
+.start .btn{min-height:52px;min-width:200px;font-size:18px}
+.row2{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);max-width:920px;column-gap:16px;align-items:start;padding-block:8px}.wrap>*{grid-column:1}.stage{grid-column:2;grid-row:1/span 5;gap:10px;padding:10px}h1{font-size:28px}.s,.tile{flex-basis:46px;font-size:24px}}
+@media (prefers-reduced-motion:reduce){.stage.no .slots{animation:none}.timer i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Word Jumble</h1>
+    </div>
+    <div class="controls">
+      <select id="len" aria-label="Word length"><option value="5">Easy: 5 letters</option><option value="6">Medium: 6 letters</option><option value="7">Hard: 7 letters</option></select>
+      <select id="players" aria-label="Players"><option value="1">1 player</option><option value="2">2 players</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="scores" id="scores"></div>
+  <section class="stage" id="stage" aria-live="polite"></section>
+  <div class="panel"><div class="row2" id="best"></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Unscramble the letters to make a word. Tap letters to place them (or type), tap a placed letter to take it back. Any real word that uses all the letters counts.</li>
+        <li>A game is 10 words. Each word has a timer: solve it fast for a bonus. Points: 10 a letter, plus the seconds left.</li>
+        <li><b>Hint</b> places the next correct letter for you but halves the word's points. <b>Skip</b> moves on with no points.</li>
+        <li>2 players take turns, 5 words each, passing the device. The higher score wins.</li>
+        <li>Keyboard: type letters, Backspace takes one back, Enter checks, Space shuffles.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script src="ladder-words.js"></script>
+<script src="wordtiles-words.js"></script>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const LW=window.LADDER_WORDS||{familiar:'',valid:''},TW=window.WT_WORDS||{common:'',extra:''};
+const POOL={5:LW.familiar.split(' ').filter(w=>w.length===5&&!/(ed|[^su]s)$/.test(w)),
+  6:'action active animal answer anyone appear around arrive artist asleep attack autumn bakery banana basket battle beauty before behind belong bottle bottom branch breath bridge bright broken bubble bucket budget butter button camera campus candle carpet carrot castle center chance change charge cheese cherry choice circle classy clever closet coffee collar colony cookie copper corner cotton county couple course cousin cradle crayon credit crisis cruise custom damage dancer danger decide degree desert design detail dinner direct doctor dollar donkey double dragon drawer driver easily effect effort eleven empire energy engine enough escape esteem evenly expert fabric factor family farmer father favour fellow figure finger finish flight flower follow forest forget formal fossil friend frozen future galaxy garage garden garlic gentle ginger global golden gospel guitar hammer handle happen harbor health heater helmet hidden hockey honest hunger hunter impact indoor insect island jacket jigsaw jungle junior kettle kidney kitten ladder launch lawyer leader legend lemony letter likely liquid listen little lizard locker lovely magnet manner marble market master meadow melody memory method middle minute mirror mobile modern moment monkey mother motion muffin museum narrow nature nearby needle nephew nickel normal number object office orange outfit oxygen paddle palace parade parent parrot pastry peanut pencil people pepper period person pillow pirate planet plenty pocket poetry police potato powder pretty prince prison public puzzle rabbit racket random rattle reason record remote repair rescue result reward rhythm ribbon riddle rocket rubber saddle safety salmon sample school screen script season second secret select shadow silver simple singer sister sketch sleepy smooth soccer socket spider spirit spring square squash stable statue sticky strong studio summer sunset supply switch symbol tablet talent target temple tennis thirty thread throne ticket timber tomato tongue travel turkey turtle twelve unique update useful valley velvet violin wallet walnut wander window winter wizard wonder yellow zipper'.split(' '),7:'ability account airport amazing ancient anxious balance bandage battery bedroom biscuit blanket brother cabinet cabbage camping capital captain caravan careful carrier cartoon central century chapter charity cheetah chicken circuit citizen climate clothes collect college comfort company compass concert contest control costume cottage country courage cranium crystal curious current curtain cushion cycling dancing decided deliver dentist desktop diamond digital dolphin drawing dynamic eastern economy elegant embrace emerald evening example excited exhibit explain extreme factory fantasy fashion feather finance fishing flowers foreign forever fortune freedom frosted gallery general genuine giraffe glacier glimpse grammar granite gravity harmony harvest healthy helpful history holiday honesty hopeful horizon hostess housing hundred husband imagine improve include initial insight instant journey justice kingdom kitchen kingpin lantern laundry leather lettuce library license lobster machine mailbox mammoth mansion meaning measure mermaid message million mineral minimum miracle mission mixture monster morning musical mystery natural network nothing nuclear octagon octopus orchard organic outdoor outside package painter panther parking partner passage patient pattern payment peacock penguin perfect picture pilgrim pioneer plastic popcorn popular portion postage poultry precise premium present problem process product program promise prosper protect provide pumpkin pyramid quality quarter rainbow reading recycle reptile request respect revenue rooster royalty sailing satisfy scholar science scratch seagull serious service session shelter shimmer silence sincere sixteen skating snowman soldier special sponsor station stomach student subject success suggest sunbeam sunrise support surface surgeon survive sweater teacher theater thunder tonight tornado tourist traffic trouble trumpet unicorn uniform unusual upgrade vacancy vampire variety vehicle venture version victory village vintage volcano warrior weather website wedding weekend welcome western whisper whistle willing wrapped'.split(' ')};
+const VALID=new Set([...TW.common.split(' '),...TW.extra.split(' '),...LW.valid.split(' '),...LW.familiar.split(' ')]);
+const TIME={5:45,6:60,7:75},WORDS=10;
+const cfg=Object.assign({len:5,players:1},store.get('parlor-jumble',{}));
+const best=store.get('parlor-jumble-best',{});
+let S=null,tick=0;
+const sorted=w=>[...w].sort().join('');
+function newGame(){closeModal();clearInterval(tick);const L=+cfg.len,used=new Set();
+  const words=[];while(words.length<WORDS){const w=POOL[L][rand(POOL[L].length)];if(!used.has(w)){used.add(w);words.push(w)}}
+  S={words,i:0,players:[...Array(+cfg.players)].map((_,k)=>({name:+cfg.players>1?`Player ${k+1}`:'You',score:0,solved:0})),phase:'ready',over:false};render()}
+const turn=()=>S.players.length>1?S.i%2:0;
+function startWord(){const w=S.words[S.i];let mix;do{mix=shuffle([...w])}while(mix.join('')===w||VALID.has(mix.join('')));
+  Object.assign(S,{phase:'play',word:w,letters:mix,placed:[],locked:0,hinted:false,left:TIME[cfg.len],say:'',sayCls:''});
+  render();clearInterval(tick);const t0=Date.now(),T=TIME[cfg.len];
+  tick=setInterval(()=>{if(S.phase!=='play')return;const left=Math.max(0,T-Math.floor((Date.now()-t0)/1000));if(left!==S.left){S.left=left;if(left<=5&&left>0)sfx('tick');renderTimer()}if(!left){timeUp()}},200)}
+function place(k){if(S.phase!=='play'||S.placed.includes(k)||S.placed.length>=S.word.length)return;S.placed.push(k);sfx('clack');render();if(S.placed.length===S.word.length)check()}
+function unplace(pos){if(S.phase!=='play'||pos<S.locked||pos>=S.placed.length)return;S.placed.splice(pos,1);sfx('tap');render()}
+function clearAll(){if(S.phase!=='play')return;S.placed=S.placed.slice(0,S.locked);render()}
+function check(){const guess=S.placed.map(k=>S.letters[k]).join('');
+  if(guess===S.word||(VALID.has(guess)&&sorted(guess)===sorted(S.word))){solved(guess);return}
+  S.say=VALID.has(guess)?'':'Not a word.';S.sayCls='bad';sfx('bad');const st=$('stage');st.classList.remove('no');void st.offsetWidth;st.classList.add('no');render()}
+function solved(guess){S.phase='done';clearInterval(tick);const p=S.players[turn()];let pts=10*S.word.length+S.left;if(S.hinted)pts=Math.ceil(pts/2);
+  p.score+=pts;p.solved++;S.say=`${guess.toUpperCase()}! +${pts}${guess!==S.word?` (we were thinking of ${S.word.toUpperCase()})`:''}`;S.sayCls='good';sfx('good');render();$('stage').classList.add('ok');setTimeout(nextWord,1500)}
+function timeUp(){if(S.phase!=='play')return;S.phase='done';clearInterval(tick);S.say=`Time! It was ${S.word.toUpperCase()}.`;S.sayCls='bad';sfx('bad');render();setTimeout(nextWord,1900)}
+function skip(){if(S.phase!=='play')return;S.phase='done';clearInterval(tick);S.say=`Skipped. It was ${S.word.toUpperCase()}.`;S.sayCls='';sfx('slide');render();setTimeout(nextWord,1500)}
+function hint(){if(S.phase!=='play')return;// keep the correct prefix, then add the next correct letter
+  const target=S.word;let ok=0;while(ok<S.placed.length&&S.letters[S.placed[ok]]===target[ok])ok++;S.placed=S.placed.slice(0,ok);
+  if(ok>=target.length)return;const k=S.letters.findIndex((ch,i)=>ch===target[ok]&&!S.placed.includes(i));S.placed.push(k);S.locked=ok+1;S.hinted=true;sfx('select');render();if(S.placed.length===target.length)check()}
+function reshuffle(){if(S.phase!=='play')return;const free=S.letters.map((_,i)=>i).filter(i=>!S.placed.includes(i)),chars=shuffle(free.map(i=>S.letters[i]));free.forEach((i,j)=>S.letters[i]=chars[j]);sfx('shuffle');render()}
+function nextWord(){S.i++;if(S.i>=WORDS){finish();return}S.phase='ready';render();if(S.players.length===1)startWord()}
+function finish(){S.over=true;S.phase='over';render();const k=cfg.len+'|'+cfg.players;
+  if(S.players.length===1){const p=S.players[0],nb=p.score>(best[cfg.len]||0);if(nb){best[cfg.len]=p.score;store.set('parlor-jumble-best',best)}
+    modal(`<h2>${p.solved>=8?'Superb!':p.solved>=5?'Well done!':'Game over'}</h2><p>${p.solved} of ${WORDS} words · ${p.score} points${nb?' · a new best':''}</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`)}
+  else{const [a,b]=S.players;modal(`<h2>${a.score===b.score?'A tie!':(a.score>b.score?a:b).name+' wins'}</h2><p>${a.name} ${a.score} (${a.solved} words) · ${b.name} ${b.score} (${b.solved} words)</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`)}
+  $('mnew').onclick=newGame}
+function renderTimer(){const t=$('stage').querySelector('.timer');if(!t)return;const T=TIME[cfg.len];t.firstChild.style.width=`${100*S.left/T}%`;t.classList.toggle('low',S.left<=10);$('stage').querySelector('[data-left]').textContent=`${S.left}s`}
+function render(){if(!S)return;
+  $('scores').innerHTML=S.players.map((p,k)=>`<div class="sc${S.players.length>1&&turn()===k&&!S.over?' cur':''}"><span>${p.name}</span><b>${p.score}</b></div>`).join('');
+  const st=$('stage');st.className='stage';
+  if(S.phase==='ready'){const p=S.players[turn()];st.innerHTML=`<div class="start"><p>Word ${S.i+1} of ${WORDS} · ${cfg.len} letters · ${TIME[cfg.len]} seconds</p>${S.players.length>1?`<p><b>${p.name}</b>, it's your word. The other player looks away!</p>`:''}<button class="btn primary" id="go">${S.i?'Next word':'Start'}</button></div>`;$('go').onclick=startWord;$('go').focus()}
+  else if(S.phase==='over'){st.innerHTML=`<div class="start"><p>Game over.</p><button class="btn primary" id="go">Play again</button></div>`;$('go').onclick=newGame}
+  else{const n=S.word.length;
+    st.innerHTML=`<div class="meta"><span>Word ${S.i+1} of ${WORDS}${S.players.length>1?' · '+S.players[turn()].name:''}</span><span data-left>${S.left}s</span></div><div class="timer"><i></i></div>
+      <div class="slots">${[...Array(n)].map((_,i)=>{const k=S.placed[i];return k==null?'<div class="s"></div>':`<div class="s on${i<S.locked?' locked':''}" data-pos="${i}" role="button" aria-label="${S.letters[k]}, tap to take back">${S.letters[k]}</div>`}).join('')}</div>
+      <div class="pool">${S.letters.map((ch,k)=>`<button class="tile${S.placed.includes(k)?' used':''}" data-k="${k}" aria-label="${ch}">${ch}</button>`).join('')}</div>
+      <div class="say ${S.sayCls}">${S.say}</div>
+      <div class="acts"><button class="btn" id="shuf">Shuffle</button><button class="btn" id="hint">Hint</button><button class="btn" id="clr">Clear</button><button class="btn" id="skip">Skip</button></div>`;
+    renderTimer();const dis=S.phase!=='play';['shuf','hint','clr','skip'].forEach(id=>$(id).disabled=dis);
+    $('shuf').onclick=reshuffle;$('hint').onclick=hint;$('clr').onclick=clearAll;$('skip').onclick=skip}
+  $('best').textContent=['5','6','7'].map(l=>best[l]?`Best (${l} letters): ${best[l]}`:'').filter(Boolean).join(' · ')||'Solve fast for a time bonus.'}
+$('stage').addEventListener('click',e=>{const t=e.target.closest('.tile');if(t){place(+t.dataset.k);return}const s=e.target.closest('.s.on');if(s)unplace(+s.dataset.pos)});
+document.addEventListener('keydown',e=>{if((e.target.closest&&e.target.closest('select,input'))||!$('overlay').hidden||!S||S.phase!=='play'||e.ctrlKey||e.metaKey)return;
+  if(/^[a-z]$/i.test(e.key)){const ch=e.key.toLowerCase(),k=S.letters.findIndex((c,i)=>c===ch&&!S.placed.includes(i));if(k>=0)place(k)}
+  else if(e.key==='Backspace'){e.preventDefault();if(S.placed.length>S.locked)unplace(S.placed.length-1)}
+  else if(e.key===' '){e.preventDefault();reshuffle()}else if(e.key==='Enter'&&S.placed.length===S.word.length)check()});
+function setCfg(k,v){cfg[k]=v;store.set('parlor-jumble',cfg);newGame()}
+$('len').onchange=e=>setCfg('len',+e.target.value);$('players').onchange=e=>setCfg('players',+e.target.value);$('newgame').onclick=newGame;
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(![5,6,7].includes(+cfg.len))cfg.len=5;if(![1,2].includes(+cfg.players))cfg.players=1;$('len').value=cfg.len;$('players').value=cfg.players;newGame();
+</script>
+</body>
+</html>

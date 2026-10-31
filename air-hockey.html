@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Air Hockey</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with opponent, level and game length; the table canvas (rival's goal at the top, yours at the bottom, scores on the side rail) with a message card between goals; rules below. */
+:root{
+  --bg:#d6ebf7; --fg:#12263a; --muted:#56708a; --panel:#ffffff; --line:#b9d5e8; --chip:#e4f0f8; --accent:#2c58c4; --accent-ink:#ffffff;
+  --display:"Russo One", "Arial Black", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0b1824; --fg:#e2eef8; --muted:#8fa7bd; --panel:#122333; --line:#1f3a52; --chip:#183044; --accent:#7f9cff; --accent-ink:#0b1824; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0b1824; --fg:#e2eef8; --muted:#8fa7bd; --panel:#122333; --line:#1f3a52; --chip:#183044; --accent:#7f9cff; --accent-ink:#0b1824; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:600px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.screen{position:relative;width:min(100%,calc((100vh - 190px)*9/14));aspect-ratio:9/14;margin:0 auto;border-radius:22px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:0 12px 30px -16px rgba(0,30,60,.6)}
+canvas{width:100%;height:100%;display:block}
+.msg{position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,30,50,.45);text-align:center;padding:20px;color:#fff}
+.msg div{display:flex;flex-direction:column;gap:10px;align-items:center;background:rgba(10,25,45,.75);padding:18px 22px;border-radius:16px}
+.msg b{font-family:var(--display);font-size:28px}
+.msg p{margin:0}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.screen{grid-column:1;grid-row:1/span 5;width:calc((100vh - 20px)*9/14)}h1{font-size:28px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Air Hockey</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players, one screen</option></select>
+      <select id="level" aria-label="Level"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="to" aria-label="Game length"><option value="5">First to 5</option><option value="7">First to 7</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="screen" id="screen"><canvas id="cv"></canvas><div class="msg" id="msg" hidden></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Slide your mallet to hit the puck into the goal at the far end. Your mallet stays in your half.</li>
+        <li>Hit the puck hard by moving the mallet fast; it bounces off the side rails. A goal goes to whoever scored it, and the other player serves.</li>
+        <li>You're the red mallet at the bottom: drag anywhere in the bottom half, or move the mouse.</li>
+        <li>Two players: each drags in their own half of the table. Fingers work at the same time.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const W=360,H=560,MR=26,PR=16,GOAL=120;
+const cfg=Object.assign({mode:'cpu',level:'medium',to:7},store.get('parlor-hockey',{}));
+const tally=store.get('parlor-hockey-tally',{w:0,l:0});
+const cv=$('cv'),cx=cv.getContext('2d');
+let G=null,raf=0,last=0,ptr={};
+function newGame(){cancelAnimationFrame(raf);G={m:[{x:W/2,y:H-80,vx:0,vy:0,tx:W/2,ty:H-80,score:0},{x:W/2,y:80,vx:0,vy:0,tx:W/2,ty:80,score:0}],puck:{x:W/2,y:H/2+60,vx:0,vy:0},state:'ready',serve:0};
+  placePuck(0);draw();showMsg('Air Hockey',cfg.mode==='cpu'?`You're red, at the bottom. First to ${cfg.to}.`:`First to ${cfg.to}.`,'Face off')}
+function placePuck(side){G.puck={x:W/2,y:side===0?H/2+70:H/2-70,vx:0,vy:0};G.m[0].tx=G.m[0].x=W/2;G.m[0].ty=G.m[0].y=H-80;G.m[1].tx=G.m[1].x=W/2;G.m[1].ty=G.m[1].y=80}
+function start(){$('msg').hidden=true;if(G.state==='over'){newGame();$('msg').hidden=true}G.state='run';last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
+function showMsg(t,p,b){$('msg').innerHTML=`<div><b>${t}</b><p>${p}</p><button class="btn primary" id="go">${b}</button></div>`;$('msg').hidden=false;$('go').onclick=e=>{e.stopPropagation();start()}}
+function loop(t){const dt=Math.min(.04,(t-last)/1000);last=t;const n=Math.ceil(dt/(1/360));for(let k=0;k<n;k++)step(dt/n);draw();if(G.state==='run')raf=requestAnimationFrame(loop)}
+function ai(dt){const m=G.m[1],p=G.puck,lv=cfg.level,sp={easy:260,medium:420,hard:620}[lv];let tx,ty;
+  if(p.y<H/2-PR){// attack: get behind the puck (toward our goal) and drive through it
+    // pick a target: the far corner of the goal from the defender, or (sometimes) a bank off the side rail
+    if(G.aimFor!==G.touches){G.aimFor=G.touches;const me=G.m[0],side=me.x<W/2?1:-1;
+      G.aimT=lv==='easy'?{x:W/2+(Math.random()-.5)*GOAL,y:H}:Math.random()<.3?{x:side>0?W-6:6,y:(p.y+H)/2+40}:{x:W/2+side*(GOAL/2-PR-4),y:H+20}}
+    const T=G.aimT,dl=Math.hypot(T.x-p.x,T.y-p.y)||1,ux=(T.x-p.x)/dl,uy=(T.y-p.y)/dl;
+    const sx=p.x-ux*(MR+PR+14),sy=p.y-uy*(MR+PR+14);
+    // line up behind the puck, then drive through it along the aiming line
+    const lined=Math.hypot(m.x-sx,m.y-sy)<14||((p.x-m.x)*ux+(p.y-m.y)*uy)>Math.hypot(p.x-m.x,p.y-m.y)*.92;
+    if(lined){tx=p.x+ux*40;ty=p.y+uy*40}else{tx=sx;ty=Math.max(MR+6,sy)}}
+  else{// defend: if the puck is coming, get in its path (worked out with rail bounces); otherwise stay between it and the goal
+    const line=lv==='easy'?110:70;tx=W/2+(p.x-W/2)*.5;ty=line;
+    if(p.vy<-30&&lv!=='easy'){let x=p.x,y=p.y,vx=p.vx;const t=(line-y)/p.vy;x+=vx*t;const L=PR+6,Rr=W-PR-6,span=Rr-L;let u=((x-L)%(2*span)+2*span)%(2*span);x=L+(u>span?2*span-u:u);
+      tx=lv==='hard'?x:W/2+(x-W/2)*.8}}
+  const dx=tx-m.x,dy=ty-m.y,d=Math.hypot(dx,dy)||1,mv=Math.min(d,sp*dt);m.tx=m.x+dx/d*mv;m.ty=m.y+dy/d*mv}
+function step(dt){if(cfg.mode==='cpu')ai(dt);
+  G.m.forEach((m,k)=>{const minY=k===0?H/2+MR:MR+6,maxY=k===0?H-MR-6:H/2-MR;const nx=Math.max(MR+6,Math.min(W-MR-6,m.tx)),ny=Math.max(minY,Math.min(maxY,m.ty));m.vx=(nx-m.x)/dt;m.vy=(ny-m.y)/dt;m.x=nx;m.y=ny});
+  const p=G.puck;p.x+=p.vx*dt;p.y+=p.vy*dt;const f=Math.pow(.6,dt);p.vx*=f;p.vy*=f;
+  // rails (with goal mouths)
+  if(p.x<PR+6){p.x=PR+6;p.vx=Math.abs(p.vx)*.9;sfx('tick')}if(p.x>W-PR-6){p.x=W-PR-6;p.vx=-Math.abs(p.vx)*.9;sfx('tick')}
+  const inMouth=Math.abs(p.x-W/2)<GOAL/2-PR*.3;
+  if(p.y<PR+6&&!inMouth){p.y=PR+6;p.vy=Math.abs(p.vy)*.9;sfx('tick')}if(p.y>H-PR-6&&!inMouth){p.y=H-PR-6;p.vy=-Math.abs(p.vy)*.9;sfx('tick')}
+  if(p.y<-PR){goal(0);return}if(p.y>H+PR){goal(1);return}
+  // mallet hits: reflect relative velocity, add the mallet's push
+  let touching=0;
+  for(const m of G.m){const dx=p.x-m.x,dy=p.y-m.y,d=Math.hypot(dx,dy);if(d<MR+PR+1&&d>0)touching++;if(d<MR+PR&&d>0){const nx=dx/d,ny=dy/d;p.x=m.x+nx*(MR+PR);p.y=m.y+ny*(MR+PR);
+      const rv=(p.vx-m.vx)*nx+(p.vy-m.vy)*ny;if(rv<0){p.vx-=1.9*rv*nx;p.vy-=1.9*rv*ny;G.touches=(G.touches||0)+1;sfx('clack')}
+      const sp=Math.hypot(p.vx,p.vy);if(sp>1500){p.vx*=1500/sp;p.vy*=1500/sp}}}
+  // a puck squeezed between both mallets squirts out sideways
+  if(touching===2){p.vx+=(p.x<W/2?-1:1)*(200+Math.random()*200)}
+  // a puck pinned against a rail by a mallet pops free toward the middle
+  const moved=Math.hypot(p.x-(G.px||0),p.y-(G.py||0));G.px=p.x;G.py=p.y;
+  if(touching&&moved<.3){G.stuck=(G.stuck||0)+dt;if(G.stuck>.35){p.vx=(W/2-p.x)*4;p.vy=(H/2-p.y)*2;p.x+=Math.sign(W/2-p.x)*6;p.y+=Math.sign(H/2-p.y)*6;G.stuck=0}}else G.stuck=0;
+  // a puck dead on the center line gets a nudge
+  if(Math.hypot(p.vx,p.vy)<4&&Math.abs(p.y-H/2)<PR)p.vy+=(Math.random()-.5)*60}
+function goal(by){const m=G.m[by];m.score++;sfx(cfg.mode==='cpu'?(by===0?'good':'bad'):'good');
+  if(m.score>=+cfg.to){G.state='over';cancelAnimationFrame(raf);const you=by===0;if(cfg.mode==='cpu'){if(you)tally.w++;else tally.l++;store.set('parlor-hockey-tally',tally)}draw();
+    sfx(cfg.mode==='cpu'?(you?'win':'lose'):'win');showMsg(cfg.mode==='cpu'?(you?'You win!':'Computer wins'):(by===0?'Red wins!':'Blue wins!'),`${G.m[0].score} – ${G.m[1].score}${cfg.mode==='cpu'?` · You've won ${tally.w} of ${tally.w+tally.l}`:''}`,'Play again');return}
+  placePuck(1-by);G.state='ready';cancelAnimationFrame(raf);draw();showMsg('Goal!',`${G.m[0].score} – ${G.m[1].score}`,'Face off')}
+function draw(){const d=cv.width/W;cx.setTransform(d,0,0,d,0,0);
+  const g=cx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#eef7fd');g.addColorStop(1,'#d7ecf8');cx.fillStyle=g;cx.fillRect(0,0,W,H);
+  cx.fillStyle='#1f2f42';cx.fillRect(0,0,W,6);cx.fillRect(0,H-6,W,6);cx.fillRect(0,0,6,H);cx.fillRect(W-6,0,6,H);
+  cx.fillStyle='#0b1622';cx.fillRect(W/2-GOAL/2,0,GOAL,7);cx.fillRect(W/2-GOAL/2,H-7,GOAL,7);
+  cx.strokeStyle='rgba(226,54,47,.55)';cx.lineWidth=3;cx.beginPath();cx.moveTo(6,H/2);cx.lineTo(W-6,H/2);cx.stroke();
+  cx.strokeStyle='rgba(44,88,196,.45)';cx.beginPath();cx.arc(W/2,H/2,46,0,7);cx.stroke();cx.beginPath();cx.arc(W/2,0,GOAL/2+10,0,Math.PI);cx.stroke();cx.beginPath();cx.arc(W/2,H,GOAL/2+10,Math.PI,0);cx.stroke();
+  cx.fillStyle='rgba(18,38,58,.22)';cx.font='bold 46px "Russo One",sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(G.m[1].score,W-40,H/2-40);cx.fillText(G.m[0].score,W-40,H/2+44);
+  const p=G.puck;cx.fillStyle='#111';cx.beginPath();cx.arc(p.x,p.y,PR,0,7);cx.fill();cx.strokeStyle='#444';cx.lineWidth=3;cx.beginPath();cx.arc(p.x,p.y,PR-5,0,7);cx.stroke();
+  G.m.forEach((m,k)=>{const col=k===0?'#e2362f':'#2c58c4';cx.fillStyle=col;cx.beginPath();cx.arc(m.x,m.y,MR,0,7);cx.fill();cx.fillStyle='rgba(255,255,255,.3)';cx.beginPath();cx.arc(m.x,m.y,MR-8,0,7);cx.fill();cx.fillStyle=col;cx.beginPath();cx.arc(m.x,m.y,MR-14,0,7);cx.fill()})}
+function size(){const r=$('screen').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,3);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);draw()}
+const scr=$('screen');
+function fp(e){const r=scr.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H}}
+scr.addEventListener('pointerdown',e=>{if(!$('msg').hidden)return;const p=fp(e);const who=cfg.mode==='cpu'||p.y>H/2?0:1;ptr[e.pointerId]=who;G.m[who].tx=p.x;G.m[who].ty=p.y;try{scr.setPointerCapture(e.pointerId)}catch(x){}});
+scr.addEventListener('pointermove',e=>{const p=fp(e);if(e.pointerId in ptr){const m=G.m[ptr[e.pointerId]];m.tx=p.x;m.ty=p.y}else if(e.pointerType==='mouse'&&G.state==='run'){G.m[0].tx=p.x;G.m[0].ty=p.y}});
+const up=e=>{delete ptr[e.pointerId]};scr.addEventListener('pointerup',up);scr.addEventListener('pointercancel',up);
+document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!$('msg').hidden){e.preventDefault();$('go').click()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&G.state==='run'){G.state='paused';cancelAnimationFrame(raf);showMsg('Paused',`${G.m[0].score} – ${G.m[1].score}`,'Resume')}});
+function setCfg(k,v){cfg[k]=v;store.set('parlor-hockey',cfg);newGame();size()}
+$('mode').onchange=e=>setCfg('mode',e.target.value);$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-hockey',cfg)};$('to').onchange=e=>setCfg('to',+e.target.value);$('newgame').onclick=()=>{newGame();size()};
+$('level').hidden=cfg.mode!=='cpu';
+addEventListener('resize',size);
+window.onAppBack=()=>{if(G.state==='run'){G.state='paused';cancelAnimationFrame(raf);showMsg('Paused',`${G.m[0].score} – ${G.m[1].score}`,'Resume');return true}return false};
+for(const[k,ok]of[['mode',['cpu','two']],['level',['easy','medium','hard']],['to',[5,7]]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+newGame();size();
+</script>
+</body>
+</html>

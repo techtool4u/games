@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mini Crossword</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;800&family=Libre+Baskerville:wght@700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with puzzle picker; the 5×5 grid with the current clue bar under it; the Across and Down clue lists beside the grid on wide screens (under it on phones); an on-screen keyboard on touch screens. */
+:root{
+  --bg:#f7f4ec; --fg:#1b1b1b; --muted:#6d6a62; --panel:#ffffff; --line:#e1dccf; --chip:#efebe0; --accent:#1b1b1b; --accent-ink:#ffffff; --sel:#ffda00; --word:#a7d8ff; --block:#1b1b1b; --wrong:#d4321f; --rev:#2c58c4; --key:#e6e2d6;
+  --display:"Libre Baskerville", Georgia, serif;
+  --body:"Libre Franklin", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#121212; --fg:#efefef; --muted:#a3a09a; --panel:#1d1d1d; --line:#353330; --chip:#2a2927; --accent:#efefef; --accent-ink:#121212; --sel:#c9a800; --word:#2f5b80; --block:#000000; --key:#2e2d2a; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#121212; --fg:#efefef; --muted:#a3a09a; --panel:#1d1d1d; --line:#353330; --chip:#2a2927; --accent:#efefef; --accent-ink:#121212; --sel:#c9a800; --word:#2f5b80; --block:#000000; --key:#2e2d2a; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:900px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.game{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:18px;align-items:start}
+.left{display:flex;flex-direction:column;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);border:3px solid var(--block);background:var(--block);gap:1px;width:100%;aspect-ratio:1;user-select:none;-webkit-user-select:none;container-type:inline-size}
+.c{position:relative;background:var(--panel);display:grid;place-items:center;font-weight:800;font-size:11cqw;text-transform:uppercase;cursor:pointer}
+.c.b{background:var(--block);cursor:default}
+.c.w{background:var(--word)}
+.c.s{background:var(--sel)}
+.c sup{position:absolute;left:5%;top:3%;font-size:3.6cqw;font-weight:600;line-height:1}
+.c.bad{color:var(--wrong)}
+.c.bad::after{content:'';position:absolute;inset:0;background:linear-gradient(to top right,transparent 47%,var(--wrong) 48% 52%,transparent 53%);opacity:.5}
+.c.rev{color:var(--rev)}
+.c.ok{color:#1d7a46}
+.bar{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;background:var(--word);border-radius:8px;min-height:52px}
+.bar button{border:0;background:none;font-size:22px;cursor:pointer;height:100%;color:var(--fg)}
+.bar span{font-weight:600;font-size:15.5px;text-align:center;padding:6px 2px}
+.bar b{margin-right:6px}
+.clues{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.clues h3{font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.clues ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.clues li{display:grid;grid-template-columns:22px 1fr;gap:4px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:14.5px;border-left:4px solid transparent}
+.clues li b{font-weight:800}
+.clues li.on{background:var(--word)}
+.clues li.side{border-left-color:var(--word)}
+.clues li.done{color:var(--muted)}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tools select{min-height:36px;padding:6px 10px}
+.time{font-weight:800;font-variant-numeric:tabular-nums;margin-left:auto}
+.kb{display:none;flex-direction:column;gap:6px;user-select:none;-webkit-user-select:none}
+.kr{display:flex;gap:4px;justify-content:center}
+.k{flex:1 1 0;min-width:0;height:46px;border:0;border-radius:6px;background:var(--key);font-weight:800;font-size:15px;text-transform:uppercase;cursor:pointer;padding:0;touch-action:manipulation}
+.k.wide{flex:1.5 1 0;font-size:18px}
+@media (pointer:coarse){.kb{display:flex}}
+@media (max-width:760px){.game{grid-template-columns:1fr}.grid{max-width:min(100%,calc(100vh - 360px));margin:0 auto}.clues{font-size:14px}}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;row-gap:8px;align-items:start;padding-block:8px}.game,.left{display:contents}header{grid-column:2;grid-row:1}.tools{grid-column:1;grid-row:1}.grid{grid-column:1;grid-row:2/span 4;width:calc(100vh - 80px)}.bar{grid-column:2;grid-row:2;min-height:40px}.kb{grid-column:2;grid-row:3}.kb .k{height:38px}.right{grid-column:2;grid-row:4}h1{font-size:26px}.tools .btn,.tools select{min-height:32px;padding:4px 8px;font-size:13px}.tools{flex-wrap:nowrap;width:calc(100vh - 80px)}.time{display:none}}
+@media (max-height:520px) and (orientation:landscape) and (pointer:coarse){.right .clues{display:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Mini Crossword</h1>
+    </div>
+    <div class="controls">
+      <select id="pick" aria-label="Puzzle"></select>
+      <button class="btn primary" id="next">Next puzzle</button>
+    </div>
+  </header>
+  <div class="game">
+    <div class="left">
+      <div class="tools"><select id="check" aria-label="Check"><option value="">Check…</option><option value="sq">Check square</option><option value="word">Check word</option><option value="all">Check puzzle</option></select><select id="reveal" aria-label="Reveal"><option value="">Reveal…</option><option value="sq">Reveal square</option><option value="word">Reveal word</option><option value="all">Reveal puzzle</option></select><button class="btn" id="reset">Clear</button><span class="time" id="time">0:00</span></div>
+      <div class="grid" id="grid" role="grid" aria-label="Crossword grid"></div>
+      <div class="bar"><button id="prev" aria-label="Previous clue">‹</button><span id="clue"></span><button id="nxt" aria-label="Next clue">›</button></div>
+      <div class="kb" id="kb"></div>
+    </div>
+    <div class="right">
+      <div class="clues" id="clues"></div>
+      <div class="panel" style="margin-top:14px">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Fill every white square so the words answer the clues, across and down.</li>
+            <li>Tap a square to select it. Tap it again (or press Space) to switch between across and down. Tap a clue to jump to it.</li>
+            <li>Type letters with the keyboard or the on-screen keys. Backspace deletes, the arrow keys move, Tab goes to the next clue.</li>
+            <li>Check marks wrong letters; Reveal fills in the answer. Revealed letters are shown in blue.</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const PUZZLES=["#bad#moneyeagletreat#dry#","##cat#solostaleeasy#art##","ago##nine#drill#lose##net","##wit#codetakenarea#pen##","##she#spuroperawant#end##","##cap#gluefronteast#eye##","##two#showunionsand#egg##","#debtgenrealtersteampark#","#ship#codeeatenarea#tell#","##tag#truegiantomit#ten##","##ice#trayphaserate#one##","sang#claimalivenovel#went","#chat#logomerryease#tree#","##bat#solostoleeasy#art##","##off#freebibleunit#set##","##act#spuremptyrule#age##","##capwholereuseerrornot##","##ate#clogsuingurge#men##"];
+const CLUES={"act":"Perform on stage","age":"How old you are","ago":"In the past (\"long ___\")","agree":"Say yes to the same idea","align":"Line up in a row","alive":"Living and breathing","allow":"Let happen; permit","ally":"Friend in a fight","also":"Too; as well","alter":"Change, as a dress","and":"Word that joins \"salt\" and \"pepper\"","anger":"Rage or fury","apple":"Fruit that keeps the doctor away, they say","area":"Length times width","art":"What a gallery shows","ate":"Had dinner","aunt":"Your mother's sister","bad":"Not good","bat":"Cricket or baseball club, or a night flyer","bible":"Any book seen as the last word on a subject","board":"Get on a plane, train or ship","boost":"A lift or push upward","break":"Recess from work","bus":"Big vehicle with many stops","cap":"Hat with a peak","care":"Look after","case":"Suitcase, or a detective's job","cat":"Purring pet","chat":"Friendly talk","claim":"State as true","clear":"Easy to see through","clog":"Block up, as a drain","close":"Shut","coast":"Where land meets sea","code":"Secret message system","court":"Tennis venue","cure":"Remedy for an illness","cute":"Adorable","debt":"Money you owe","delay":"Hold-up; make late","delta":"Where a river fans out to the sea","drill":"Tool that bores holes","dry":"Not wet","eagle":"Bird of prey on many flags","ease":"Comfort; no difficulty","east":"Where the sun rises","easy":"Not hard","eat":"Have a meal","eaten":"Consumed, as a meal","egg":"It may be fried, boiled or scrambled","else":"Otherwise (\"or ___\")","empty":"With nothing inside","end":"Finish","enter":"Go in","era":"Long period of history","error":"Mistake","eye":"What you see with","fee":"Charge for a service","felt":"Soft fabric used for hats","fine":"OK; or a parking penalty","free":"Costing nothing","front":"Opposite of back","gasp":"Sharp breath of surprise","genre":"Kind of film or book, like horror","get":"Receive","giant":"Huge person in fairy tales","girl":"Young lady","given":"Handed over","glue":"Sticky stuff","got":"Received","gray":"Color of storm clouds","hero":"Brave rescuer","horse":"Animal you can ride","hotel":"Place to stay on a trip","hurt":"In pain","ice":"Frozen water","idea":"Bright thought","ideal":"Perfect","irate":"Very angry","let":"Allow","logo":"Brand's symbol","lose":"Not win","melt":"Turn from solid to liquid","men":"Gents","merry":"Jolly, as at Christmas","met":"Came across","money":"Cash","naive":"Too trusting","net":"Goal or tennis barrier","nine":"Number after eight","not":"No way","novel":"Long work of fiction","off":"Not on","omit":"Leave out","one":"Single","onion":"Vegetable that makes you cry","opera":"Sung drama","orbit":"Path around a planet","owe":"Be in debt","own":"Possess","park":"Green space in a city","peer":"Look closely; or an equal","pen":"Writing tool","pet":"Dog or cat at home","phase":"Stage, like the moon's","pro":"Expert, not an amateur","rate":"Speed; or give a score to","reuse":"Use again","rule":"Law of a game","sand":"Beach grains","sang":"Did a song","scan":"Look over quickly","scare":"Frighten","sea":"Large body of salt water","set":"Group of matching things","she":"That woman","ship":"Big boat","show":"TV program","smug":"Too pleased with yourself","snag":"Small problem","solo":"Alone; a one-person performance","span":"Distance across, as a bridge","spend":"Use up money","spur":"Urge on","stale":"Not fresh, as bread","star":"Twinkler in the night sky","steam":"Hot water vapor","stole":"Took without asking","suing":"Taking to court","sum":"Total","tag":"Chasing game (\"You're it!\")","taken":"Not free, as a seat","tap":"Faucet","tell":"Inform","ten":"Number of fingers","term":"School semester","than":"Word in comparisons (\"bigger ___\")","thing":"Object","time":"What a clock tells","toe":"Part of your foot","tone":"Musical sound or mood","toy":"Plaything","train":"Rail transport","tray":"Flat thing for carrying cups","treat":"Sweet reward","tree":"Oak or maple","true":"Correct, not false","try":"Attempt","two":"Pair","union":"Joining together","unit":"Single item of measure","urge":"Strong wish","use":"Make use of; employ","want":"Desire","went":"Left; traveled","whole":"Complete","wit":"Cleverness with words","woken":"Roused from sleep","wood":"Timber","wren":"Tiny brown songbird","yet":"Still; so far"};
+const prog=store.get('parlor-crossword',{cur:0,done:{},fills:{}});
+let P=null,timer=0;
+// Number the grid and list its words, the usual way: a square gets a number if it starts an across or down word.
+function load(n){clearInterval(timer);const g=PUZZLES[n];const nums=[],words={a:[],d:[]};let k=0;
+  const open=i=>i>=0&&i<25&&g[i]!=='#';
+  for(let i=0;i<25;i++){if(!open(i))continue;const r=Math.floor(i/5),c=i%5;
+    const sa=(c===0||!open(i-1))&&c<4&&open(i+1),sd=(r===0||!open(i-5))&&r<4&&open(i+5);
+    if(sa||sd){k++;nums[i]=k}
+    if(sa){const cells=[];for(let j=i;j<r*5+5&&open(j);j++)cells.push(j);words.a.push({n:k,cells,dir:'a'})}
+    if(sd){const cells=[];for(let j=i;j<25&&open(j);j+=5)cells.push(j);words.d.push({n:k,cells,dir:'d'})}}
+  [...words.a,...words.d].forEach(w=>{w.ans=w.cells.map(i=>g[i]).join('');w.clue=CLUES[w.ans]||w.ans});
+  const saved=prog.fills[n]||{};
+  P={n,g,nums,words,list:[...words.a,...words.d],fill:unpack(saved.f),marks:unpack(saved.m),sel:0,dir:'a',secs:saved.t||0,done:!!prog.done[n]};
+  P.sel=[...Array(25).keys()].find(i=>g[i]!=='#');prog.cur=n;store.set('parlor-crossword',prog);buildPick();
+  timer=setInterval(()=>{if(!P.done&&!document.hidden&&$('overlay').hidden){P.secs++;$('time').textContent=fmt(P.secs);if(P.secs%5===0)save()}},1000);
+  $('pick').value=n;render()}
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+// A grid's letters (or marks) are saved as a 25-character string with _ for an empty square.
+const pack=a=>a.map(x=>x||'_').join(''),unpack=s=>s?s.split('').map(x=>x==='_'?'':x):Array(25).fill('');
+function save(){prog.fills[P.n]={f:pack(P.fill),m:pack(P.marks),t:P.secs};store.set('parlor-crossword',prog)}
+const wordAt=(i,dir)=>P.words[dir].find(w=>w.cells.includes(i));
+const curWord=()=>wordAt(P.sel,P.dir)||wordAt(P.sel,P.dir==='a'?'d':'a');
+function select(i,toggle){if(P.g[i]==='#')return;if(toggle&&i===P.sel){const o=P.dir==='a'?'d':'a';if(wordAt(i,o))P.dir=o}else{P.sel=i;if(!wordAt(i,P.dir))P.dir=P.dir==='a'?'d':'a'}render()}
+function type(ch){if(P.done)return;const i=P.sel;if(P.marks[i]==='r')return advance();P.fill[i]=ch;P.marks[i]='';sfx('key');advance();checkDone();save();render()}
+function advance(){const w=curWord(),k=w.cells.indexOf(P.sel);
+  // next empty square in this word, else next square, else next clue
+  for(let j=k+1;j<w.cells.length;j++)if(!P.fill[w.cells[j]]){P.sel=w.cells[j];return}
+  if(k<w.cells.length-1){P.sel=w.cells[k+1];return}
+  jump(1,true)}
+function back(){if(P.done)return;const i=P.sel;if(P.fill[i]&&P.marks[i]!=='r'){P.fill[i]='';P.marks[i]=''}else{const w=curWord(),k=w.cells.indexOf(i);if(k>0){P.sel=w.cells[k-1];if(P.marks[P.sel]!=='r'){P.fill[P.sel]='';P.marks[P.sel]=''}}}sfx('tap');save();render()}
+function jump(d,emptyFirst){const L=P.list,w=curWord();let idx=L.indexOf(w);
+  for(let t=0;t<L.length;t++){idx=(idx+d+L.length)%L.length;const x=L[idx];const e=x.cells.find(c=>!P.fill[c]);if(!emptyFirst||e!=null||t===L.length-1){P.dir=x.dir;P.sel=e!=null?e:x.cells[0];break}}render()}
+function move(dr,dc){let r=Math.floor(P.sel/5),c=P.sel%5;const want=dc?'a':'d';if(P.dir!==want&&wordAt(P.sel,want)){P.dir=want;render();return}
+  for(;;){r+=dr;c+=dc;if(r<0||r>4||c<0||c>4)return;const i=r*5+c;if(P.g[i]!=='#'){P.sel=i;render();return}}}
+function checkDone(){if(P.fill.every((x,i)=>P.g[i]==='#'||x)){if(P.fill.every((x,i)=>P.g[i]==='#'||x===P.g[i])){P.done=true;prog.done[P.n]=P.marks.some(m=>m==='r')||prog.done[P.n]==='r'?'r':Math.max(1,P.secs);save();store.set('parlor-crossword',prog);render();
+      setTimeout(()=>{sfx('win');const left=PUZZLES.findIndex((_,k)=>!prog.done[k]);modal(`<h2>Solved!</h2><p>Puzzle ${P.n+1} in ${fmt(P.secs)}${P.marks.some(m=>m==='r')?' (with some reveals)':''}.</p><p>${Object.keys(prog.done).length} of ${PUZZLES.length} puzzles solved.</p><div class="row"><button class="btn" id="mclose">View grid</button>${left>=0?'<button class="btn primary" id="mnext">Next puzzle</button>':''}</div>`);
+        $('mclose').onclick=closeModal;const b=$('mnext');if(b)b.onclick=()=>{closeModal();load(left)}},250)}
+    else{toast('Almost! Something isn\'t quite right.');sfx('bad')}}}
+function doCheck(scope){const cells=scope==='sq'?[P.sel]:scope==='word'?curWord().cells:[...Array(25).keys()].filter(i=>P.g[i]!=='#');let wrong=0;
+  for(const i of cells)if(P.fill[i]&&P.fill[i]!==P.g[i]){P.marks[i]='x';wrong++}else if(P.fill[i]&&P.marks[i]!=='r')P.marks[i]='ok';
+  sfx(wrong?'bad':'good');toast(wrong?`${wrong} wrong letter${wrong>1?'s':''}`:'All good so far');save();render()}
+function doReveal(scope){const cells=scope==='sq'?[P.sel]:scope==='word'?curWord().cells:[...Array(25).keys()].filter(i=>P.g[i]!=='#');
+  for(const i of cells)if(P.fill[i]!==P.g[i]){P.fill[i]=P.g[i];P.marks[i]='r'}sfx('flip');checkDone();save();render()}
+function render(){const w=curWord(),inW=new Set(w?w.cells:[]);
+  $('grid').innerHTML=[...Array(25)].map((_,i)=>P.g[i]==='#'?'<div class="c b"></div>':`<div class="c${i===P.sel?' s':inW.has(i)?' w':''}${P.marks[i]==='x'&&P.fill[i]!==P.g[i]?' bad':P.marks[i]==='r'?' rev':P.done?' ok':''}" data-i="${i}" role="gridcell" aria-label="${P.nums[i]?P.nums[i]+', ':''}${P.fill[i]||'empty'}">${P.nums[i]?`<sup>${P.nums[i]}</sup>`:''}${P.fill[i]}</div>`).join('');
+  $('clue').innerHTML=w?`<b>${w.n}${w.dir==='a'?'A':'D'}</b>${w.clue}`:'';
+  const side=wordAt(P.sel,P.dir==='a'?'d':'a');
+  $('clues').innerHTML=['a','d'].map(d=>`<div><h3>${d==='a'?'Across':'Down'}</h3><ol>${P.words[d].map(x=>`<li class="${x===w?'on':x===side?'side':''}${x.cells.every(c=>P.fill[c])?' done':''}" data-d="${d}" data-n="${x.n}"><b>${x.n}</b><span>${x.clue}</span></li>`).join('')}</ol></div>`).join('');
+  $('time').textContent=fmt(P.secs)}
+function buildPick(){$('pick').innerHTML=PUZZLES.map((_,k)=>`<option value="${k}">Puzzle ${k+1}${prog.done[k]?' ✓':''}</option>`).join('')}
+$('kb').innerHTML=['qwertyuiop','asdfghjkl','zxcvbnm-'].map(r=>`<div class="kr">${[...r].map(c=>c==='-'?'<button class="k wide" data-k="del" aria-label="Delete">⌫</button>':`<button class="k" data-k="${c}">${c}</button>`).join('')}</div>`).join('');
+$('kb').addEventListener('click',e=>{const b=e.target.closest('.k');if(!b)return;if(b.dataset.k==='del')back();else type(b.dataset.k)});
+$('grid').addEventListener('click',e=>{const c=e.target.closest('.c:not(.b)');if(c)select(+c.dataset.i,true)});
+$('clues').addEventListener('click',e=>{const li=e.target.closest('li');if(!li)return;const w=P.words[li.dataset.d].find(x=>x.n===+li.dataset.n);P.dir=w.dir;P.sel=w.cells.find(c=>!P.fill[c])??w.cells[0];render()});
+$('prev').onclick=()=>jump(-1);$('nxt').onclick=()=>jump(1);
+document.addEventListener('keydown',e=>{if((e.target.closest&&e.target.closest('select,input,summary'))||!$('overlay').hidden||e.ctrlKey||e.metaKey||e.altKey)return;
+  if(/^[a-z]$/i.test(e.key)){type(e.key.toLowerCase());return}
+  const k=e.key;if(k==='Backspace'){e.preventDefault();back()}else if(k===' '){e.preventDefault();select(P.sel,true)}else if(k==='Tab'){e.preventDefault();jump(e.shiftKey?-1:1)}
+  else if(k==='ArrowLeft'){e.preventDefault();move(0,-1)}else if(k==='ArrowRight'){e.preventDefault();move(0,1)}else if(k==='ArrowUp'){e.preventDefault();move(-1,0)}else if(k==='ArrowDown'){e.preventDefault();move(1,0)}else if(k==='Enter'){e.preventDefault();jump(1)}});
+$('check').onchange=e=>{if(e.target.value&&!P.done)doCheck(e.target.value);e.target.value=''};
+$('reveal').onchange=e=>{if(e.target.value&&!P.done)doReveal(e.target.value);e.target.value=''};
+$('reset').onclick=()=>{if(!confirm('Clear this puzzle and start it again?'))return;delete prog.fills[P.n];delete prog.done[P.n];store.set('parlor-crossword',prog);buildPick();load(P.n)};
+$('pick').onchange=e=>load(+e.target.value);
+$('next').onclick=()=>{const k=PUZZLES.findIndex((_,j)=>j>P.n&&!prog.done[j]);load(k>=0?k:(P.n+1)%PUZZLES.length)};
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+load(Math.min(prog.cur||0,PUZZLES.length-1));
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Color Echo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with mode; the round dial of four colored pads around a center button that shows the round; status line; best scores; rules below. */
+:root{
+  --bg:#1b1d3a; --fg:#eef0ff; --muted:#a7abd6; --panel:#24274d; --line:#33376a; --chip:#2c2f5c; --accent:#ffd84a; --accent-ink:#1b1d3a; --dial:#0f1029;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#111228; --panel:#1a1c3a; --dial:#08091c; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#111228; --panel:#1a1c3a; --dial:#08091c; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:560px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.stage{display:flex;justify-content:center}
+.dial{position:relative;width:min(100%,calc(100vh - 260px),440px);aspect-ratio:1;border-radius:50%;background:var(--dial);padding:4%;box-sizing:border-box;display:grid;grid-template-columns:1fr 1fr;gap:4%;box-shadow:0 18px 40px -20px #000;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.pad{border:0;cursor:pointer;opacity:.55;transition:opacity .08s,filter .08s,transform .08s;padding:0}
+.pad:nth-child(1){border-radius:100% 0 0 0;background:#2ecc71}
+.pad:nth-child(2){border-radius:0 100% 0 0;background:#e74c3c}
+.pad:nth-child(3){border-radius:0 0 0 100%;background:#f1c40f}
+.pad:nth-child(4){border-radius:0 0 100% 0;background:#3498db}
+.pad.lit{opacity:1;filter:brightness(1.35) drop-shadow(0 0 18px currentColor);transform:scale(1.02)}
+.pad:disabled{cursor:default}
+.hub{position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:var(--panel);border:6px solid var(--dial);display:grid;place-items:center;text-align:center;color:var(--fg)}
+.hub b{display:block;font-family:var(--display);font-size:clamp(28px,8vw,46px);line-height:1}
+.hub small{font-size:12px;color:var(--muted);font-weight:700}
+.hub button{border:0;background:var(--accent);color:var(--accent-ink);font-weight:800;border-radius:999px;padding:8px 16px;cursor:pointer;font-size:15px}
+.say{text-align:center;font-weight:800;min-height:24px}
+.bests{display:flex;gap:8px}
+.bests div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px 10px;font-size:12px;color:var(--muted)}
+.bests b{display:block;font-size:20px;color:var(--fg)}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.stage{grid-column:1;grid-row:1/span 5}.dial{width:calc(100vh - 24px)}h1{font-size:28px}}
+@media (prefers-reduced-motion:reduce){.pad{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Color Echo</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Mode"><option value="classic">Classic</option><option value="strict">Strict (no second chance)</option><option value="reverse">Reverse (play it backwards)</option></select>
+    </div>
+  </header>
+  <div class="stage"><div class="dial" id="dial"><button class="pad" data-k="0" aria-label="Green"></button><button class="pad" data-k="1" aria-label="Red"></button><button class="pad" data-k="2" aria-label="Yellow"></button><button class="pad" data-k="3" aria-label="Blue"></button><div class="hub" id="hub"></div></div></div>
+  <div class="say" id="say" aria-live="polite"></div>
+  <div class="bests" id="bests"></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Watch the pads light up and listen to the notes, then tap the same pads in the same order.</li>
+        <li>Each round adds one more to the end of the sequence, and it plays a little faster as you go.</li>
+        <li><b>Classic</b>: one slip and the sequence plays again for one more try. <b>Strict</b>: one slip ends the game. <b>Reverse</b>: play the sequence back to front.</li>
+        <li>Keyboard: 1 2 3 4, or Q W A S, for green, red, yellow and blue.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const NOTES=[329.63,440,277.18,164.81];// E4, A4, C#4, E3 (a friendly chord)
+const cfg=Object.assign({mode:'classic'},store.get('parlor-echo',{}));
+const best=store.get('parlor-echo-best',{});
+let S={phase:'idle',seq:[],pos:0,second:false},gen=0;
+const pads=[...document.querySelectorAll('.pad')];
+function hub(){const h=$('hub');if(S.phase==='idle'||S.phase==='over'){h.innerHTML=`<button id="start">${S.phase==='over'?'Again':'Start'}</button>`;$('start').onclick=newGame}
+  else h.innerHTML=`<div><b>${S.seq.length}</b><small>${S.phase==='show'?'watch':'your turn'}</small></div>`;
+  $('bests').innerHTML=['classic','strict','reverse'].map(m=>`<div><b>${best[m]||0}</b>best ${m}</div>`).join('')}
+function newGame(){gen++;S={phase:'show',seq:[rand(4)],pos:0,second:false};$('say').textContent='';sfx('start');setTimeout(()=>show(gen),500)}
+function speed(){const n=S.seq.length;return Math.max(220,620-n*28)}
+function light(k,ms){const p=pads[k];p.classList.add('lit');sfx('note',{f:NOTES[k],d:ms/1000+.1});setTimeout(()=>p.classList.remove('lit'),ms)}
+function show(g){if(g!==gen)return;S.phase='show';S.pos=0;pads.forEach(p=>p.disabled=true);hub();const sp=speed();let i=0;
+  const next=()=>{if(g!==gen)return;if(i<S.seq.length){light(S.seq[i],sp*.75);i++;setTimeout(next,sp)}else{S.phase='play';pads.forEach(p=>p.disabled=false);$('say').textContent=cfg.mode==='reverse'?'Your turn: play it backwards.':'Your turn.';hub()}};setTimeout(next,300)}
+function press(k){if(S.phase!=='play')return;light(k,220);const want=cfg.mode==='reverse'?S.seq[S.seq.length-1-S.pos]:S.seq[S.pos];
+  if(k!==want){if(cfg.mode!=='strict'&&!S.second){S.second=true;S.phase='show';sfx('bad');$('say').textContent='Not quite! Watch again.';const g=gen;setTimeout(()=>show(g),900);return}
+    gameOver();return}
+  S.pos++;if(S.pos===S.seq.length){S.second=false;S.phase='show';const n=S.seq.length;if(n%5===0)sfx('good');$('say').textContent=n%5===0?`${n} in a row!`:'';S.seq.push(rand(4));const g=gen;setTimeout(()=>show(g),700)}}
+function gameOver(){S.phase='over';pads.forEach(p=>p.disabled=true);const score=S.seq.length-1,nb=score>(best[cfg.mode]||0);if(nb){best[cfg.mode]=score;store.set('parlor-echo-best',best)}
+  sfx(nb&&score?'win':'lose');$('say').textContent=`Game over: you remembered ${score}${nb&&score?', a new best!':'.'}`;
+  // show the step that was missed
+  const want=cfg.mode==='reverse'?S.seq[S.seq.length-1-S.pos]:S.seq[S.pos];let blink=0;const b=setInterval(()=>{pads[want].classList.toggle('lit');if(++blink>5){clearInterval(b);pads[want].classList.remove('lit')}},180);hub()}
+pads.forEach(p=>p.addEventListener('pointerdown',e=>{e.preventDefault();if(!p.disabled)press(+p.dataset.k)}));
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;const k={'1':0,'2':1,'3':2,'4':3,q:0,w:1,a:2,s:3}[e.key.toLowerCase()];if(k!=null)press(k);else if((e.key===' '||e.key==='Enter')&&(S.phase==='idle'||S.phase==='over')){e.preventDefault();newGame()}});
+$('mode').onchange=e=>{cfg.mode=e.target.value;store.set('parlor-echo',cfg);gen++;S={phase:'idle',seq:[],pos:0};pads.forEach(p=>p.disabled=true);$('say').textContent='';hub()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S.phase!=='idle'&&S.phase!=='over'){gen++;S.phase='idle';$('say').textContent='Paused. Start again when you\'re ready.';hub()}});
+window.onAppBack=()=>false;
+if(!['classic','strict','reverse'].includes(cfg.mode))cfg.mode='classic';$('mode').value=cfg.mode;pads.forEach(p=>p.disabled=true);hub();
+</script>
+</body>
+</html>
