@@ -63,6 +63,8 @@ Self-contained HTML files. No install or build step.
 - `ship-captain-crew.html` — Ship, Captain and Crew, the five-dice game, for 2 to 6 players or vs computers.
 - `bunco.html` — Bunco, the team dice party game: six rounds, Buncos and three-of-a-kinds, vs computers or 4 players.
 - `horse-race.html` — Horse Race, bet on horses 2 to 12 and roll the dice to run them, with fair odds over 3 to 8 races.
+- `word-search.html` — Word Search, 12 themed word lists in three grid sizes, drag or tap to circle words.
+- `word-guess.html` — Word Guess, find the five-letter word in six tries, with a daily word, practice, hard mode and stats.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
