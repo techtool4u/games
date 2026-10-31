@@ -72,6 +72,9 @@ Self-contained HTML files. No install or build step.
 - `lights-off.html` — Lights Off, switch every light off on 3×3 to 7×7 grids, with exact fewest-move counts and hints.
 - `tower-of-hanoi.html` — Tower of Hanoi, 3 to 8 discs with move counting, undo and a demo that solves from any position.
 - `bridges.html` — Bridges, link numbered islands with bridges; generated puzzles with exactly one solution in three sizes.
+- `box-pusher.html` — Box Pusher, push crates onto targets across 30 original solver-checked levels.
+- `pipe-connect.html` — Pipe Connect, join matching colored dots with pipes that fill the whole grid, 5×5 to 9×9.
+- `tile-clear.html` — Tile Clear, clear groups of same-colored tiles for (n − 2)² points, with undo and best scores.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

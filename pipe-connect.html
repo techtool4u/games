@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pipe Connect</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with size; pairs connected and grid filled; the dark grid with colored dots and the pipes drawn between them (SVG); Undo, Restart, Hint; rules below. */
+:root{
+  --bg:#0e2233; --fg:#e8f4ff; --muted:#93acc4; --panel:#13293d; --line:#22405c; --chip:#1a3550; --accent:#38bdf8; --accent-ink:#0e2233; --cell:#112b42; --grid:#1d3d5a;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#081521; --panel:#0e2031; --cell:#0b2233; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#081521; --panel:#0e2031; --cell:#0b2233; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:640px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.stats{display:flex;gap:8px}
+.stats div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 12px;font-size:13px;color:var(--muted)}
+.stats b{display:block;font-weight:800;font-size:22px;color:var(--fg);font-variant-numeric:tabular-nums}
+.stage{display:flex;justify-content:center}
+svg.board{width:min(100%,calc(100vh - 250px),560px);aspect-ratio:1;background:var(--cell);border-radius:14px;border:1px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
+.gl{stroke:var(--grid);stroke-width:.03}
+.fillc{opacity:.2}
+.pipe{fill:none;stroke-width:.34;stroke-linecap:round;stroke-linejoin:round}
+.end{stroke:rgba(0,0,0,.25);stroke-width:.04}
+.end.hint{animation:blink .6s 4 alternate}
+@keyframes blink{to{opacity:.25}}
+.acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.stage{grid-column:1;grid-row:1/span 5}svg.board{width:calc(100vh - 20px)}h1{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Pipe Connect</h1>
+    </div>
+    <div class="controls">
+      <select id="size" aria-label="Size"><option value="5">5×5</option><option value="6">6×6</option><option value="7">7×7</option><option value="8">8×8</option><option value="9">9×9</option></select>
+      <button class="btn primary" id="newgame">New puzzle</button>
+    </div>
+  </header>
+  <div class="stats"><div><b id="pairs">0/0</b>pairs joined</div><div><b id="fill">0%</b>grid filled</div><div><b id="solved">0</b>solved</div></div>
+  <div class="stage"><svg class="board" id="board" role="img" aria-label="Pipe grid"></svg></div>
+  <div class="acts"><button class="btn" id="undo">Undo</button><button class="btn" id="restart">Restart</button><button class="btn" id="hint">Hint</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Drag from a dot to draw a pipe to the other dot of the same color. Pipes can turn corners but can't cross.</li>
+        <li>Join every pair and fill every square of the grid to win.</li>
+        <li>Drawing over another pipe cuts it back. Drag from the end of a pipe to carry on, or tap a dot to clear its pipe.</li>
+        <li>Hint draws one pipe for you (its route in a known solution).</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const COLORS=['#f43f5e','#3b82f6','#22c55e','#facc15','#f97316','#06b6d4','#d946ef','#a3e635','#f5f5f4','#8b5cf6','#be123c','#14b8a6'];
+const cfg=Object.assign({size:6},store.get('parlor-pipes',{}));
+const solvedCt=store.get('parlor-pipes-solved',{});
+let P=null;
+// ---------- puzzle: one path through every square, scrambled by "backbite" moves, then cut into pieces ----------
+function hamPath(n){let path=[];for(let r=0;r<n;r++)for(let c=0;c<n;c++)path.push(r*n+(r%2?n-1-c:c));
+  const adj=(a,b)=>{const ar=Math.floor(a/n),ac=a%n,br=Math.floor(b/n),bc=b%n;return Math.abs(ar-br)+Math.abs(ac-bc)===1};
+  const nb=i=>{const r=Math.floor(i/n),c=i%n,o=[];if(r)o.push(i-n);if(r<n-1)o.push(i+n);if(c)o.push(i-1);if(c<n-1)o.push(i+1);return o};
+  for(let t=0;t<n*n*40;t++){if(Math.random()<.5)path.reverse();const end=path[path.length-1],opts=nb(end).filter(x=>x!==path[path.length-2]);const x=opts[rand(opts.length)];
+    const k=path.indexOf(x);// connect end to x, reverse the part after x
+    path=path.slice(0,k+1).concat(path.slice(k+1).reverse())}
+  return path}
+function makePuzzle(n){const want={5:[4,5],6:[5,6],7:[6,7],8:[7,9],9:[8,10]}[n];
+  for(let t=0;t<200;t++){const path=hamPath(n),k=want[0]+rand(want[1]-want[0]+1);
+    // random cut points, each piece at least 3 long
+    const cuts=new Set();let tries=0;while(cuts.size<k-1&&tries++<500){const c=3+rand(n*n-5);if([...cuts].every(x=>Math.abs(x-c)>=3)&&c>=3&&n*n-c>=3)cuts.add(c)}
+    if(cuts.size<k-1)continue;const cs=[0,...[...cuts].sort((a,b)=>a-b),n*n];const pieces=[];for(let j=0;j<cs.length-1;j++)pieces.push(path.slice(cs[j],cs[j+1]));
+    // reject pieces whose two ends touch (too trivial) and puzzles where a piece runs straight from end to end along an edge
+    if(pieces.some(p=>{const a=p[0],b=p[p.length-1];return Math.abs(Math.floor(a/n)-Math.floor(b/n))+Math.abs(a%n-b%n)<=1}))continue;
+    return pieces}
+  return null}
+function newGame(){closeModal();const n=+cfg.size;const pieces=makePuzzle(n);
+  P={n,sol:pieces,ends:pieces.map(p=>[p[0],p[p.length-1]]),paths:pieces.map(()=>[]),hist:[],won:false,hint:-1};render()}
+const endColor=i=>P.ends.findIndex(e=>e.includes(i));
+const owner=i=>P.paths.findIndex(p=>p.includes(i));
+const adjc=(a,b)=>{const n=P.n;return Math.abs(Math.floor(a/n)-Math.floor(b/n))+Math.abs(a%n-b%n)===1};
+const complete=c=>{const p=P.paths[c],e=P.ends[c];return p.length>1&&e.includes(p[0])&&e.includes(p[p.length-1])&&p[0]!==p[p.length-1]};
+function render(){const n=P.n,sv=$('board');sv.setAttribute('viewBox',`0 0 ${n} ${n}`);let h='';
+  P.paths.forEach((p,c)=>p.forEach(i=>{h+=`<rect class="fillc" x="${i%n}" y="${Math.floor(i/n)}" width="1" height="1" fill="${COLORS[c]}"/>`}));
+  for(let k=1;k<n;k++)h+=`<line class="gl" x1="${k}" y1="0" x2="${k}" y2="${n}"/><line class="gl" x1="0" y1="${k}" x2="${n}" y2="${k}"/>`;
+  P.paths.forEach((p,c)=>{if(p.length>1)h+=`<polyline class="pipe" stroke="${COLORS[c]}" points="${p.map(i=>`${i%n+.5},${Math.floor(i/n)+.5}`).join(' ')}"/>`});
+  P.ends.forEach((e,c)=>e.forEach(i=>{h+=`<circle class="end${P.hint===c?' hint':''}" cx="${i%n+.5}" cy="${Math.floor(i/n)+.5}" r="${complete(c)?.36:.32}" fill="${COLORS[c]}"/>`}));
+  sv.innerHTML=h;const done=P.paths.filter((_,c)=>complete(c)).length,filled=new Set(P.paths.flat()).size;
+  $('pairs').textContent=`${done}/${P.ends.length}`;$('fill').textContent=`${Math.round(100*filled/(n*n))}%`;$('solved').textContent=solvedCt[n]||0}
+function check(){const n=P.n,all=P.ends.every((_,c)=>complete(c)),full=new Set(P.paths.flat()).size===n*n;
+  if(all&&full){P.won=true;solvedCt[n]=(solvedCt[n]||0)+1;store.set('parlor-pipes-solved',solvedCt);render();setTimeout(()=>{sfx('win');modal(`<h2>All flowing!</h2><p>${P.ends.length} pipes on a ${n}×${n} grid.</p><div class="row"><button class="btn primary" id="mnew">Next puzzle</button></div>`);$('mnew').onclick=newGame},300)}
+  else if(all)toast('Every pair is joined. Now fill every square!')}
+// ---------- drawing ----------
+let drag=null;
+function cellAt(e){const r=$('board').getBoundingClientRect(),n=P.n,c=Math.floor((e.clientX-r.left)/r.width*n),rr=Math.floor((e.clientY-r.top)/r.height*n);return c<0||rr<0||c>=n||rr>=n?null:rr*n+c}
+$('board').addEventListener('pointerdown',e=>{if(P.won)return;const i=cellAt(e);if(i==null)return;e.preventDefault();
+  let c=endColor(i);const before=P.paths.map(p=>p.slice());
+  if(c>=0){P.paths[c]=[i]}else{c=owner(i);if(c<0)return;P.paths[c]=P.paths[c].slice(0,P.paths[c].indexOf(i)+1)}
+  drag={c,before,moved:false};P.hint=-1;sfx('tap');render();try{$('board').setPointerCapture(e.pointerId)}catch(x){}});
+$('board').addEventListener('pointermove',e=>{if(!drag)return;const i=cellAt(e);if(i==null)return;const p=P.paths[drag.c],last=p[p.length-1];if(i===last)return;
+  // back up along your own pipe
+  const k=p.indexOf(i);if(k>=0){P.paths[drag.c]=p.slice(0,k+1);drag.moved=true;render();return}
+  if(!adjc(last,i))return;if(complete(drag.c))return;
+  const ec=endColor(i);if(ec>=0&&ec!==drag.c)return;
+  // cut any other pipe we run over
+  const o=owner(i);if(o>=0&&o!==drag.c){P.paths[o]=P.paths[o].slice(0,P.paths[o].indexOf(i));if(P.paths[o].length===1&&endColor(P.paths[o][0])!==o)P.paths[o]=[]}
+  p.push(i);drag.moved=true;sfx(complete(drag.c)?'good':'tick');render()});
+document.addEventListener('pointerup',()=>{if(!drag)return;const d=drag;drag=null;
+  if(!d.moved&&P.paths[d.c].length===1)P.paths[d.c]=[];
+  if(JSON.stringify(d.before)!==JSON.stringify(P.paths))P.hist.push(d.before);render();check()});
+$('undo').onclick=()=>{if(P.won||!P.hist.length)return;P.paths=P.hist.pop();sfx('slide');render()};
+$('restart').onclick=()=>{if(P.won)return;P.hist.push(P.paths.map(p=>p.slice()));P.paths=P.paths.map(()=>[]);render()};
+$('hint').onclick=()=>{if(P.won)return;const c=P.sol.findIndex((s,k)=>!complete(k)||P.paths[k].join()!==s.join()&&P.paths[k].join()!==s.slice().reverse().join());if(c<0)return;
+  P.hist.push(P.paths.map(p=>p.slice()));const s=P.sol[c];P.paths.forEach((p,k)=>{if(k!==c){const cut=p.findIndex(i=>s.includes(i));if(cut>=0)P.paths[k]=p.slice(0,cut)}});P.paths[c]=s.slice();P.hint=c;sfx('select');render();check()};
+$('size').onchange=e=>{cfg.size=+e.target.value;store.set('parlor-pipes',cfg);newGame()};$('newgame').onclick=newGame;
+document.addEventListener('keydown',e=>{if((e.key==='z'&&(e.ctrlKey||e.metaKey))||e.key==='u')$('undo').click()});
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(![5,6,7,8,9].includes(+cfg.size))cfg.size=6;$('size').value=cfg.size;newGame();
+</script>
+</body>
+</html>

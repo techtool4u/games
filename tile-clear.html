@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tile Clear</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with colors and size; score, best and the points of the group you're pointing at; the tile board; Undo and New game; rules below. */
+:root{
+  --bg:#22223b; --fg:#f2e9e4; --muted:#b5abb8; --panel:#2c2c4a; --line:#3d3d63; --chip:#34345a; --accent:#f2c14e; --accent-ink:#22223b; --cellbg:#1b1b30;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#16162a; --panel:#1f1f38; --cellbg:#121224; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#16162a; --panel:#1f1f38; --cellbg:#121224; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:640px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.stats{display:flex;gap:8px}
+.stats div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 12px;font-size:13px;color:var(--muted)}
+.stats b{display:block;font-weight:800;font-size:22px;color:var(--fg);font-variant-numeric:tabular-nums}
+.stage{display:flex;justify-content:center}
+.board{position:relative;width:min(100%,calc((100vh - 250px)*var(--w)/var(--h)),560px);aspect-ratio:var(--w)/var(--h);background:var(--cellbg);border-radius:14px;padding:4px;box-sizing:border-box;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.tile{position:absolute;width:calc((100% - 8px)/var(--w));height:calc((100% - 8px)/var(--h));left:4px;top:4px;padding:2px;box-sizing:border-box;transition:transform .2s ease-in;cursor:pointer}
+.tile i{display:block;width:100%;height:100%;border-radius:22%;background:var(--c);box-shadow:inset 0 -3px 0 rgba(0,0,0,.25),inset 0 2px 0 rgba(255,255,255,.25)}
+.board.init .tile{transition:none}
+.tile.hl i{filter:brightness(1.3);box-shadow:0 0 0 2px #fff}
+.tile.pop{animation:pop .2s forwards}
+@keyframes pop{to{transform:var(--t) scale(0);opacity:0}}
+.acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.stage{grid-column:1;grid-row:1/span 5}.board{width:calc((100vh - 20px)*var(--w)/var(--h))}h1{font-size:26px}}
+@media (prefers-reduced-motion:reduce){.tile{transition:none}.tile.pop{animation:none;opacity:0}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Tile Clear</h1>
+    </div>
+    <div class="controls">
+      <select id="colors" aria-label="Colors"><option value="3">3 colors (easy)</option><option value="4">4 colors</option><option value="5">5 colors (hard)</option></select>
+      <select id="size" aria-label="Board"><option value="s">Small 8×10</option><option value="l">Large 12×12</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="stats"><div><b id="score">0</b>score</div><div><b id="group">–</b>this group</div><div><b id="best">0</b>best</div><div><b id="left">0</b>tiles left</div></div>
+  <div class="stage"><div class="board" id="board" role="grid" aria-label="Tiles"></div></div>
+  <div class="acts"><button class="btn" id="undo">Undo</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Tap a group of two or more touching tiles of the same color to clear it. Tiles above fall down, and empty columns close up to the left.</li>
+        <li>A group of n tiles scores (n − 2)². Big groups are worth far more: 5 tiles score 9, 10 tiles score 64. So build big groups before you clear them.</li>
+        <li>Clear the whole board for a 1,000 point bonus. The game ends when no group of two is left; each leftover tile costs a little.</li>
+        <li>On a computer, point at a group to see what it's worth. Undo takes back a move.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const PAL=['#f25f5c','#4ea8de','#7bd389','#f2c14e','#b388eb'];
+const cfg=Object.assign({colors:4,size:'s'},store.get('parlor-tileclear',{}));
+const best=store.get('parlor-tileclear-best',{});
+let S=null,hl=[];
+const dims=()=>cfg.size==='l'?[12,12]:[8,10];
+const key=()=>cfg.colors+cfg.size;
+function newGame(){closeModal();const [W,H]=dims();let id=0;
+  // columns bottom-up; col[x][0] is the bottom tile
+  S={W,H,cols:[...Array(W)].map(()=>[...Array(H)].map(()=>({c:rand(+cfg.colors),id:id++}))),score:0,hist:[],over:false};build();render()}
+function group(x,y){const t=S.cols[x]&&S.cols[x][y];if(!t)return[];const seen=new Set([x+','+y]),st=[[x,y]],out=[];
+  while(st.length){const [a,b]=st.pop();out.push([a,b]);for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const X=a+dx,Y=b+dy,k=X+','+Y;const u=S.cols[X]&&S.cols[X][Y];if(u&&u.c===t.c&&!seen.has(k)){seen.add(k);st.push([X,Y])}}}return out}
+const pts=n=>n<2?0:(n-2)*(n-2);
+function anyMove(){for(let x=0;x<S.cols.length;x++)for(let y=0;y<S.cols[x].length;y++){const t=S.cols[x][y];const r=S.cols[x+1]&&S.cols[x+1][y],u=S.cols[x][y+1];if((r&&r.c===t.c)||(u&&u.c===t.c))return true}return false}
+function build(){const b=$('board');b.classList.add('init');requestAnimationFrame(()=>requestAnimationFrame(()=>b.classList.remove('init')));b.style.setProperty('--w',S.W);b.style.setProperty('--h',S.H);b.innerHTML='';S.cols.flat().forEach(t=>{const el=document.createElement('div');el.className='tile';el.dataset.id=t.id;el.innerHTML='<i></i>';el.style.setProperty('--c',PAL[t.c]);b.appendChild(el)})}
+function render(){const b=$('board'),bw=b.clientWidth-8,bh=b.clientHeight-8,cw=bw/S.W,ch=bh/S.H;const live=new Set();
+  S.cols.forEach((col,x)=>col.forEach((t,y)=>{live.add(String(t.id));const el=b.querySelector(`[data-id="${t.id}"]`);if(!el)return;const tr=`translate(${x*cw}px,${(S.H-1-y)*ch}px)`;el.style.transform=tr;el.style.setProperty('--t',tr);el.classList.toggle('hl',hl.some(([a,c])=>a===x&&c===y))}));
+  b.querySelectorAll('.tile').forEach(el=>{if(!live.has(el.dataset.id)&&!el.classList.contains('pop')){el.classList.add('pop');setTimeout(()=>el.remove(),220)}});
+  $('score').textContent=S.score;$('best').textContent=best[key()]||0;$('left').textContent=S.cols.reduce((a,c)=>a+c.length,0);$('group').textContent=hl.length>1?`+${pts(hl.length)}`:'–'}
+function clearAt(x,y){if(S.over)return;const g=group(x,y);if(g.length<2){sfx('error');return}
+  S.hist.push({cols:S.cols.map(c=>c.slice()),score:S.score});
+  const kill=new Set(g.map(([a,b])=>a+','+b));S.cols=S.cols.map((col,a)=>col.filter((_,b)=>!kill.has(a+','+b))).filter(c=>c.length);
+  S.score+=pts(g.length);hl=[];sfx(g.length>=8?'clear':g.length>=4?'pop':'tick',{n:Math.min(4,Math.floor(g.length/4))});render();
+  if(!anyMove()){S.over=true;const left=S.cols.reduce((a,c)=>a+c.length,0);let bonus=0;if(!left){bonus=1000}const pen=left?Math.min(S.score,left*2):0;S.score+=bonus-pen;
+    const nb=S.score>(best[key()]||0);if(nb){best[key()]=S.score;store.set('parlor-tileclear-best',best)}render();
+    setTimeout(()=>{sfx(left?'end':'win');modal(`<h2>${left?'No more moves':'Board cleared!'}</h2><p>${left?`${left} tile${left>1?'s':''} left (−${pen}).`:'+1,000 bonus!'} Final score ${S.score}${nb?' · a new best':''}.</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);$('mnew').onclick=newGame},500)}}
+function tileAt(e){const b=$('board').getBoundingClientRect(),x=Math.floor((e.clientX-b.left-4)/(b.width-8)*S.W),y=S.H-1-Math.floor((e.clientY-b.top-4)/(b.height-8)*S.H);return[x,y]}
+$('board').addEventListener('click',e=>{const [x,y]=tileAt(e);if(S.cols[x]&&S.cols[x][y])clearAt(x,y)});
+$('board').addEventListener('pointermove',e=>{if(e.pointerType!=='mouse')return;const [x,y]=tileAt(e);const g=group(x,y);const k=JSON.stringify(g.length>1?g:[]);if(k!==JSON.stringify(hl)){hl=g.length>1?g:[];render()}});
+$('board').addEventListener('pointerleave',()=>{hl=[];render()});
+$('undo').onclick=()=>{if(!S.hist.length)return;const h=S.hist.pop();S.cols=h.cols;S.score=h.score;S.over=false;hl=[];build();render()};
+function setCfg(k,v){cfg[k]=v;store.set('parlor-tileclear',cfg);newGame()}
+$('colors').onchange=e=>setCfg('colors',+e.target.value);$('size').onchange=e=>setCfg('size',e.target.value);$('newgame').onclick=newGame;
+addEventListener('resize',()=>S&&render());
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(![3,4,5].includes(+cfg.colors))cfg.colors=4;if(!['s','l'].includes(cfg.size))cfg.size='s';$('colors').value=cfg.colors;$('size').value=cfg.size;newGame();
+</script>
+</body>
+</html>
