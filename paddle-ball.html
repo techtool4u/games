@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paddle Ball</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with opponent, level and game length; the court canvas (rival paddle at the top, yours at the bottom, scores in the middle) with a message card between points; rules below. */
+:root{
+  --bg:#0b0b0f; --fg:#f4f4f4; --muted:#a0a0a8; --panel:#16161c; --line:#2a2a33; --chip:#1f1f27; --accent:#59d36b; --accent-ink:#0b0b0f; --court:#050507;
+  --display:"Press Start 2P", monospace;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#060608; --panel:#101015; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#060608; --panel:#101015; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:600px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+h1{font-size:clamp(20px,5vw,30px);line-height:1.2}
+.screen{position:relative;width:min(100%,calc((100vh - 190px)*3/4));aspect-ratio:3/4;margin:0 auto;border-radius:14px;overflow:hidden;background:var(--court);border:2px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{width:100%;height:100%;display:block}
+.msg{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.5);text-align:center;padding:20px}
+.msg div{display:flex;flex-direction:column;gap:10px;align-items:center}
+.msg b{font-family:var(--display);font-size:15px;line-height:1.5;color:var(--accent)}
+.msg p{margin:0}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.screen{grid-column:1;grid-row:1/span 5;width:calc((100vh - 20px)*3/4)}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Paddle Ball</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players, one screen</option></select>
+      <select id="level" aria-label="Level"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="to" aria-label="Game length"><option value="5">First to 5</option><option value="7">First to 7</option><option value="11">First to 11</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="screen" id="screen"><canvas id="cv"></canvas><div class="msg" id="msg" hidden></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Keep the ball in play with your paddle and slip it past your rival's. Miss and they score.</li>
+        <li>Where the ball hits your paddle sets its angle, and every rally makes it a little faster.</li>
+        <li>Your paddle is at the bottom: drag along the bottom half of the court, move the mouse, or use ← and →.</li>
+        <li>Two players: the top player drags in the top half (or uses A and D), the bottom player in the bottom half (or ← and →).</li>
+        <li>P pauses.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const W=300,H=400,PW=56,PH=8,R=6;
+const cfg=Object.assign({mode:'cpu',level:'medium',to:7},store.get('parlor-pong',{}));
+const tally=store.get('parlor-pong-tally',{w:0,l:0});
+const cv=$('cv'),cx=cv.getContext('2d');
+let G=null,raf=0,last=0,keys={},touch={};
+function newGame(){cancelAnimationFrame(raf);G={p:[{x:W/2,score:0},{x:W/2,score:0}],ball:null,serve:Math.random()<.5?0:1,state:'ready',flash:0};
+  serve();showMsg('Paddle Ball',cfg.mode==='cpu'?`You're at the bottom. First to ${cfg.to} wins.`:`First to ${cfg.to} wins.`,'Start')}
+// player 0 is at the bottom, player 1 at the top
+function serve(){const dir=G.serve===0?-1:1,a=(Math.random()*50-25)*Math.PI/180;G.ball={x:W/2,y:H/2,vx:Math.sin(a)*200,vy:Math.cos(a)*200*dir,sp:200,wait:.7}}
+function start(){$('msg').hidden=true;if(G.state==='over')newGame(),$('msg').hidden=true;G.state='run';last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
+function showMsg(t,p,b){$('msg').innerHTML=`<div><b>${t}</b><p>${p}</p><button class="btn primary" id="go">${b}</button></div>`;$('msg').hidden=false;$('go').onclick=e=>{e.stopPropagation();start()}}
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;const n=Math.ceil(dt/(1/240));for(let k=0;k<n;k++)step(dt/n);draw();if(G.state==='run')raf=requestAnimationFrame(loop)}
+function aiTarget(){// predict where the ball crosses the top paddle line, with level-dependent error
+  // the computer only reacts once the ball is well on its way, sooner on harder levels
+  const b=G.ball,react={easy:.5,medium:.68,hard:.9}[cfg.level];if(b.vy>0||b.y>H*react)return W/2+(b.x-W/2)*.3;let x=b.x,y=b.y,vx=b.vx,vy=b.vy;let guard=0;while(y>24&&guard++<2000){const t=(24-y)/vy;const nx=x+vx*t;if(nx>=R&&nx<=W-R){x=nx;break}const tw=vx>0?(W-R-x)/vx:(R-x)/vx;x+=vx*tw;y+=vy*tw;vx=-vx}
+  const err={easy:44,medium:30,hard:14}[cfg.level];return x+(G.aiErr||0)*err}
+function step(dt){const P=G.p,b=G.ball,sp={easy:150,medium:210,hard:300}[cfg.level];
+  if(keys.ArrowLeft)P[0].x-=320*dt;if(keys.ArrowRight)P[0].x+=320*dt;
+  if(cfg.mode==='two'){if(keys.a||keys.A)P[1].x-=320*dt;if(keys.d||keys.D)P[1].x+=320*dt}
+  else{const tx=aiTarget(),d=tx-P[1].x;P[1].x+=Math.max(-sp*dt,Math.min(sp*dt,d))}
+  for(const p of P)p.x=Math.max(PW/2,Math.min(W-PW/2,p.x));
+  if(b.wait>0){b.wait-=dt;return}
+  b.x+=b.vx*dt;b.y+=b.vy*dt;
+  if(b.x<R){b.x=R;b.vx=Math.abs(b.vx);sfx('tick')}if(b.x>W-R){b.x=W-R;b.vx=-Math.abs(b.vx);sfx('tick')}
+  const hit=(p,py,dir)=>{if(Math.abs(b.x-p.x)>PW/2+R)return false;const off=(b.x-p.x)/(PW/2),ang=off*60*Math.PI/180;b.sp=Math.min(560,b.sp*1.06);b.vx=Math.sin(ang)*b.sp;b.vy=Math.cos(ang)*b.sp*dir;b.y=py;G.aiErr=Math.random()*2-1;sfx('bounce');return true};
+  if(b.vy>0&&b.y+R>=H-24&&b.y+R<=H-24+PH+6)hit(P[0],H-24-R,-1);
+  if(b.vy<0&&b.y-R<=24&&b.y-R>=24-PH-6)hit(P[1],24+R,1);
+  if(b.y>H+R||b.y<-R){const scorer=b.y<0?0:1;P[scorer].score++;G.flash=1;G.serve=1-scorer;
+    sfx(cfg.mode==='cpu'?(scorer===0?'score':'bad'):'score');
+    if(P[scorer].score>=+cfg.to){G.state='over';const youWin=scorer===0;if(cfg.mode==='cpu'){if(youWin)tally.w++;else tally.l++;store.set('parlor-pong-tally',tally)}
+      sfx(cfg.mode==='cpu'?(youWin?'win':'lose'):'win');showMsg(cfg.mode==='cpu'?(youWin?'You win!':'Computer wins'):(scorer===0?'Bottom player wins!':'Top player wins!'),`${P[0].score} – ${P[1].score}${cfg.mode==='cpu'?` · You've won ${tally.w} of ${tally.w+tally.l}`:''}`,'Play again');return}
+    serve()}}
+function draw(){const d=cv.width/W;cx.setTransform(d,0,0,d,0,0);cx.fillStyle='#050507';cx.fillRect(0,0,W,H);
+  cx.strokeStyle='rgba(255,255,255,.18)';cx.setLineDash([6,8]);cx.lineWidth=2;cx.beginPath();cx.moveTo(0,H/2);cx.lineTo(W,H/2);cx.stroke();cx.setLineDash([]);
+  cx.fillStyle='rgba(255,255,255,.22)';cx.font='28px "Press Start 2P",monospace';cx.textAlign='center';cx.fillText(G.p[1].score,W/2,H/2-22);cx.fillText(G.p[0].score,W/2,H/2+50);
+  cx.fillStyle='#59d36b';cx.fillRect(G.p[0].x-PW/2,H-24,PW,PH);cx.fillStyle=cfg.mode==='cpu'?'#f4f4f4':'#59a6d3';cx.fillRect(G.p[1].x-PW/2,24-PH,PW,PH);
+  const b=G.ball;cx.fillStyle='#fff';cx.fillRect(b.x-R,b.y-R,R*2,R*2)}
+function size(){const r=$('screen').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,3);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);draw()}
+const scr=$('screen');
+function fieldPos(e){const r=scr.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H}}
+// each finger steers the paddle on its own half
+scr.addEventListener('pointerdown',e=>{const p=fieldPos(e);touch[e.pointerId]=p.y>H/2||cfg.mode==='cpu'?0:1;G.p[touch[e.pointerId]].x=p.x;try{scr.setPointerCapture(e.pointerId)}catch(x){}});
+scr.addEventListener('pointermove',e=>{const p=fieldPos(e);if(e.pointerType==='mouse'&&!(e.pointerId in touch)){G.p[0].x=p.x;return}if(e.pointerId in touch)G.p[touch[e.pointerId]].x=p.x});
+const end=e=>{delete touch[e.pointerId]};scr.addEventListener('pointerup',end);scr.addEventListener('pointercancel',end);
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;keys[e.key]=true;if(['ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();if((e.key===' '||e.key==='Enter')&&!$('msg').hidden)$('go').click();if(e.key==='p'||e.key==='Escape')pause()});
+document.addEventListener('keyup',e=>{keys[e.key]=false});
+function pause(){if(G.state==='run'){G.state='paused';cancelAnimationFrame(raf);showMsg('Paused',`${G.p[0].score} – ${G.p[1].score}`,'Resume')}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
+function setCfg(k,v){cfg[k]=v;store.set('parlor-pong',cfg);newGame();size()}
+$('mode').onchange=e=>setCfg('mode',e.target.value);$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-pong',cfg)};$('to').onchange=e=>setCfg('to',+e.target.value);$('newgame').onclick=()=>{newGame();size()};
+addEventListener('resize',size);
+window.onAppBack=()=>{if(G.state==='run'){pause();return true}return false};
+for(const[k,ok]of[['mode',['cpu','two']],['level',['easy','medium','hard']],['to',[5,7,11]]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+newGame();size();
+</script>
+</body>
+</html>

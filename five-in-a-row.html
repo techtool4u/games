@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Five in a Row</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with opponent, level and who starts; status line; the wooden 15×15 board (SVG) with stones on the intersections; Undo and tally; rules below. */
+:root{
+  --bg:#f3e7d3; --fg:#3a2612; --muted:#806548; --panel:#fffaf0; --line:#e3cfae; --chip:#eedcbd; --accent:#8a5a22; --accent-ink:#ffffff; --wood:#e4bd7d; --wood-2:#c58f4a; --gl:#5b3a17;
+  --display:"Cinzel", Georgia, serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#16110b; --fg:#f2e4cc; --muted:#bca17d; --panel:#211a11; --line:#3b2e1d; --chip:#2b2216; --accent:#d9a35a; --accent-ink:#16110b; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#16110b; --fg:#f2e4cc; --muted:#bca17d; --panel:#211a11; --line:#3b2e1d; --chip:#2b2216; --accent:#d9a35a; --accent-ink:#16110b; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.status{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-weight:800}
+.who{display:flex;align-items:center;gap:8px}
+.st{width:18px;height:18px;border-radius:50%;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.st.b{background:radial-gradient(circle at 35% 30%,#666,#111 60%)}.st.w{background:radial-gradient(circle at 35% 30%,#fff,#d9d4c7 70%)}
+.tally{color:var(--muted);font-weight:700;font-size:14px}
+.stage{display:flex;justify-content:center}
+svg.board{width:min(100%,calc(100vh - 210px),640px);aspect-ratio:1;border-radius:10px;background:linear-gradient(135deg,var(--wood),var(--wood-2));box-shadow:0 10px 24px -14px rgba(60,30,0,.7);touch-action:manipulation;cursor:pointer}
+.gl{stroke:var(--gl);stroke-width:.04}
+.star{fill:var(--gl)}
+.stone{filter:drop-shadow(0 .06px .08px rgba(0,0,0,.5))}
+.last{fill:none;stroke:#e2362f;stroke-width:.08}
+.win{stroke:#e2362f;stroke-width:.14;stroke-linecap:round;opacity:.85}
+.ghost{opacity:.4;pointer-events:none}
+.acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.stage{grid-column:1;grid-row:1/span 5}svg.board{width:calc(100vh - 20px)}h1{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Five in a Row</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Level"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="first" aria-label="Who starts"><option value="me">You play black (first)</option><option value="cpu">You play white</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="status"><span class="who" id="who"></span><span class="tally" id="tally"></span></div>
+  <div class="stage"><svg class="board" id="board" viewBox="-.6 -.6 15.2 15.2" role="grid" aria-label="Board"></svg></div>
+  <div class="acts"><button class="btn" id="undo">Undo</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Black and white take turns placing a stone on any empty point. Black goes first.</li>
+        <li>The first to get five stones in an unbroken line, across, down or diagonally, wins. Six or more in a row also counts.</li>
+        <li>Watch for "open fours" and "double threes": once your rival has two threats at once, you can only block one.</li>
+        <li>The computer gets tougher with each level. Undo takes back your last move (and the computer's reply).</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const N=15;
+const cfg=Object.assign({mode:'cpu',level:'medium',first:'me'},store.get('parlor-gomoku',{}));
+const tally=store.get('parlor-gomoku-tally',{w:0,l:0,d:0});
+let S=null,hover=-1;
+const DIRS=[[1,0],[0,1],[1,1],[1,-1]];
+function newGame(){closeModal();S={b:new Array(N*N).fill(0),turn:1,moves:[],win:null,over:false,me:cfg.first==='me'?1:2,gen:(S?S.gen:0)+1};render();maybeCpu()}
+const isCpu=()=>cfg.mode==='cpu'&&S.turn!==S.me&&!S.over;
+function line(b,i,p){const x=i%N,y=Math.floor(i/N);for(const[dx,dy]of DIRS){const cells=[i];for(const s of[1,-1]){let X=x+dx*s,Y=y+dy*s;while(X>=0&&Y>=0&&X<N&&Y<N&&b[Y*N+X]===p){cells.push(Y*N+X);X+=dx*s;Y+=dy*s}}if(cells.length>=5)return cells}return null}
+function place(i){if(S.over||S.b[i])return;S.b[i]=S.turn;S.moves.push(i);sfx('place');const w=line(S.b,i,S.turn);
+  if(w){S.win=w;S.over=true;finish(S.turn)}else if(S.moves.length===N*N){S.over=true;finish(0)}else S.turn=3-S.turn;render();if(!S.over)maybeCpu()}
+function finish(p){const vs=cfg.mode==='cpu';if(vs){if(!p)tally.d++;else if(p===S.me)tally.w++;else tally.l++;store.set('parlor-gomoku-tally',tally)}
+  const name=p===1?'Black':'White';setTimeout(()=>{modal(`<h2>${!p?'A draw':vs?(p===S.me?'You win!':'Computer wins'):name+' wins!'}</h2><p>${!p?'The board is full.':`Five in a row after ${S.moves.length} moves.`}</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="mnew">Play again</button></div>`);$('mview').onclick=closeModal;$('mnew').onclick=newGame},500)}
+// ---------- computer ----------
+// Score a point for player p by looking at the stones it would line up in each direction, and whether the ends are open.
+function runInfo(b,i,p,dx,dy){const x=i%N,y=Math.floor(i/N);let cnt=1,open=0,gaps=0;
+  for(const s of[1,-1]){let X=x+dx*s,Y=y+dy*s,seenGap=false;
+    while(X>=0&&Y>=0&&X<N&&Y<N){const v=b[Y*N+X];if(v===p){cnt++}else if(v===0&&!seenGap){// allow one gap if the line continues after it
+        const X2=X+dx*s,Y2=Y+dy*s;if(X2>=0&&Y2>=0&&X2<N&&Y2<N&&b[Y2*N+X2]===p&&cnt<4){seenGap=true;gaps++}else{open++;break}}else break;X+=dx*s;Y+=dy*s}}
+  return{cnt,open,gaps}}
+const VAL=(c,o,g)=>{if(c>=5)return g?20000:1e6;if(c===4)return o===2?(g?9000:120000):o===1?9000:0;if(c===3)return o===2?(g?4000:6000):o===1?600:0;if(c===2)return o===2?400:o===1?60:0;return o===2?10:1};
+function pointScore(b,i,p){let s=0,fours=0,threes=0;for(const[dx,dy]of DIRS){const r=runInfo(b,i,p,dx,dy);const v=VAL(r.cnt,r.open,r.gaps);s+=v;if(r.cnt>=4&&r.open>=1)fours++;if(r.cnt===3&&r.open===2)threes++}
+  if(fours>=2||(fours&&threes))s+=80000;else if(threes>=2)s+=40000;return s}
+function candidates(b){const near=new Set();for(let i=0;i<N*N;i++)if(b[i]){const x=i%N,y=Math.floor(i/N);for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const X=x+dx,Y=y+dy;if(X>=0&&Y>=0&&X<N&&Y<N&&!b[Y*N+X])near.add(Y*N+X)}}
+  if(!near.size)near.add(Math.floor(N/2)*N+Math.floor(N/2));return[...near]}
+function ranked(b,p){return candidates(b).map(i=>({i,s:pointScore(b,i,p)*1.0+pointScore(b,i,3-p)*0.9})).sort((a,c)=>c.s-a.s)}
+function cpuMove(){const b=S.b,p=S.turn,lv=cfg.level;
+  // win now, or block a win
+  for(const q of[p,3-p])for(const i of candidates(b)){b[i]=q;const w=line(b,i,q);b[i]=0;if(w)return i}
+  let list=ranked(b,p);
+  if(lv==='easy'){list=list.slice(0,8);// sometimes misses things
+    return Math.random()<.35?list[rand(list.length)].i:list[0].i}
+  if(lv==='medium')return(list.length>2&&Math.random()<.3?list[1+rand(2)]:list[0]).i;
+  // hard: the best-scoring move, unless it lets the opponent set up two threats at once
+  for(const c of list.slice(0,8)){b[c.i]=p;let safe=true;for(const i of candidates(b)){if(pointScore(b,i,3-p)>=80000&&pointScore(b,i,p)<80000){safe=false;break}}b[c.i]=0;if(safe)return c.i}
+  return list[0].i}
+function maybeCpu(){if(!isCpu())return;const g=S.gen;S.busy=true;render();setTimeout(()=>{if(g!==S.gen)return;S.busy=false;if(!isCpu()){render();return}place(cpuMove())},S.moves.length?350:500)}
+// ---------- drawing ----------
+function render(){let h='';for(let k=0;k<N;k++)h+=`<line class="gl" x1="0" y1="${k}" x2="${N-1}" y2="${k}"/><line class="gl" x1="${k}" y1="0" x2="${k}" y2="${N-1}"/>`;
+  for(const[x,y]of[[3,3],[11,3],[7,7],[3,11],[11,11]])h+=`<circle class="star" cx="${x}" cy="${y}" r=".11"/>`;
+  h+=`<defs><radialGradient id="gb" cx=".35" cy=".3" r=".7"><stop offset="0" stop-color="#6a6a6a"/><stop offset=".6" stop-color="#111"/></radialGradient><radialGradient id="gw" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#fff"/><stop offset=".75" stop-color="#d9d4c7"/></radialGradient></defs>`;
+  S.b.forEach((v,i)=>{if(v)h+=`<circle class="stone" cx="${i%N}" cy="${Math.floor(i/N)}" r=".45" fill="url(#g${v===1?'b':'w'})"/>`});
+  if(hover>=0&&!S.b[hover]&&!S.over&&!isCpu())h+=`<circle class="ghost" cx="${hover%N}" cy="${Math.floor(hover/N)}" r=".45" fill="url(#g${S.turn===1?'b':'w'})"/>`;
+  const last=S.moves[S.moves.length-1];if(last!=null)h+=`<circle class="last" cx="${last%N}" cy="${Math.floor(last/N)}" r=".16"/>`;
+  if(S.win){const pts=S.win.map(i=>[i%N,Math.floor(i/N)]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);h+=`<line class="win" x1="${pts[0][0]}" y1="${pts[0][1]}" x2="${pts[pts.length-1][0]}" y2="${pts[pts.length-1][1]}"/>`}
+  $('board').innerHTML=h;
+  const name=p=>`<span class="st ${p===1?'b':'w'}"></span>${cfg.mode==='cpu'?(p===S.me?'You':'Computer'):p===1?'Black':'White'}`;
+  $('who').innerHTML=S.over?'Game over':`${name(S.turn)}${isCpu()?' is thinking…':cfg.mode==='cpu'?': your move':' to move'}`;
+  $('tally').textContent=cfg.mode==='cpu'?`You ${tally.w} · Computer ${tally.l}${tally.d?` · Draws ${tally.d}`:''}`:'';
+  $('level').hidden=$('first').hidden=cfg.mode!=='cpu';$('undo').disabled=!S.moves.length||S.busy}
+function pointAt(e){const r=$('board').getBoundingClientRect(),x=Math.round((e.clientX-r.left)/r.width*15.2-.6),y=Math.round((e.clientY-r.top)/r.height*15.2-.6);return x<0||y<0||x>=N||y>=N?-1:y*N+x}
+$('board').addEventListener('click',e=>{if(isCpu()||S.over)return;const i=pointAt(e);if(i>=0)place(i)});
+$('board').addEventListener('pointermove',e=>{if(e.pointerType!=='mouse')return;const i=pointAt(e);if(i!==hover){hover=i;render()}});
+$('board').addEventListener('pointerleave',()=>{hover=-1;render()});
+$('undo').onclick=()=>{if(!S.moves.length||S.busy)return;S.gen++;S.busy=false;const back=cfg.mode==='cpu'&&!S.over?(S.moves.length>=2&&S.turn===S.me?2:1):1;
+  for(let k=0;k<back&&S.moves.length;k++){const i=S.moves.pop();S.b[i]=0;S.turn=S.b[i]?S.turn:3-S.turn}
+  S.turn=S.moves.length%2?2:1;S.over=false;S.win=null;sfx('slide');render();maybeCpu()};
+function setCfg(k,v){cfg[k]=v;store.set('parlor-gomoku',cfg);newGame()}
+$('mode').onchange=e=>setCfg('mode',e.target.value);$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-gomoku',cfg)};$('first').onchange=e=>setCfg('first',e.target.value);$('newgame').onclick=newGame;
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+for(const[k,ok]of[['mode',['cpu','two']],['level',['easy','medium','hard']],['first',['me','cpu']]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+newGame();
+</script>
+</body>
+</html>

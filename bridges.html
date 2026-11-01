@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bridges</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with size; the sea with numbered islands and the bridges drawn between them (SVG); Undo, Restart; rules below. */
+:root{
+  --bg:#e3f1ee; --fg:#173a35; --muted:#5b7c76; --panel:#ffffff; --line:#c7e0db; --chip:#d6ebe7; --accent:#1f7a6b; --accent-ink:#ffffff; --sea:#f4fbfa; --dot:#cfe4e0; --isl:#ffffff; --isl-edge:#1f7a6b; --bridge:#173a35; --done:#1f7a6b; --over:#f0532f;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0d1d1b; --fg:#dff3ef; --muted:#8fb3ac; --panel:#132824; --line:#21403a; --chip:#1a332e; --accent:#3fc2aa; --accent-ink:#0d1d1b; --sea:#102420; --dot:#1f3b36; --isl:#132824; --isl-edge:#3fc2aa; --bridge:#dff3ef; --done:#2e9e88; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0d1d1b; --fg:#dff3ef; --muted:#8fb3ac; --panel:#132824; --line:#21403a; --chip:#1a332e; --accent:#3fc2aa; --accent-ink:#0d1d1b; --sea:#102420; --dot:#1f3b36; --isl:#132824; --isl-edge:#3fc2aa; --bridge:#dff3ef; --done:#2e9e88; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.stage{display:flex;justify-content:center}
+svg.sea{width:min(100%,calc(100vh - 220px),620px);aspect-ratio:1;background:var(--sea);border:1px solid var(--line);border-radius:18px;touch-action:none;user-select:none;-webkit-user-select:none}
+.dot{fill:var(--dot)}
+.br{stroke:var(--bridge);stroke-width:.09;stroke-linecap:round}
+.br.ghost{stroke:var(--accent);opacity:.45}
+.isl circle{fill:var(--isl);stroke:var(--isl-edge);stroke-width:.07;cursor:pointer}
+.isl text{font-family:var(--display);font-weight:600;font-size:.46px;fill:var(--fg);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.isl.ok circle{fill:var(--done);stroke:var(--done)}.isl.ok text{fill:#fff}
+.isl.over circle{stroke:var(--over);stroke-width:.11}.isl.over text{fill:var(--over)}
+.isl.sel circle{stroke-width:.14;stroke:var(--accent)}
+.row2{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;align-items:center;justify-content:center}
+.acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.stage{grid-column:1;grid-row:1/span 5}svg.sea{width:calc(100vh - 20px)}h1{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Bridges</h1>
+    </div>
+    <div class="controls">
+      <select id="size" aria-label="Size"><option value="7">Small 7×7</option><option value="9">Medium 9×9</option><option value="11">Large 11×11</option></select>
+      <button class="btn primary" id="newgame">New puzzle</button>
+    </div>
+  </header>
+  <div class="stage"><svg class="sea" id="sea" role="img" aria-label="Islands"></svg></div>
+  <div class="acts"><button class="btn" id="undo">Undo</button><button class="btn" id="restart">Restart</button><span class="row2" id="info"></span></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Connect the islands with bridges so that each island has exactly as many bridges as its number.</li>
+        <li>Bridges run straight across or down, never cross each other, and two islands can share at most two bridges.</li>
+        <li>All the islands must end up joined into one group.</li>
+        <li>Drag from an island to a neighbor to build a bridge (drag again for a second one, a third time to remove them), or tap one island and then the other.</li>
+        <li>Islands turn green when they have the right number of bridges and red when they have too many. Every puzzle has exactly one solution.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const cfg=Object.assign({size:7},store.get('parlor-bridges',{}));
+const solvedCt=store.get('parlor-bridges-solved',{});
+let P=null;
+// ---------- generating a puzzle with one solution ----------
+function neighbors(isl,n){// for each island, the nearest island in each direction
+  const at=new Map(isl.map((p,k)=>[p.y*n+p.x,k]));const E=[],seen=new Set();
+  isl.forEach((p,a)=>{for(const[dx,dy]of[[1,0],[0,1]]){let x=p.x+dx,y=p.y+dy;while(x<n&&y<n){const k=at.get(y*n+x);if(k!=null){E.push({a,b:k,h:dy===0});break}x+=dx;y+=dy}}});return E}
+function crosses(e,f,isl){if(e.h===f.h)return false;const H=e.h?e:f,V=e.h?f:e;const hy=isl[H.a].y,hx1=Math.min(isl[H.a].x,isl[H.b].x),hx2=Math.max(isl[H.a].x,isl[H.b].x);const vx=isl[V.a].x,vy1=Math.min(isl[V.a].y,isl[V.b].y),vy2=Math.max(isl[V.a].y,isl[V.b].y);return vx>hx1&&vx<hx2&&hy>vy1&&hy<vy2}
+function generate(n){const target=Math.round(n*n*.24);
+  for(let attempt=0;attempt<200;attempt++){const isl=[{x:rand(n),y:rand(n)}],br=[];const occ=new Set([isl[0].y*n+isl[0].x]),lane=new Set();
+    for(let t=0;t<600&&isl.length<target;t++){const a=rand(isl.length),[dx,dy]=[[1,0],[-1,0],[0,1],[0,-1]][rand(4)],len=2+rand(Math.max(1,n/2));
+      let x=isl[a].x,y=isl[a].y,ok=true;const path=[];for(let k=1;k<=len;k++){x+=dx;y+=dy;if(x<0||y<0||x>=n||y>=n||occ.has(y*n+x)||lane.has(y*n+x)){ok=false;break}path.push(y*n+x)}
+      if(!ok)continue;const end=path.pop();
+      // keep islands from touching side by side
+      const ex=end%n,ey=Math.floor(end/n);if([[1,0],[-1,0],[0,1],[0,-1]].some(([ax,ay])=>{const X=ex+ax,Y=ey+ay;return X>=0&&Y>=0&&X<n&&Y<n&&occ.has(Y*n+X)&&!(X===isl[a].x&&Y===isl[a].y)}))continue;
+      path.forEach(c=>lane.add(c));occ.add(end);isl.push({x:ex,y:ey});br.push({a,b:isl.length-1,c:1+(Math.random()<.4?1:0)})}
+    if(isl.length<target*.8)continue;
+    // islands must not sit on a bridge's lane, and a new island may split an existing lane; rebuild from the edge list
+    const E=neighbors(isl,n),cnt=isl.map(()=>0);const sol=new Map();
+    let bad=false;for(const b of br){const e=E.find(x=>(x.a===b.a&&x.b===b.b)||(x.a===b.b&&x.b===b.a));if(!e){bad=true;break}sol.set(e,b.c);cnt[b.a]+=b.c;cnt[b.b]+=b.c}
+    if(bad)continue;
+    // extra bridges between already-placed islands, where they fit
+    for(const e of shuffle(E.slice())){if(sol.has(e)||Math.random()<.6)continue;if([...sol.keys()].some(f=>crosses(e,f,isl)))continue;const c=1+(Math.random()<.3?1:0);sol.set(e,c);cnt[e.a]+=c;cnt[e.b]+=c}
+    isl.forEach((p,k)=>p.need=cnt[k]);
+    if(countSolutions(isl,E,2)===1)return{n,isl,E,sol}}
+  return null}
+// Count solutions (up to a limit) by search with simple propagation: island sums, crossings, max two, all connected.
+function countSolutions(isl,E,limit){const val=E.map(()=>-1),inc=isl.map((_,k)=>E.map((e,j)=>e.a===k||e.b===k?j:-1).filter(j=>j>=0));
+  const cross=E.map((e,i)=>E.map((f,j)=>crosses(e,f,isl)?j:-1).filter(j=>j>=0));let found=0;
+  function feasible(){for(let k=0;k<isl.length;k++){let s=0,cap=0;for(const j of inc[k]){if(val[j]>=0)s+=val[j];else{const blocked=cross[j].some(c=>val[c]>0);if(!blocked)cap+=2}}if(s>isl[k].need||s+cap<isl[k].need)return false}return true}
+  function connected(){const adj=isl.map(()=>[]);E.forEach((e,j)=>{if(val[j]>0){adj[e.a].push(e.b);adj[e.b].push(e.a)}});const seen=new Set([0]),st=[0];while(st.length){const k=st.pop();for(const m of adj[k])if(!seen.has(m)){seen.add(m);st.push(m)}}return seen.size===isl.length}
+  function rec(){if(found>=limit)return;if(!feasible())return;const j=val.indexOf(-1);if(j<0){if(connected())found++;return}
+    for(const v of[0,1,2]){if(v>0&&cross[j].some(c=>val[c]>0))continue;val[j]=v;rec();if(found>=limit){val[j]=-1;return}}val[j]=-1}
+  rec();return found}
+// ---------- play ----------
+function newGame(){closeModal();const n=+cfg.size;let g=null;for(let t=0;t<20&&!g;t++)g=generate(n);P={...g,b:g.E.map(()=>0),hist:[],sel:-1,won:false};render()}
+function setBridge(j,v){P.hist.push(P.b.slice());P.b[j]=v;sfx(v?'place':'slide');render();check()}
+function connect(a,c){const j=P.E.findIndex(e=>(e.a===a&&e.b===c)||(e.a===c&&e.b===a));if(j<0){sfx('error');toast('Bridges only go straight to the next island.');return}
+  const nv=(P.b[j]+1)%3;if(nv>0&&P.E.some((f,k)=>P.b[k]>0&&crosses(P.E[j],f,P.isl))){sfx('error');toast('That bridge would cross another one.');return}setBridge(j,nv)}
+function sums(){const s=P.isl.map(()=>0);P.E.forEach((e,j)=>{s[e.a]+=P.b[j];s[e.b]+=P.b[j]});return s}
+function check(){const s=sums();if(!s.every((v,k)=>v===P.isl[k].need))return;
+  const adj=P.isl.map(()=>[]);P.E.forEach((e,j)=>{if(P.b[j]){adj[e.a].push(e.b);adj[e.b].push(e.a)}});const seen=new Set([0]),st=[0];while(st.length){const k=st.pop();for(const m of adj[k])if(!seen.has(m)){seen.add(m);st.push(m)}}
+  if(seen.size<P.isl.length){toast('Every count is right, but the islands are in separate groups.');return}
+  P.won=true;solvedCt[P.n]=(solvedCt[P.n]||0)+1;store.set('parlor-bridges-solved',solvedCt);render();
+  setTimeout(()=>{sfx('win');modal(`<h2>All connected!</h2><p>${P.isl.length} islands, ${P.b.reduce((a,b)=>a+b,0)} bridges.</p><div class="row"><button class="btn primary" id="mnew">New puzzle</button></div>`);$('mnew').onclick=newGame},400)}
+function render(){const n=P.n,s=sums(),pad=.7;const sea=$('sea');sea.setAttribute('viewBox',`${-pad} ${-pad} ${n-1+2*pad} ${n-1+2*pad}`);let h='';
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++)h+=`<circle class="dot" cx="${x}" cy="${y}" r=".05"/>`;
+  P.E.forEach((e,j)=>{const v=P.b[j];if(!v)return;const A=P.isl[e.a],B=P.isl[e.b],off=v===2?.11:0;const ox=e.h?0:off,oy=e.h?off:0;
+    h+=`<line class="br" x1="${A.x+ox}" y1="${A.y+oy}" x2="${B.x+ox}" y2="${B.y+oy}"/>`;if(v===2)h+=`<line class="br" x1="${A.x-ox}" y1="${A.y-oy}" x2="${B.x-ox}" y2="${B.y-oy}"/>`});
+  if(drag&&drag.to!=null){const A=P.isl[drag.from],B=P.isl[drag.to];h+=`<line class="br ghost" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/>`}
+  P.isl.forEach((p,k)=>{h+=`<g class="isl${s[k]===p.need?' ok':s[k]>p.need?' over':''}${P.sel===k?' sel':''}" data-k="${k}" role="button" aria-label="Island ${p.need}, has ${s[k]}"><circle cx="${p.x}" cy="${p.y}" r=".38"/><text x="${p.x}" y="${p.y}">${p.need}</text></g>`});
+  sea.innerHTML=h;$('info').textContent=`${solvedCt[n]||0} solved at this size`}
+// drag from an island toward a neighbor; or tap, tap
+let drag=null;
+function islandAt(e){const r=$('sea').getBoundingClientRect(),n=P.n,pad=.7,span=n-1+2*pad,x=(e.clientX-r.left)/r.width*span-pad,y=(e.clientY-r.top)/r.height*span-pad;let best=-1,bd=.5;P.isl.forEach((p,k)=>{const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best=k}});return{k:best,x,y}}
+function aim(from,x,y){const A=P.isl[from],dx=x-A.x,dy=y-A.y;if(Math.hypot(dx,dy)<.45)return null;const h=Math.abs(dx)>Math.abs(dy);
+  const cand=P.E.filter(e=>(e.a===from||e.b===from)&&e.h===h).map(e=>e.a===from?e.b:e.a).filter(k=>h?Math.sign(P.isl[k].x-A.x)===Math.sign(dx):Math.sign(P.isl[k].y-A.y)===Math.sign(dy));return cand.length?cand[0]:null}
+$('sea').addEventListener('pointerdown',e=>{if(P.won)return;const {k}=islandAt(e);if(k<0){P.sel=-1;render();return}e.preventDefault();drag={from:k,to:null,moved:false};try{$('sea').setPointerCapture(e.pointerId)}catch(x){}});
+$('sea').addEventListener('pointermove',e=>{if(!drag)return;const {x,y}=islandAt(e);const t=aim(drag.from,x,y);if(t!==drag.to){drag.to=t;drag.moved=drag.moved||t!=null;render()}});
+$('sea').addEventListener('pointerup',e=>{if(!drag)return;const d=drag;drag=null;
+  if(d.to!=null){P.sel=-1;connect(d.from,d.to);return}
+  if(!d.moved){if(P.sel>=0&&P.sel!==d.from){const a=P.sel;P.sel=-1;connect(a,d.from)}else{P.sel=P.sel===d.from?-1:d.from;sfx('tap');render()}}else render()});
+$('undo').onclick=()=>{if(P.won||!P.hist.length)return;P.b=P.hist.pop();sfx('tap');render()};
+$('restart').onclick=()=>{if(P.won)return;P.hist.push(P.b.slice());P.b=P.E.map(()=>0);render()};
+$('size').onchange=e=>{cfg.size=+e.target.value;store.set('parlor-bridges',cfg);newGame()};$('newgame').onclick=newGame;
+document.addEventListener('keydown',e=>{if((e.key==='z'&&(e.ctrlKey||e.metaKey))||e.key==='u')$('undo').click()});
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(![7,9,11].includes(+cfg.size))cfg.size=7;$('size').value=cfg.size;newGame();
+</script>
+</body>
+</html>

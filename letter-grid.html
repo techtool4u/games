@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Letter Grid</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with size, time and players; timer and score strip; the letter grid (drag or tap to chain letters) with the word being built above it; the list of found words beside it on wide screens; after the round, every word that was there. */
+:root{
+  --bg:#fbf7ea; --fg:#1b2257; --muted:#68709c; --panel:#ffffff; --line:#e3dfcc; --chip:#efecdd; --accent:#2c58c4; --accent-ink:#ffffff; --tile:#fffdf6; --tile-edge:#d9d3bb; --on:#ffd84a; --good:#1f9a5a; --bad:#d23b2a;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0f1230; --fg:#e8ebff; --muted:#9aa2d1; --panel:#181c40; --line:#2b3163; --chip:#222752; --accent:#7f9cff; --accent-ink:#0f1230; --tile:#232a5c; --tile-edge:#363f80; --on:#c9a800; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0f1230; --fg:#e8ebff; --muted:#9aa2d1; --panel:#181c40; --line:#2b3163; --chip:#222752; --accent:#7f9cff; --accent-ink:#0f1230; --tile:#232a5c; --tile-edge:#363f80; --on:#c9a800; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:920px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.game{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;align-items:start}
+.play{display:flex;flex-direction:column;gap:10px;align-items:center}
+.status{display:flex;justify-content:space-between;width:100%;max-width:480px;font-weight:800}
+.status b{font-family:var(--display);font-size:26px}
+.status .low{color:var(--bad)}
+.word{min-height:44px;font-family:var(--display);font-size:30px;letter-spacing:.06em;text-transform:uppercase;text-align:center}
+.word.good{color:var(--good)}.word.bad{color:var(--bad)}.word.old{color:var(--muted)}
+.gridwrap{position:relative;width:min(100%,480px,calc(100vh - 260px));aspect-ratio:1;touch-action:none;user-select:none;-webkit-user-select:none;container-type:inline-size}
+.grid{display:grid;grid-template-columns:repeat(var(--n),1fr);gap:2.4cqw;width:100%;height:100%}
+.tile{background:var(--tile);border:2px solid var(--tile-edge);border-radius:16%;box-shadow:0 1.2cqw 0 var(--tile-edge);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:calc(50cqw/var(--n));text-transform:uppercase;cursor:pointer;position:relative;z-index:1}
+.tile.on{background:var(--on);border-color:var(--on)}
+.tile small{font-size:.62em}
+svg.path{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+svg.path polyline{fill:none;stroke:var(--accent);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;opacity:.55}
+.acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.side{display:flex;flex-direction:column;gap:10px}
+.found{display:flex;flex-wrap:wrap;gap:5px;max-height:340px;overflow:auto}
+.found span{background:var(--chip);border-radius:999px;padding:2px 9px;font-weight:800;font-size:13.5px;text-transform:uppercase}
+.found span.dup{text-decoration:line-through;opacity:.6}
+.found span.miss{background:transparent;border:1px dashed var(--line);color:var(--muted);font-weight:700}
+.found span i{font-style:normal;color:var(--muted);font-weight:700;margin-left:3px}
+.start{display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center;padding:20px}
+.start p{margin:0;color:var(--muted)}
+.start .btn{min-height:52px;min-width:200px;font-size:18px}
+.res{display:flex;flex-direction:column;gap:8px}
+.res .who{display:flex;justify-content:space-between;font-weight:800}
+@media (max-width:760px){.game{grid-template-columns:1fr}.found{max-height:none}}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.game{display:contents}header{grid-column:2;grid-row:1}.play{grid-column:1;grid-row:1/span 3}.side{grid-column:2}.gridwrap{width:calc(100vh - 150px)}.word{min-height:32px;font-size:24px}h1{font-size:28px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Letter Grid</h1>
+    </div>
+    <div class="controls">
+      <select id="size" aria-label="Grid"><option value="4">4×4, words of 3+</option><option value="5">5×5, words of 4+</option></select>
+      <select id="time" aria-label="Time"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="180">3 minutes</option><option value="0">No timer</option></select>
+      <select id="players" aria-label="Players"><option value="1">1 player</option><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option></select>
+      <button class="btn primary" id="newgame">New grid</button>
+    </div>
+  </header>
+  <div class="game">
+    <div class="play" id="play"></div>
+    <aside class="side">
+      <div class="panel"><p class="label" id="flabel">Your words</p><div class="found" id="found"></div></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Find words by chaining letters that touch, across, up, down or diagonally. Each square can be used once per word.</li>
+            <li>Drag across the letters and let go, or tap them one at a time and tap the last one again (or press Enter). You can also just type a word.</li>
+            <li>Words must be at least 3 letters (4 on the 5×5 grid). Points: 3 and 4 letters 1, 5 letters 2, 6 letters 3, 7 letters 5, 8 or more 11.</li>
+            <li>With 2 to 4 players, everyone plays the same grid in turn. Words that more than one player found don't score.</li>
+            <li>Any word in the dictionary counts. When time runs out you'll see the everyday words that were hiding in the grid.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script src="ladder-words.js"></script>
+<script src="wordtiles-words.js"></script>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const LW=window.LADDER_WORDS||{familiar:'',valid:''},TW=window.WT_WORDS||{common:'',extra:''};
+const DICT=[...new Set([...TW.common.split(' '),...TW.extra.split(' '),...LW.valid.split(' ')])].filter(w=>w.length>=3&&w.length<=16&&/^[a-z]+$/.test(w)).sort();
+const DSET=new Set(DICT);
+// Any dictionary word scores, but only everyday words are listed as "missed" at the end.
+const COMMON=new Set([...LW.familiar.split(' '),...TW.common.split(' ').filter(w=>w.length>=6)]);
+// Sixteen (or 25) letter cubes, built from English letter frequencies; "q" always comes with its "u".
+const CUBES=['aaeegn','abbjoo','achops','affkps','aoottw','cimotu','deilrx','delrvy','distty','eeghnw','eeinsu','ehrtvw','eiosst','elrtty','himnuq','hlnnrz'];
+const CUBES5=['aaafrs','aaeeee','aafirs','adennn','aeeeem','aeegmu','aegmnn','afirsy','bjkqxz','ccenst','ceiilt','ceilpt','ceipst','ddhnot','dhhlor','dhlnor','dhlnor','eiiitt','emottt','ensssu','fiprsy','gorrvw','iprrry','nootuw','ooottu'];
+const PTS=n=>n<=4?1:n===5?2:n===6?3:n===7?5:11;
+const cfg=Object.assign({size:4,time:180,players:1},store.get('parlor-lettergrid',{}));
+const best=store.get('parlor-lettergrid-best',{});
+let S=null,timer=0,path=[],drag=false,moved=false;
+const minLen=()=>+cfg.size===5?4:3;
+function hasPrefix(p){let lo=0,hi=DICT.length;while(lo<hi){const m=lo+hi>>1;if(DICT[m]<p)lo=m+1;else hi=m}return lo<DICT.length&&DICT[lo].startsWith(p)}
+const nbrs=(i,n)=>{const r=Math.floor(i/n),c=i%n,o=[];for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const R=r+dr,C=c+dc;if(R>=0&&R<n&&C>=0&&C<n)o.push(R*n+C)}return o};
+function solve(g,n){const out=new Set(),ml=minLen();
+  const go=(i,s,used)=>{const w=s+g[i];if(!hasPrefix(w))return;if(w.length>=ml&&DSET.has(w))out.add(w);used[i]=1;for(const j of nbrs(i,n))if(!used[j])go(j,w,used);used[i]=0};
+  for(let i=0;i<n*n;i++)go(i,'',[]);return[...out].sort((a,b)=>b.length-a.length||a.localeCompare(b))}
+function makeGrid(){const n=+cfg.size;for(let t=0;t<80;t++){const cubes=shuffle((n===4?CUBES:CUBES5).slice());const g=cubes.map(c=>{const ch=c[rand(6)];return ch==='q'?'qu':ch});const all=solve(g,n).filter(w=>COMMON.has(w));if(all.length>=(n===4?45:110))return{g,all}}const cubes=shuffle((n===4?CUBES:CUBES5).slice());const g=cubes.map(c=>{const ch=c[rand(6)];return ch==='q'?'qu':ch});return{g,all:solve(g,n).filter(w=>COMMON.has(w))}}
+function newGame(){closeModal();clearInterval(timer);const {g,all}=makeGrid();S={n:+cfg.size,g,all,players:[...Array(+cfg.players)].map((_,k)=>({name:+cfg.players>1?`Player ${k+1}`:'You',words:[]})),turn:0,phase:'ready',left:+cfg.time,msg:'',cls:''};path=[];render()}
+const P=()=>S.players[S.turn];
+function startTurn(){S.phase='play';S.left=+cfg.time;S.msg='';path=[];render();sfx('start');
+  clearInterval(timer);if(+cfg.time){const t0=Date.now();timer=setInterval(()=>{const left=Math.max(0,+cfg.time-Math.floor((Date.now()-t0)/1000));if(left!==S.left){S.left=left;if(left<=10&&left)sfx('tick');const el=$('clock');if(el){el.textContent=fmt(left);el.classList.toggle('low',left<=10)}}if(!left)endTurn()},250)}}
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+const wordOf=p=>p.map(i=>S.g[i]).join('');
+function submit(p){const w=wordOf(p);path=[];
+  if(w.length<minLen()){S.msg=w.length>1?`At least ${minLen()} letters`:'';S.cls='bad';if(w.length>1)sfx('error')}
+  else if(P().words.includes(w)){S.msg=`${w} (already found)`;S.cls='old';sfx('tap')}
+  else if(DSET.has(w)){P().words.push(w);S.msg=`${w} +${PTS(w.length)}`;S.cls='good';sfx(w.length>=6?'good':'score')}
+  else{S.msg=`${w}?`;S.cls='bad';sfx('bad')}
+  render()}
+// find a path for a typed word
+function findPath(w){const n=S.n;const go=(i,k,used)=>{const piece=S.g[i];if(!w.startsWith(piece,k))return null;const used2=[...used,i];if(k+piece.length===w.length)return used2;for(const j of nbrs(i,n))if(!used.includes(j)){const r=go(j,k+piece.length,used2);if(r)return r}return null};
+  for(let i=0;i<n*n;i++){const r=go(i,0,[]);if(r)return r}return null}
+let typed='';
+function endTurn(){if(S.phase!=='play')return;clearInterval(timer);path=[];typed='';
+  if(S.turn<S.players.length-1){S.turn++;S.phase='ready';sfx('turn');render();return}
+  S.phase='over';finish()}
+function score(){// words found by more than one player don't count
+  const cnt={};S.players.forEach(p=>p.words.forEach(w=>cnt[w]=(cnt[w]||0)+1));
+  S.players.forEach(p=>{p.score=p.words.filter(w=>S.players.length===1||cnt[w]===1).reduce((a,w)=>a+PTS(w.length),0)});return cnt}
+function finish(){const cnt=score();render();const key=cfg.size+'|'+cfg.time;
+  if(S.players.length===1){const p=S.players[0],nb=p.score>(best[key]||0);if(nb){best[key]=p.score;store.set('parlor-lettergrid-best',best)}
+    const longest=S.all[0];sfx(p.score?'win':'lose');
+    modal(`<h2>${p.score} point${p.score===1?'':'s'}</h2><p>You found ${p.words.length} word${p.words.length===1?'':'s'}; the grid had ${S.all.length} everyday words${nb&&p.score?' · a new best':''}.</p><p>Longest in the grid: <b>${longest?longest.toUpperCase():'–'}</b></p><div class="row"><button class="btn" id="mview">See all words</button><button class="btn primary" id="mnew">New grid</button></div>`)}
+  else{const top=Math.max(...S.players.map(p=>p.score)),w=S.players.filter(p=>p.score===top);
+    modal(`<h2>${w.length>1?'A tie!':w[0].name+' wins!'}</h2><div class="res">${S.players.map(p=>`<div class="who"><span>${p.name}</span><span>${p.score} pts · ${p.words.length} words</span></div>`).join('')}</div><p>Shared words are crossed out. The grid had ${S.all.length} words.</p><div class="row"><button class="btn" id="mview">See all words</button><button class="btn primary" id="mnew">New grid</button></div>`)}
+  $('mview').onclick=closeModal;$('mnew').onclick=newGame}
+function render(){if(!S)return;const n=S.n,pl=$('play');
+  if(S.phase==='ready'){pl.innerHTML=`<div class="start panel"><p>${S.players.length>1?`<b>${P().name}</b>, your turn. Everyone else, no peeking!`:`${n}×${n} grid · words of ${minLen()}+ letters · ${+cfg.time?fmt(+cfg.time):'no timer'}`}</p><button class="btn primary" id="go">${S.turn?'Start my turn':'Start'}</button></div>`;$('go').onclick=startTurn;$('go').focus()}
+  else{const on=new Set(path),pts=path.map(i=>`${(i%n+.5)*100/n},${(Math.floor(i/n)+.5)*100/n}`).join(' ');
+    const live=S.phase==='play';
+    pl.innerHTML=`<div class="status"><span>${S.players.length>1?P().name+' · ':''}<b>${P().words.reduce((a,w)=>a+PTS(w.length),0)}</b> pts</span><span>${+cfg.time&&live?`<b id="clock" class="${S.left<=10?'low':''}">${fmt(S.left)}</b>`:live?'':'<b>Time!</b>'}</span></div>
+      <div class="word ${path.length?'':S.cls}" id="word">${path.length?wordOf(path):typed||S.msg||'&nbsp;'}</div>
+      <div class="gridwrap" id="gw" style="--n:${n}"><div class="grid">${S.g.map((ch,i)=>`<div class="tile${on.has(i)?' on':''}" data-i="${i}">${ch==='qu'?'Q<small>u</small>':ch}</div>`).join('')}</div><svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="${pts}"/></svg></div>
+      <div class="acts">${live?`<button class="btn" id="clr">Clear</button><button class="btn" id="sub">Enter</button><button class="btn" id="done">${S.players.length>1&&S.turn<S.players.length-1?'End my turn':'Finish'}</button>`:`<button class="btn primary" id="again">New grid</button>`}</div>`;
+    if(live){$('clr').onclick=()=>{path=[];typed='';render()};$('sub').onclick=()=>{if(path.length)submit(path);else if(typed){const p=findPath(typed);typed='';if(p)submit(p);else{S.msg=`Can't make that`;S.cls='bad';sfx('bad');render()}}};$('done').onclick=endTurn}else $('again').onclick=newGame}
+  const over=S.phase==='over',cnt=over?score():{};
+  if(over){$('flabel').textContent=`${S.all.length} everyday words in this grid · found ones are filled in`;const foundAny=new Set(S.players.flatMap(p=>p.words));
+    $('found').innerHTML=S.all.map(w=>`<span class="${foundAny.has(w)?(S.players.length>1&&cnt[w]>1?'dup':''):'miss'}">${w}${S.players.length>1&&foundAny.has(w)?`<i>${S.players.map((p,k)=>p.words.includes(w)?k+1:'').join('')}</i>`:''}</span>`).join('')+S.players.flatMap(p=>p.words).filter(w=>!S.all.includes(w)).map(w=>`<span>${w}</span>`).join('')}
+  else{$('flabel').textContent=`${S.players.length>1?P().name+"'s":'Your'} words · ${P().words.length}`;$('found').innerHTML=S.phase==='play'?P().words.slice().reverse().map(w=>`<span>${w}</span>`).join(''):''}}
+// pointer: drag through tiles, or tap them one by one and tap the last again to enter
+function tileAt(e){const gw=$('gw');if(!gw)return null;const r=gw.getBoundingClientRect(),n=S.n,x=(e.clientX-r.left)/r.width*n,y=(e.clientY-r.top)/r.height*n,c=Math.floor(x),rr=Math.floor(y);
+  if(c<0||rr<0||c>=n||rr>=n)return null;const fx=x-c-.5,fy=y-rr-.5;if(drag&&fx*fx+fy*fy>.16)return null;// near the middle only while dragging, so diagonals work
+  return rr*n+c}
+function extend(i){if(i==null)return;const last=path[path.length-1];
+  if(path.length>1&&i===path[path.length-2]){path.pop();sfx('tick');render();return}
+  if(path.includes(i))return;if(path.length&&!nbrs(last,S.n).includes(i))return;path.push(i);typed='';sfx('tick');render()}
+document.addEventListener('pointerdown',e=>{if(!S||S.phase!=='play'||!e.target.closest('#gw'))return;e.preventDefault();const i=tileAt(e);if(i==null)return;
+  if(path.length&&i===path[path.length-1]){submit(path);return}
+  if(path.length&&!nbrs(path[path.length-1],S.n).includes(i)&&!path.includes(i))path=[];
+  drag=true;moved=false;extend(i);try{$('gw').setPointerCapture(e.pointerId)}catch(x){}});
+document.addEventListener('pointermove',e=>{if(!drag)return;const i=tileAt(e);if(i!=null&&i!==path[path.length-1]){moved=true;extend(i)}});
+document.addEventListener('pointerup',()=>{if(!drag)return;drag=false;if(moved&&path.length>1)submit(path)});
+document.addEventListener('keydown',e=>{if((e.target.closest&&e.target.closest('select,input,button'))||!$('overlay').hidden||!S||S.phase!=='play'||e.ctrlKey||e.metaKey)return;
+  if(/^[a-z]$/i.test(e.key)){path=[];typed+=e.key.toLowerCase();S.msg='';render()}
+  else if(e.key==='Backspace'){e.preventDefault();typed=typed.slice(0,-1);render()}
+  else if(e.key==='Enter'){e.preventDefault();if(path.length)submit(path);else if(typed){const p=findPath(typed);typed='';if(p)submit(p);else{S.msg=`Can't make that`;S.cls='bad';sfx('bad');render()}}}
+  else if(e.key==='Escape'){path=[];typed='';render()}});
+function setCfg(k,v){cfg[k]=v;store.set('parlor-lettergrid',cfg);newGame()}
+$('size').onchange=e=>setCfg('size',+e.target.value);$('time').onchange=e=>setCfg('time',+e.target.value);$('players').onchange=e=>setCfg('players',+e.target.value);$('newgame').onclick=newGame;
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(![4,5].includes(+cfg.size))cfg.size=4;if(![0,60,120,180].includes(+cfg.time))cfg.time=180;if(![1,2,3,4].includes(+cfg.players))cfg.players=1;
+$('size').value=cfg.size;$('time').value=cfg.time;$('players').value=cfg.players;newGame();
+</script>
+</body>
+</html>

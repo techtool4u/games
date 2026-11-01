@@ -61,6 +61,35 @@ Self-contained HTML files. No install or build step.
 - `euchre.html` — Euchre: you and a computer partner against two computers, with bowers, going alone and stick the dealer.
 - `shut-the-box.html` — Shut the Box, solo or for up to 4 players (or vs computers), with an optional best-move hint.
 - `ship-captain-crew.html` — Ship, Captain and Crew, the five-dice game, for 2 to 6 players or vs computers.
+- `bunco.html` — Bunco, the team dice party game: six rounds, Buncos and three-of-a-kinds, vs computers or 4 players.
+- `horse-race.html` — Horse Race, bet on horses 2 to 12 and roll the dice to run them, with fair odds over 3 to 8 races.
+- `word-search.html` — Word Search, 12 themed word lists in three grid sizes, drag or tap to circle words.
+- `word-guess.html` — Word Guess, find the five-letter word in six tries, with a daily word, practice, hard mode and stats.
+- `word-jumble.html` — Word Jumble, unscramble 10 words against the clock, solo or 2 players, with any valid anagram accepted.
+- `mini-crossword.html` — Mini Crossword, 18 hand-clued 5×5 crosswords with check, reveal, timer and saved progress.
+- `letter-grid.html` — Letter Grid, chain touching letters into words against the clock on 4×4 or 5×5 grids, 1 to 4 players.
+- `picture-cross.html` — Picture Cross, 21 nonogram pictures in three sizes, each checked to be solvable without guessing.
+- `lights-off.html` — Lights Off, switch every light off on 3×3 to 7×7 grids, with exact fewest-move counts and hints.
+- `tower-of-hanoi.html` — Tower of Hanoi, 3 to 8 discs with move counting, undo and a demo that solves from any position.
+- `bridges.html` — Bridges, link numbered islands with bridges; generated puzzles with exactly one solution in three sizes.
+- `box-pusher.html` — Box Pusher, push crates onto targets across 30 original solver-checked levels.
+- `pipe-connect.html` — Pipe Connect, join matching colored dots with pipes that fill the whole grid, 5×5 to 9×9.
+- `tile-clear.html` — Tile Clear, clear groups of same-colored tiles for (n − 2)² points, with undo and best scores.
+- `cross-sums.html` — Cross Sums (kakuro), 42 single-solution puzzles in three sizes with notes, run hints and saved progress.
+- `five-in-a-row.html` — Five in a Row, line up five stones on a 15×15 board, vs a three-level computer or 2 players.
+- `viking-chess.html` — Viking Chess (hnefatafl), 9×9 or 11×11, escape with the king or trap it, vs computer or 2 players.
+- `fox-and-geese.html` — Fox and Geese, trap the fox with 13 geese or jump your way to 6 captures, vs computer or 2 players.
+- `brick-breaker.html` — Brick Breaker, 8 levels of bricks with power-ups, touch, mouse or keyboard control.
+- `paddle-ball.html` — Paddle Ball, one-screen tennis vs computer or a friend, with angled shots and speeding rallies.
+- `bubble-pop.html` — Bubble Pop, aim and match three to pop bubbles and drop hanging clusters before they reach the bottom.
+- `air-hockey.html` — Air Hockey, one-table hockey vs a three-level computer or a friend on the same screen.
+- `mini-golf.html` — Mini Golf, nine holes of pull-back putting with hazards, for 1 to 4 players.
+- `color-echo.html` — Color Echo, repeat the growing sequence of lights and notes, in classic, strict or reverse mode.
+- `royal-game-of-ur.html` — Royal Game of Ur, the ancient race game with pyramid dice and rosettes, vs computer or 2 players.
+- `bingo.html` — Bingo, play a card against computer rivals, or use it as the caller for a room.
+- `rock-paper-scissors.html` — Rock Paper Scissors, best-of matches against a computer that learns your habits, or 2 players.
+- `whodunit.html` — Whodunit, a deduction mystery: move through the manor, make suggestions and solve the case before rival detectives.
+- `logic-grid.html` — Logic Grid, generated who-owns-what puzzles in three sizes, each solvable by pure logic, with hints.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 

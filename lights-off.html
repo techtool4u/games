@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lights Off</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with size and level; moves and par; the grid of lights (glowing when on); Hint, Undo, Restart; rules below. */
+:root{
+  --bg:#141a33; --fg:#eef1ff; --muted:#a5acd6; --panel:#1c2347; --line:#2e3768; --chip:#252d5a; --accent:#ffd84a; --accent-ink:#141a33; --off:#222a55; --on:#ffd84a; --glow:#ffb800;
+  --display:"Orbitron", "Arial Black", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0b0f22; --fg:#eef1ff; --muted:#a5acd6; --panel:#141a36; --line:#262f60; --chip:#1c2348; --off:#1a2049; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0b0f22; --fg:#eef1ff; --muted:#a5acd6; --panel:#141a36; --line:#262f60; --chip:#1c2348; --off:#1a2049; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:560px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.stats{display:flex;gap:10px}
+.stats div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 12px;font-size:13px;color:var(--muted)}
+.stats b{display:block;font-weight:800;font-size:24px;color:var(--fg);font-variant-numeric:tabular-nums}
+.board{display:grid;grid-template-columns:repeat(var(--n),1fr);gap:clamp(5px,1.6vw,10px);width:min(100%,calc(100vh - 300px),480px);margin:0 auto;aspect-ratio:1;padding:clamp(8px,2.4vw,14px);background:var(--panel);border-radius:20px;box-sizing:border-box;border:1px solid var(--line)}
+.L{border:0;border-radius:22%;background:var(--off);cursor:pointer;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25);transition:background .15s,box-shadow .15s,transform .08s;padding:0}
+.L.on{background:radial-gradient(circle at 50% 40%,#fff6c7,var(--on) 55%,var(--glow));box-shadow:0 0 18px 2px rgba(255,200,40,.55),inset 0 -4px 0 rgba(0,0,0,.12)}
+.L:active{transform:scale(.94)}
+.L.hint{outline:3px dashed #fff;outline-offset:-6px}
+.board.won .L{animation:fade .6s both}
+@keyframes fade{to{opacity:.35}}
+.acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.board{grid-column:1;grid-row:1/span 5;width:calc(100vh - 20px)}h1{font-size:26px}}
+@media (prefers-reduced-motion:reduce){.L{transition:none}.board.won .L{animation:none;opacity:.35}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Lights Off</h1>
+    </div>
+    <div class="controls">
+      <select id="size" aria-label="Grid size"><option value="3">3×3</option><option value="4">4×4</option><option value="5">5×5</option><option value="6">6×6</option><option value="7">7×7</option></select>
+      <button class="btn primary" id="newgame">New puzzle</button>
+    </div>
+  </header>
+  <div class="stats"><div><b id="moves">0</b>moves</div><div><b id="par">–</b>fewest possible</div><div><b id="solved">0</b>solved</div></div>
+  <div class="board" id="board" role="grid" aria-label="Lights"></div>
+  <div class="acts"><button class="btn" id="hint">Hint</button><button class="btn" id="undo">Undo</button><button class="btn" id="restart">Restart</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Tapping a light switches it and the lights directly above, below, left and right of it. On becomes off and off becomes on.</li>
+        <li>Switch every light off. "Fewest possible" is the smallest number of taps that solves this puzzle, worked out exactly.</li>
+        <li>Tapping the same light twice undoes it, and the order of taps never matters.</li>
+        <li>Hint outlines a light that is part of a shortest solution from where you are now.</li>
+        <li>Keyboard: arrow keys move, Space or Enter taps.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const cfg=Object.assign({size:5},store.get('parlor-lights',{}));
+const solvedCt=store.get('parlor-lights-solved',{});
+let S=null,focusI=0;
+const nb=(i,n)=>{const r=Math.floor(i/n),c=i%n,o=[i];if(r)o.push(i-n);if(r<n-1)o.push(i+n);if(c)o.push(i-1);if(c<n-1)o.push(i+1);return o};
+// Shortest set of taps that turns everything off: solve A·x = lights over GF(2), then try every combination of the free variables.
+function solve(g,n){const N=n*n,rows=[];for(let i=0;i<N;i++){let m=0n;for(const j of nb(i,n))m|=1n<<BigInt(j);rows.push({m,b:g[i]})}
+  // Gaussian elimination (A is symmetric, so row i of A is the cells affected by tapping i)
+  const piv=[];let r=0;const A=rows.map(x=>({m:x.m,b:x.b}));
+  for(let c=0;c<N&&r<N;c++){const bit=1n<<BigInt(c);let k=r;while(k<N&&!(A[k].m&bit))k++;if(k===N)continue;[A[r],A[k]]=[A[k],A[r]];
+    for(let j=0;j<N;j++)if(j!==r&&A[j].m&bit){A[j].m^=A[r].m;A[j].b^=A[r].b}piv.push(c);r++}
+  for(let j=r;j<N;j++)if(A[j].b)return null;
+  const free=[...Array(N).keys()].filter(c=>!piv.includes(c));let best=null;
+  for(let mask=0;mask<1<<free.length;mask++){const x=new Array(N).fill(0);free.forEach((c,k)=>x[c]=mask>>k&1);
+    for(let k=r-1;k>=0;k--){const c=piv[k];let v=A[k].b;for(let j=0;j<N;j++)if(j!==c&&(A[k].m>>BigInt(j)&1n))v^=x[j];x[c]=v}
+    const w=x.reduce((a,b)=>a+b,0);if(!best||w<best.w)best={x,w}}
+  return best}
+function newGame(){closeModal();const n=+cfg.size;let g;
+  // random taps always give a solvable puzzle; keep ones that need a fair number of moves
+  for(let t=0;t<50;t++){g=new Array(n*n).fill(0);const k=Math.max(3,Math.round(n*n*(.3+Math.random()*.25)));for(let j=0;j<k;j++)for(const x of nb(rand(n*n),n))g[x]^=1;
+    if(g.some(v=>v)){const s=solve(g,n);if(s&&s.w>=Math.min(n*n/3,n+2))break}}
+  S={n,g,start:g.slice(),moves:0,hist:[],par:solve(g,n).w,won:false,hint:-1};focusI=Math.min(focusI,n*n-1);render()}
+function tap(i){if(S.won)return;S.hist.push(S.g.slice());for(const j of nb(i,S.n))S.g[j]^=1;S.moves++;S.hint=-1;sfx(S.g[i]?'pop':'tick');render();
+  if(S.g.every(v=>!v)){S.won=true;solvedCt[S.n]=(solvedCt[S.n]||0)+1;store.set('parlor-lights-solved',solvedCt);render();
+    setTimeout(()=>{sfx('win');modal(`<h2>Lights off!</h2><p>${S.moves} move${S.moves===1?'':'s'}${S.moves<=S.par?', as few as possible!':`. The fewest possible was ${S.par}.`}</p><div class="row"><button class="btn primary" id="mnew">Next puzzle</button></div>`);$('mnew').onclick=newGame},500)}}
+function render(){const n=S.n,b=$('board');b.style.setProperty('--n',n);b.classList.toggle('won',S.won);
+  b.innerHTML=S.g.map((v,i)=>`<button class="L${v?' on':''}${i===S.hint?' hint':''}" data-i="${i}" tabindex="${i===focusI?0:-1}" aria-label="Row ${Math.floor(i/n)+1}, column ${i%n+1}: ${v?'on':'off'}"></button>`).join('');
+  $('moves').textContent=S.moves;$('par').textContent=S.par;$('solved').textContent=solvedCt[n]||0}
+$('board').addEventListener('click',e=>{const l=e.target.closest('.L');if(l){focusI=+l.dataset.i;tap(focusI);const f=$('board').children[focusI];if(f)f.focus()}});
+$('board').addEventListener('keydown',e=>{const n=S.n,r=Math.floor(focusI/n),c=focusI%n;let t=null;
+  if(e.key==='ArrowLeft'&&c)t=focusI-1;else if(e.key==='ArrowRight'&&c<n-1)t=focusI+1;else if(e.key==='ArrowUp'&&r)t=focusI-n;else if(e.key==='ArrowDown'&&r<n-1)t=focusI+n;
+  if(t!=null){e.preventDefault();focusI=t;render();$('board').children[t].focus()}});
+$('hint').onclick=()=>{if(S.won)return;const s=solve(S.g,S.n);if(!s)return;const opts=s.x.map((v,i)=>v?i:-1).filter(i=>i>=0);S.hint=opts[rand(opts.length)];sfx('select');render()};
+$('undo').onclick=()=>{if(S.won||!S.hist.length)return;S.g=S.hist.pop();S.moves++;S.hint=-1;sfx('slide');render()};
+$('restart').onclick=()=>{if(S.won)return;S.g=S.start.slice();S.moves=0;S.hist=[];S.hint=-1;render()};
+$('size').onchange=e=>{cfg.size=+e.target.value;store.set('parlor-lights',cfg);newGame()};$('newgame').onclick=newGame;
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(![3,4,5,6,7].includes(+cfg.size))cfg.size=5;$('size').value=cfg.size;newGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Horse Race</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header; scoreboard of players' chips; the track (one lane per dice total 2 to 12, each with its own length and payout, bets shown as chips); a tray with dice and the Roll / Place bets buttons; rules. */
+:root{
+  --bg:#f4efe2; --fg:#2b2114; --muted:#7a6a52; --panel:#fffdf6; --line:#e2d7bd; --chip:#f0e7d1; --accent:#5c7c2f; --accent-ink:#ffffff; --turf:#5c7c2f; --turf-2:#4a6826; --rail:#fdfaf2; --die:#fffaf5; --pip:#2b2114; --p0:#c0392b; --p1:#2c58c4; --p2:#d68910; --p3:#7d3c98; --p4:#16a085; --p5:#e84393; --p6:#34495e; --p7:#a0522d;
+  --display:"Rye", Georgia, serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#16130c; --fg:#f3ead6; --muted:#b9a985; --panel:#221d13; --line:#3c3322; --chip:#2c2618; --accent:#8fbf4f; --accent-ink:#16130c; --turf:#3f5a1f; --turf-2:#304617; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#16130c; --fg:#f3ead6; --muted:#b9a985; --panel:#221d13; --line:#3c3322; --chip:#2c2618; --accent:#8fbf4f; --accent-ink:#16130c; --turf:#3f5a1f; --turf-2:#304617; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.board{display:flex;flex-wrap:wrap;gap:6px}
+.pl{display:flex;align-items:center;gap:6px;background:var(--panel);border:2px solid var(--line);border-radius:999px;padding:4px 12px 4px 6px;font-weight:800;font-size:14px}
+.pl.cur{border-color:var(--c)}
+.pl i{width:14px;height:14px;border-radius:50%;background:var(--c)}
+.pl b{font-family:var(--display);font-weight:400}
+.track{background:linear-gradient(var(--turf),var(--turf-2));border-radius:18px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;box-shadow:inset 0 0 0 5px rgba(0,0,0,.12)}
+.lane{display:grid;grid-template-columns:30px minmax(0,1fr) 62px;gap:8px;align-items:center;min-height:30px;border-radius:8px;padding:0 4px;cursor:default}
+.lane.pick{cursor:pointer}
+.lane.pick:hover{background:rgba(255,255,255,.12)}
+.lane.hot{background:rgba(255,216,74,.28)}
+.num{font-family:var(--display);color:#fff;font-size:18px;text-align:center}
+.run{position:relative;height:26px}
+.cells{position:absolute;inset:0;display:grid;gap:2px;grid-template-columns:repeat(var(--n),1fr)}
+.cells i{background:rgba(255,255,255,.12);border-radius:4px}
+.cells i.post{background:repeating-linear-gradient(45deg,#fff 0 4px,#222 4px 8px)}
+.horse{position:absolute;top:50%;width:calc(100%/var(--n));display:grid;place-items:center;font-size:20px;line-height:1;transform:translateY(-50%) scaleX(-1);transition:left .3s;filter:drop-shadow(0 2px 1px rgba(0,0,0,.4))}
+.side{display:flex;flex-direction:column;align-items:flex-end;gap:1px;color:#fff;font-size:11.5px;line-height:1.1}
+.side b{font-size:12.5px}
+.bets{display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;min-height:10px}
+.bets span{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1.5px #fff}
+.tray{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center}
+.dice{display:flex;gap:8px}
+.d{width:52px;aspect-ratio:1;border-radius:18%;background:var(--die);border:1px solid var(--line);box-shadow:inset 0 -4px 0 rgba(0,0,0,.1);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:11%;box-sizing:border-box}
+.d i{width:70%;aspect-ratio:1;border-radius:50%;background:var(--pip);place-self:center}
+.d.roll{animation:shake .45s ease-out}
+@keyframes shake{0%{transform:rotate(-30deg) scale(.7)}60%{transform:rotate(12deg)}100%{transform:none}}
+.msg{flex:1 1 220px;text-align:center;font-weight:700}
+.msg b{font-family:var(--display);font-weight:400;font-size:20px;display:block}
+.acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.acts .btn{min-height:46px;min-width:120px}
+.row2{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;align-items:center}
+@media (max-width:420px){.lane{grid-template-columns:24px minmax(0,1fr) 52px;gap:5px}.horse{font-size:17px}.d{width:44px}}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr);max-width:920px;column-gap:14px;align-items:start}.wrap>*{grid-column:1}.track{grid-column:2;grid-row:1/span 6}.lane{min-height:24px}.run{height:22px}h1{font-size:30px}}
+@media (prefers-reduced-motion:reduce){.horse{transition:none}.d.roll{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Horse Race</h1>
+    </div>
+    <div class="controls">
+      <select id="players" aria-label="Players"><option value="c1">You vs 1 computer</option><option value="c2">You vs 2 computers</option><option value="c3">You vs 3 computers</option><option value="h2">2 players</option><option value="h3">3 players</option><option value="h4">4 players</option><option value="h6">6 players</option><option value="h8">8 players</option></select>
+      <select id="races" aria-label="Races"><option value="3">3 races</option><option value="5">5 races</option><option value="8">8 races</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="board" id="board"></div>
+  <section class="track" id="track" aria-label="Race track"></section>
+  <div class="tray" aria-live="polite">
+    <div class="dice" id="dice"></div>
+    <div class="msg" id="msg"></div>
+    <div class="acts"><button class="btn primary" id="go">Roll</button><button class="btn" id="clear">Clear bets</button></div>
+  </div>
+  <div class="panel"><div class="row2"><label><input type="checkbox" id="auto"> Auto-roll the race</label><span id="tally"></span></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Eleven horses race, numbered 2 to 12. Each roll of two dice moves the horse with that total one step. 7 comes up most often, so even with the longest track it is the favorite; 2 and 12 come up least, so they are long shots despite their short tracks.</li>
+        <li>Before each race, every player places <b>3 chips</b> on any horses (tap a lane to bet; the same horse more than once is fine). The number on the right of each lane is what a chip pays if that horse wins. The payouts are fair, so a long shot pays a lot and a favorite pays a little.</li>
+        <li>Then the race is run: players take turns rolling (or turn on Auto-roll). The first horse past the post wins, and every chip on it pays out.</li>
+        <li>After the last race, the player with the most winnings wins. Ties share the win.</li>
+        <li>Keyboard: Space or R rolls.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const H=[2,3,4,5,6,7,8,9,10,11,12],LEN={2:4,3:5,4:6,5:7,6:8,7:9,8:8,9:7,10:6,11:5,12:4},CHIPS=3;
+const COLORS=[0,1,2,3,4,5,6,7].map(i=>`var(--p${i})`),CPU=['Dusty','Clover','Blaze'];
+const cfg=Object.assign({players:'c1',races:5,auto:false},store.get('parlor-horses',{}));
+const tally=store.get('parlor-horses-tally',{won:0,played:0});
+// Win chances for each horse, worked out once by simulating many races (with a fixed seed, so the payouts never change); a chip pays (1 / chance), rounded.
+const P=(()=>{let seed=12345;const rnd=n=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return Math.floor(((t^t>>>14)>>>0)/4294967296*n)};
+  const w={};H.forEach(h=>w[h]=0);const N=60000;for(let k=0;k<N;k++){const pos={};H.forEach(h=>pos[h]=0);for(;;){const t=2+rnd(6)+rnd(6);if(++pos[t]>=LEN[t]){w[t]++;break}}}const p={};H.forEach(h=>p[h]=w[h]/N);return p})();
+const PAY={};H.forEach(h=>{const x=1/P[h];PAY[h]=x<10?Math.round(x*2)/2:Math.round(x)});
+let S=null;
+function setup(){const m=cfg.players,n=+m.slice(1);if(m[0]==='c')return[{name:'You'},...CPU.slice(0,n).map(name=>({name,cpu:true}))];return[...Array(n)].map((_,i)=>({name:`Player ${i+1}`}))}
+function newGame(){closeModal();S={players:setup(),race:1,gen:(S?S.gen:0)+1};S.players.forEach(p=>p.won=0);startRace();sfx('shuffle')}
+function startRace(){Object.assign(S,{pos:Object.fromEntries(H.map(h=>[h,0])),bets:S.players.map(()=>[]),phase:'bet',better:0,turn:(S.race-1)%S.players.length,dice:[0,0],winner:0,busy:false,anim:false,last:0});cpuBets();render()}
+// computers bet: mostly favourites, sometimes a long shot
+function cpuBets(){while(S.phase==='bet'&&S.better<S.players.length&&S.players[S.better].cpu){const b=S.bets[S.better];
+    const style=S.better%3;for(let k=0;k<CHIPS;k++){let h;if(style===0)h=[6,7,8][rand(3)];else if(style===1)h=[5,6,7,8,9][rand(5)];else h=Math.random()<.5?[7,6,8][rand(3)]:H[rand(11)];b.push(h)}
+    S.better++}if(S.better>=S.players.length)startRun()}
+function bet(h){if(S.phase!=='bet')return;const b=S.bets[S.better];if(b.length>=CHIPS)return;b.push(h);sfx('chips');render()}
+function confirmBets(){if(S.phase!=='bet'||S.bets[S.better].length<CHIPS)return;S.better++;cpuBets();render()}
+function startRun(){S.phase='run';sfx('start');render();if(cfg.auto||S.players[S.turn].cpu)autoStep()}
+function roll(){if(S.phase!=='run'||S.busy)return;S.busy=true;const g=S.gen;
+  S.dice=[1+rand(6),1+rand(6)];const t=S.dice[0]+S.dice[1];S.anim=true;sfx('dice');render();S.anim=false;
+  setTimeout(()=>{if(g!==S.gen)return;S.pos[t]++;S.last=t;sfx('step');
+    if(S.pos[t]>=LEN[t]){S.winner=t;S.phase='done';S.busy=false;payout();return}
+    S.turn=(S.turn+1)%S.players.length;S.busy=false;render();autoStep()},350)}
+function autoStep(){if(S.phase!=='run')return;if(!(cfg.auto||S.players[S.turn].cpu))return;const g=S.gen;setTimeout(()=>{if(g===S.gen&&S.phase==='run'&&(cfg.auto||S.players[S.turn].cpu))roll()},cfg.auto?380:650)}
+function payout(){const w=S.winner;const gains=S.bets.map(b=>b.filter(h=>h===w).length*PAY[w]);gains.forEach((g,i)=>S.players[i].won+=g);
+  const me=gains[0]>0;sfx(gains.some(x=>x)?'good':'bad');render();
+  const g=S.gen,last=S.race>=+cfg.races;
+  setTimeout(()=>{if(g!==S.gen)return;
+    const lines=S.players.map((p,i)=>`${p.name}${gains[i]?` +${fmt(gains[i])}`:' –'}`).join(' · ');
+    if(last){finish(lines);return}
+    modal(`<h2>${w} wins!</h2><p>Horse ${w} pays ${fmt(PAY[w])} a chip.</p><p>${lines}</p><div class="row"><button class="btn primary" id="mnext">Next race</button></div>`);
+    $('mnext').onclick=()=>{closeModal();S.race++;startRace()}},900)}
+const fmt=x=>Number.isInteger(x)?String(x):x.toFixed(1);
+function finish(lines){const top=Math.max(...S.players.map(p=>p.won)),win=S.players.filter(p=>p.won===top);const vs=cfg.players[0]==='c';
+  if(vs){tally.played++;if(win.some(p=>p.name==='You'))tally.won++;store.set('parlor-horses-tally',tally)}
+  const title=win.length>1?(win.some(p=>p.name==='You')?'You tie for the win!':'A tie!'):win[0].name==='You'?'You win!':`${win[0].name} wins`;
+  modal(`<h2>${title}</h2><p>Last race: horse ${S.winner} won. ${lines}</p><p>Winnings: ${S.players.map(p=>`${p.name} ${fmt(p.won)}`).join(' · ')}</p>${vs?`<p>You've won ${tally.won} of ${tally.played}.</p>`:''}<div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);
+  $('mnew').onclick=newGame}
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+const die=v=>`<div class="d${S.anim&&v?' roll':''}" aria-label="${v||'not rolled'}">${[...Array(9)].map((_,k)=>v&&PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</div>`;
+function render(){if(!S)return;const ph=S.phase,bettor=S.players[S.better];
+  $('board').innerHTML=S.players.map((p,i)=>`<div class="pl${(ph==='bet'&&i===S.better)||(ph==='run'&&i===S.turn&&!cfg.auto)?' cur':''}" style="--c:${COLORS[i]}"><i></i>${p.name} <b>${fmt(p.won)}</b></div>`).join('')+`<div class="pl" style="--c:var(--muted)">Race ${S.race} of ${cfg.races}</div>`;
+  const canPick=ph==='bet'&&bettor&&!bettor.cpu&&S.bets[S.better].length<CHIPS;
+  $('track').innerHTML=H.map(h=>{const n=LEN[h]+1,chips=S.bets.flatMap((b,i)=>b.filter(x=>x===h).map(()=>i));
+    return`<div class="lane${canPick?' pick':''}${S.winner===h||S.last===h&&ph==='run'?' hot':''}" data-h="${h}" ${canPick?`role="button" tabindex="0" aria-label="Bet on horse ${h}, pays ${fmt(PAY[h])}"`:''}><span class="num">${h}</span><div class="run" style="--n:${n}"><div class="cells">${[...Array(n)].map((_,k)=>`<i${k===n-1?' class="post"':''}></i>`).join('')}</div><span class="horse" style="left:calc(${S.pos[h]}*100%/${n})">🏇</span></div><div class="side"><b>pays ${fmt(PAY[h])}</b><span class="bets">${chips.map(i=>`<span style="--c:${COLORS[i]}"></span>`).join('')}</span></div></div>`}).join('');
+  $('dice').innerHTML=die(S.dice[0])+die(S.dice[1]);
+  const go=$('go'),cl=$('clear');
+  if(ph==='bet'){const left=CHIPS-S.bets[S.better].length;$('msg').innerHTML=`<b>Place your bets</b>${bettor.name}: ${left?`tap a horse to bet (${left} chip${left>1?'s':''} left)`:'ready?'}`;go.textContent=left?'Tap a horse':'Start';go.disabled=!!left;go.onclick=confirmBets;cl.hidden=false;cl.disabled=!S.bets[S.better].length}
+  else if(ph==='run'){const p=S.players[S.turn];$('msg').innerHTML=S.last?`<b>${S.dice[0]+S.dice[1]}!</b>Horse ${S.last} moves on.`:`<b>They're off!</b>`;go.textContent=cfg.auto?'Auto-rolling…':p.cpu?`${p.name} rolls…`:`Roll · ${p.name}`;go.disabled=cfg.auto||p.cpu||S.busy;go.onclick=roll;cl.hidden=true}
+  else{$('msg').innerHTML=`<b>Horse ${S.winner} wins!</b>`;go.textContent='Race over';go.disabled=true;cl.hidden=true}
+  $('auto').checked=cfg.auto;$('tally').textContent=cfg.players[0]==='c'&&tally.played?`You've won ${tally.won} of ${tally.played}`:''}
+$('track').addEventListener('click',e=>{const l=e.target.closest('.lane.pick');if(l)bet(+l.dataset.h)});
+$('track').addEventListener('keydown',e=>{const l=e.target.closest('.lane.pick');if(l&&(e.key==='Enter'||e.key===' ')){e.preventDefault();bet(+l.dataset.h)}});
+$('clear').onclick=()=>{if(S.phase==='bet'){S.bets[S.better]=[];render()}};
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input,.lane')||!$('overlay').hidden||!S)return;const k=e.key.toLowerCase();if((k===' '||k==='r')&&S.phase==='run'){e.preventDefault();if(!cfg.auto&&!S.players[S.turn].cpu)roll()}});
+$('auto').onchange=e=>{cfg.auto=e.target.checked;store.set('parlor-horses',cfg);render();autoStep()};
+function setCfg(k,v){cfg[k]=v;store.set('parlor-horses',cfg);newGame()}
+$('players').onchange=e=>setCfg('players',e.target.value);$('races').onchange=e=>setCfg('races',+e.target.value);$('newgame').onclick=newGame;
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(!['c1','c2','c3','h2','h3','h4','h6','h8'].includes(cfg.players))cfg.players='c1';if(![3,5,8].includes(+cfg.races))cfg.races=5;
+$('players').value=cfg.players;$('races').value=cfg.races;newGame();
+</script>
+</body>
+</html>

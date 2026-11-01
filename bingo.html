@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bingo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with mode, pattern, rivals and calling speed; the caller (current ball, last few calls); your card (tap to daub) with the BINGO button; rivals' progress; in caller mode, the 75-number board instead of a card. */
+:root{
+  --bg:#fff4ea; --fg:#2a1a40; --muted:#7d6a8f; --panel:#ffffff; --line:#f2dcc8; --chip:#fde8d6; --accent:#ff8a3d; --accent-ink:#ffffff; --b:#2c58c4; --i:#e2362f; --n:#f2b400; --g:#2e9e5b; --o:#8a3fc4; --daub:#ff5a8a;
+  --display:"Bowlby One", "Arial Black", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#170f1f; --fg:#f6e8ff; --muted:#b9a4cc; --panel:#22172e; --line:#3a2a4c; --chip:#2c1f3a; --accent:#ff9a55; --accent-ink:#170f1f; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#170f1f; --fg:#f6e8ff; --muted:#b9a4cc; --panel:#22172e; --line:#3a2a4c; --chip:#2c1f3a; --accent:#ff9a55; --accent-ink:#170f1f; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.caller{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:10px 14px;flex-wrap:wrap}
+.ball{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#fff 0 18%,var(--c) 60%);color:#fff;font-family:var(--display);text-align:center;line-height:.95;box-shadow:0 6px 14px -6px rgba(0,0,0,.5);flex:none}
+.ball span{display:block;background:#fff;color:var(--fg);border-radius:50%;width:56px;height:56px;display:grid;place-items:center;font-size:24px}
+.ball small{display:block;font-size:12px;color:var(--c)}
+.ball.new{animation:roll .5s}
+@keyframes roll{0%{transform:translateX(-30px) rotate(-90deg);opacity:0}100%{transform:none;opacity:1}}
+.recent{display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:center}
+.recent i{font-style:normal;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;background:var(--c);opacity:.8}
+.info{color:var(--muted);font-size:13.5px;font-weight:700}
+.game{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:14px;align-items:start}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:10px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:440px;width:100%;margin:0 auto;box-sizing:border-box}
+.card .h{font-family:var(--display);text-align:center;font-size:clamp(20px,6vw,30px);color:var(--c)}
+.card .c{aspect-ratio:1;border-radius:12px;background:var(--chip);display:grid;place-items:center;font-weight:800;font-size:clamp(17px,5vw,24px);cursor:pointer;position:relative;user-select:none}
+.card .c.free{font-size:12px;color:var(--muted)}
+.card .c.d::after{content:'';position:absolute;inset:10%;border-radius:50%;background:var(--daub);opacity:.62}
+.card .c.hint{box-shadow:inset 0 0 0 3px var(--accent)}
+.card .c.win::after{background:var(--g);opacity:.75}
+.big{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.big .btn{min-height:52px;font-size:18px;min-width:140px}
+.big .bingo{font-family:var(--display);font-size:22px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.rivals{display:flex;flex-direction:column;gap:6px}
+.rv{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:14px}
+.rv small{color:var(--muted);font-weight:700}
+.mini{display:grid;grid-template-columns:repeat(5,7px);gap:2px}
+.mini i{width:7px;height:7px;border-radius:2px;background:var(--chip)}
+.mini i.d{background:var(--daub)}
+.board{display:grid;grid-template-columns:auto repeat(15,1fr);gap:3px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;font-size:12px}
+.board b{font-family:var(--display);color:var(--c);display:grid;place-items:center;font-size:16px}
+.board i{font-style:normal;display:grid;place-items:center;aspect-ratio:1;border-radius:50%;background:var(--chip);font-weight:800;color:var(--muted)}
+.board i.on{background:var(--c);color:#fff}
+.row2{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;align-items:center}
+@media (max-width:760px){.game{grid-template-columns:1fr}.rivals{flex-direction:row;flex-wrap:wrap}.rv{flex:1 1 140px}.board{grid-template-columns:auto repeat(15,1fr);font-size:10px}.board b{font-size:12px}}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:14px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.game{grid-column:1;grid-row:1/span 6;grid-template-columns:1fr}.card{max-width:calc(100vh - 150px);padding:6px;gap:4px}.big{margin-top:6px}.big .btn{min-height:42px}.ball{width:64px;height:64px}.ball span{width:44px;height:44px;font-size:18px}h1{font-size:28px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Bingo</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Mode"><option value="play">Play a card</option><option value="call">Be the caller for a room</option></select>
+      <select id="pattern" aria-label="Pattern"><option value="line">Any line</option><option value="corners">Four corners</option><option value="x">The X</option><option value="full">Full card</option></select>
+      <select id="rivals" aria-label="Rivals"><option value="1">1 rival</option><option value="3">3 rivals</option><option value="5">5 rivals</option></select>
+      <select id="speed" aria-label="Calling speed"><option value="4500">Slow calls</option><option value="3000">Normal calls</option><option value="1800">Fast calls</option><option value="0">Call by hand</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="caller"><div class="ball" id="ball" style="--c:var(--muted)"><span>–</span></div><div class="recent" id="recent"></div><div class="info" id="info"></div></div>
+  <div class="game" id="game"></div>
+  <div class="panel"><div class="row2"><label><input type="checkbox" id="auto"> Daub my card for me</label><span id="tally"></span></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Numbers 1 to 75 are called at random: B is 1 to 15, I 16 to 30, N 31 to 45, G 46 to 60, O 61 to 75.</li>
+        <li>When a number on your card is called, tap it to daub it. The middle square is free.</li>
+        <li>Complete the pattern (any line across, down or diagonally; the four corners; both diagonals; or the whole card), then press <b>BINGO!</b> quickly, before a rival does. A wrong call sits you out for the next three numbers.</li>
+        <li><b>Be the caller</b> turns the screen into a caller for a room playing on paper cards: it shows each number big and keeps the board of everything called, so you can check a winner's card.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const L='BINGO',COL=['var(--b)','var(--i)','var(--n)','var(--g)','var(--o)'],NAMES=['Mabel','Otis','Priya','Gus','Wren'];
+const cfg=Object.assign({mode:'play',pattern:'line',rivals:3,speed:3000,auto:false},store.get('parlor-bingo',{}));
+const tally=store.get('parlor-bingo-tally',{w:0,p:0});
+let S=null,timer=0;
+const letterOf=n=>Math.floor((n-1)/15);
+function makeCard(){const cols=[0,1,2,3,4].map(c=>shuffle([...Array(15)].map((_,k)=>c*15+k+1)).slice(0,5));const g=[];for(let r=0;r<5;r++)for(let c=0;c<5;c++)g.push(r===2&&c===2?0:cols[c][r]);return g}
+const LINES=(()=>{const L=[];for(let r=0;r<5;r++)L.push([0,1,2,3,4].map(c=>r*5+c));for(let c=0;c<5;c++)L.push([0,1,2,3,4].map(r=>r*5+c));L.push([0,6,12,18,24],[4,8,12,16,20]);return L})();
+function winCells(daub){const p=cfg.pattern;if(p==='line'){const l=LINES.find(l=>l.every(i=>daub[i]));return l||null}
+  const need=p==='corners'?[0,4,20,24]:p==='x'?[0,6,12,18,24,4,8,16,20]:[...Array(25).keys()];return need.every(i=>daub[i])?need:null}
+function newGame(){closeModal();clearTimeout(timer);const bag=shuffle([...Array(75)].map((_,k)=>k+1));
+  S={bag,called:[],me:{card:makeCard(),daub:new Array(25).fill(false)},rivals:[...Array(+cfg.rivals)].map((_,k)=>({name:NAMES[k],card:makeCard(),daub:new Array(25).fill(false),speed:600+rand(1400)})),over:false,penalty:0,newBall:false};
+  S.me.daub[12]=true;S.rivals.forEach(r=>r.daub[12]=true);render();if(+cfg.speed)timer=setTimeout(call,1200)}
+function call(){if(S.over||!S.bag.length)return;const n=S.bag.pop();S.called.push(n);S.newBall=true;if(S.penalty)S.penalty--;sfx('pop');
+  if(cfg.auto&&cfg.mode==='play'){const i=S.me.card.indexOf(n);if(i>=0)S.me.daub[i]=true}
+  // rivals daub, and call bingo after a reaction time
+  if(cfg.mode==='play')for(const r of S.rivals){const i=r.card.indexOf(n);if(i>=0)r.daub[i]=true;if(!r.claim&&winCells(r.daub)){r.claim=true;const g=S.called.length;setTimeout(()=>{if(!S.over)rivalWins(r)},r.speed)}}
+  render();S.newBall=false;
+  if(!S.bag.length){S.over=true;modal('<h2>All 75 called</h2><p>No one finished the pattern this time.</p><div class="row"><button class="btn primary" id="mnew">New game</button></div>');$('mnew').onclick=newGame;return}
+  if(+cfg.speed)timer=setTimeout(call,+cfg.speed)}
+function rivalWins(r){if(S.over)return;S.over=true;clearTimeout(timer);tally.p++;store.set('parlor-bingo-tally',tally);sfx('lose');render();
+  modal(`<h2>${r.name} wins</h2><p>${r.name} called Bingo after ${S.called.length} numbers.${winCells(S.me.daub)?' You had it too: be quicker on the button!':''}</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);$('mnew').onclick=newGame}
+function claim(){if(S.over||cfg.mode!=='play')return;if(S.penalty){toast(`Sitting out: ${S.penalty} more call${S.penalty>1?'s':''}.`);return}
+  // only squares that were actually called count
+  const ok=S.me.daub.map((d,i)=>d&&(i===12||S.called.includes(S.me.card[i])));const w=winCells(ok);
+  if(w){S.over=true;S.win=w;clearTimeout(timer);tally.p++;tally.w++;store.set('parlor-bingo-tally',tally);render();sfx('win');setTimeout(()=>{modal(`<h2>BINGO!</h2><p>You won after ${S.called.length} numbers.</p><p>You've won ${tally.w} of ${tally.p}.</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);$('mnew').onclick=newGame},500)}
+  else{S.penalty=3;sfx('error');toast('Not a bingo yet! You sit out the next 3 calls.');render()}}
+function daub(i){if(S.over||i===12)return;const n=S.me.card[i];if(!S.called.includes(n)){sfx('error');toast(`${L[letterOf(n)]}-${n} hasn't been called.`);return}S.me.daub[i]=!S.me.daub[i];sfx(S.me.daub[i]?'tap':'slide');render()}
+function render(){const last=S.called[S.called.length-1];
+  $('ball').style.setProperty('--c',last?COL[letterOf(last)]:'var(--muted)');$('ball').className='ball'+(S.newBall?' new':'');$('ball').innerHTML=last?`<span><div><small>${L[letterOf(last)]}</small>${last}</div></span>`:'<span>–</span>';
+  $('recent').innerHTML=S.called.slice(-7,-1).reverse().map(n=>`<i style="--c:${COL[letterOf(n)]}">${n}</i>`).join('');
+  $('info').textContent=`${S.called.length} called · ${S.bag.length} left${S.penalty?` · sitting out ${S.penalty}`:''}`;
+  if(cfg.mode==='call'){$('game').style.gridTemplateColumns='1fr';
+    $('game').innerHTML=`<div class="board">${[0,1,2,3,4].map(l=>`<b style="--c:${COL[l]}">${L[l]}</b>`+[...Array(15)].map((_,k)=>{const n=l*15+k+1;return`<i class="${S.called.includes(n)?'on':''}" style="--c:${COL[l]}">${n}</i>`}).join('')).join('')}</div><div class="big"><button class="btn primary" id="next">${+cfg.speed?'Pause':'Call next number'}</button><button class="btn" id="check">Check a card</button></div>`;
+    $('next').onclick=()=>{if(+cfg.speed){if(timer){clearTimeout(timer);timer=0;$('next').textContent='Resume'}else{call()}}else call()};
+    $('check').onclick=()=>{const v=prompt('Type the numbers on the winning line (or the card), separated by spaces:');if(!v)return;const ns=v.split(/[^0-9]+/).filter(Boolean).map(Number);const miss=ns.filter(n=>!S.called.includes(n));modal(`<h2>${miss.length?'Not yet':'All called!'}</h2><p>${miss.length?`Not called yet: ${miss.join(', ')}`:`Every one of those ${ns.length} numbers has been called.`}</p><div class="row"><button class="btn primary" id="mok">OK</button></div>`);$('mok').onclick=closeModal};
+    $('auto').parentElement.hidden=true;$('rivals').hidden=true;$('pattern').hidden=true;$('tally').textContent='';return}
+  $('game').style.gridTemplateColumns='';$('auto').parentElement.hidden=false;$('rivals').hidden=false;$('pattern').hidden=false;
+  const ok=new Set(S.called);
+  $('game').innerHTML=`<div><div class="card">${[0,1,2,3,4].map(l=>`<div class="h" style="--c:${COL[l]}">${L[l]}</div>`).join('')}${S.me.card.map((n,i)=>`<div class="c${S.me.daub[i]?' d':''}${S.win&&S.win.includes(i)?' win':''}${!S.me.daub[i]&&ok.has(n)&&cfg.auto===false&&S.called[S.called.length-1]===n?' hint':''}${i===12?' free':''}" data-i="${i}" role="button" aria-label="${i===12?'free':n}${S.me.daub[i]?', daubed':''}">${i===12?'FREE':n}</div>`).join('')}</div>
+    <div class="big"><button class="btn bingo" id="bingo"${S.over?' disabled':''}>BINGO!</button>${+cfg.speed?'':'<button class="btn primary" id="next">Call next</button>'}</div></div>
+    <div class="rivals">${S.rivals.map(r=>`<div class="rv"><span>${r.name}<br><small>${r.daub.filter(Boolean).length-1} daubed</small></span><span class="mini">${r.daub.map(d=>`<i class="${d?'d':''}"></i>`).join('')}</span></div>`).join('')}</div>`;
+  $('bingo').onclick=claim;const nx=$('next');if(nx)nx.onclick=call;
+  $('tally').textContent=tally.p?`You've won ${tally.w} of ${tally.p}`:'';$('auto').checked=cfg.auto}
+$('game').addEventListener('click',e=>{const c=e.target.closest('.card .c');if(c)daub(+c.dataset.i)});
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;if((e.key==='b'||e.key==='Enter')&&cfg.mode==='play'){e.preventDefault();claim()}else if(e.key===' '&&!+cfg.speed){e.preventDefault();call()}});
+function setCfg(k,v){cfg[k]=v;store.set('parlor-bingo',cfg);newGame()}
+$('mode').onchange=e=>setCfg('mode',e.target.value);$('pattern').onchange=e=>setCfg('pattern',e.target.value);$('rivals').onchange=e=>setCfg('rivals',+e.target.value);
+$('speed').onchange=e=>{cfg.speed=+e.target.value;store.set('parlor-bingo',cfg);clearTimeout(timer);timer=0;if(+cfg.speed&&!S.over)timer=setTimeout(call,800);render()};
+$('auto').onchange=e=>{cfg.auto=e.target.checked;store.set('parlor-bingo',cfg);if(cfg.auto)S.me.card.forEach((n,i)=>{if(S.called.includes(n))S.me.daub[i]=true});render()};
+$('newgame').onclick=newGame;
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&timer){clearTimeout(timer);timer=0}else if(!document.hidden&&!timer&&S&&!S.over&&+cfg.speed&&cfg.mode==='play')timer=setTimeout(call,1500)});
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+for(const[k,ok]of[['mode',['play','call']],['pattern',['line','corners','x','full']],['rivals',[1,3,5]],['speed',[4500,3000,1800,0]]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+newGame();
+</script>
+</body>
+</html>

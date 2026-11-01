@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Royal Game of Ur</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with opponent and level; each side's waiting and finished pieces; the 20-square board (three rows, rosettes marked); the dice tray with four pyramid dice and the roll; rules below. */
+:root{
+  --bg:#efe3c4; --fg:#2b1d3f; --muted:#6e5f80; --panel:#fffaf0; --line:#dccba3; --chip:#ece0c2; --accent:#3b2a5c; --accent-ink:#ffffff; --sq:#e8d3a0; --sq-2:#d8bd80; --frame:#3b2a5c; --ros:#b3261e; --p1:#f6f1e4; --p2:#2b1d3f; --move:#2e7d4f;
+  --display:"Cinzel Decorative", Georgia, serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#140f1d; --fg:#ece2cc; --muted:#a998ba; --panel:#1d1628; --line:#33284a; --chip:#261d35; --accent:#b49be0; --accent-ink:#140f1d; --p2:#120c1c; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#140f1d; --fg:#ece2cc; --muted:#a998ba; --panel:#1d1628; --line:#33284a; --chip:#261d35; --accent:#b49be0; --accent-ink:#140f1d; --p2:#120c1c; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.side{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:6px 12px;font-weight:800;flex-wrap:wrap}
+.side.cur{border-color:var(--accent)}
+.stack{display:flex;gap:3px;flex-wrap:wrap;align-items:center}
+.stack .pc{width:20px;height:20px;cursor:default}
+.stack.home{opacity:.85}
+.stack .pc.mv{cursor:pointer;outline:3px solid var(--move);outline-offset:1px}
+.stage{display:flex;justify-content:center}
+.board{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(3,1fr);gap:5px;width:min(100%,640px);aspect-ratio:8/3;padding:8px;background:var(--frame);border-radius:12px;box-sizing:border-box;container-type:inline-size}
+.sq{background:var(--sq);border-radius:6px;display:grid;place-items:center;position:relative;box-shadow:inset 0 0 0 2px rgba(0,0,0,.08)}
+.sq:nth-child(even){background:var(--sq-2)}
+.sq.gap{background:transparent;box-shadow:none}
+.sq.ros::before{content:'';position:absolute;inset:14%;background:radial-gradient(circle,var(--ros) 18%,transparent 19%),conic-gradient(from 0deg,var(--ros) 0 12.5%,transparent 0 25%,var(--ros) 0 37.5%,transparent 0 50%,var(--ros) 0 62.5%,transparent 0 75%,var(--ros) 0 87.5%,transparent 0);border-radius:50%;opacity:.55}
+.sq.tg{box-shadow:inset 0 0 0 4px var(--move)}
+.sq.last{box-shadow:inset 0 0 0 3px #d4a62a}
+.pc{width:72%;aspect-ratio:1;border-radius:50%;position:relative;z-index:1;box-shadow:0 2px 0 rgba(0,0,0,.35);box-sizing:border-box}
+.pc.a{background:radial-gradient(circle at 35% 30%,#fff,var(--p1) 60%);border:2px solid #b8ab8c}
+.pc.b{background:radial-gradient(circle at 35% 30%,#6f5a90,var(--p2) 70%);border:2px solid #120c1c}
+.pc.a::after,.pc.b::after{content:'';position:absolute;inset:30%;border-radius:50%;border:2px dotted rgba(120,100,60,.6)}
+.sq .pc.mv{cursor:pointer;outline:3px solid var(--move);outline-offset:2px}
+.tray{display:flex;align-items:center;gap:14px;justify-content:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px}
+.dice{display:flex;gap:8px}
+.die{width:40px;height:36px}
+.die.roll{animation:spin .45s ease-out}
+@keyframes spin{0%{transform:rotate(-40deg) scale(.6)}100%{transform:none}}
+.roll b{font-family:var(--display);font-size:30px}
+.msg{flex:1 1 200px;text-align:center;font-weight:700}
+.msg b{font-family:var(--display);font-size:24px;display:block}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);column-gap:16px;row-gap:8px;padding-block:8px;align-items:start}#side2{grid-column:1;grid-row:1}.stage{grid-column:1;grid-row:2/span 2}#side1{grid-column:1;grid-row:4}header{grid-column:2;grid-row:1/span 2}.tray{grid-column:2;grid-row:3/span 2}.panel{grid-column:2;grid-row:5}h1{font-size:24px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Royal Game of Ur</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="level" aria-label="Level"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="side" id="side2"></div>
+  <div class="stage"><div class="board" id="board" role="grid" aria-label="Board"></div></div>
+  <div class="side" id="side1"></div>
+  <div class="tray" aria-live="polite"><div class="dice" id="dice"></div><div class="msg" id="msg"></div><button class="btn primary" id="roll">Roll</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Race all seven of your pieces along your path and off the board before your rival does. Your path runs along your own row (from the middle toward the left end), up the shared middle row, then back along your own row on the right to the exit.</li>
+        <li>Roll four pyramid dice: each one with its white tip up counts 1, so you move 0 to 4 squares. Tap a highlighted piece to move it (a piece in your waiting pile enters the board).</li>
+        <li>Land exactly on a rival piece in the middle row to knock it back to the start. You can't land on your own piece.</li>
+        <li>The flowered squares are <b>rosettes</b>: landing on one gives you another roll, and a piece on the middle rosette can't be knocked off.</li>
+        <li>You need the exact number to bear a piece off. If you can't move, your turn passes.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const cfg=Object.assign({mode:'cpu',level:'medium'},store.get('parlor-ur',{}));
+const tally=store.get('parlor-ur-tally',{w:0,l:0});
+// Each player's path: positions 1..14 on the board, 15 = off the board, 0 = waiting. 5..12 are shared.
+const ROS=new Set([4,8,14]);
+function cell(p,pos){// p 0 = you (bottom row), 1 = rival (top row); returns [row,col]
+  const r=p===0?2:0;if(pos<=4)return[r,4-pos];if(pos<=12)return[1,pos-5];return[r,20-pos]}
+let S=null;
+function newGame(){closeModal();S={pos:[new Array(7).fill(0),new Array(7).fill(0)],turn:0,roll:null,dice:[],phase:'roll',last:null,gen:(S?S.gen:0)+1,msg:''};render();maybeCpu()}
+const isCpu=()=>cfg.mode==='cpu'&&S.turn===1&&S.phase!=='over';
+function legal(pos,p,r){if(!r)return[];const out=[];const seen=new Set();
+  pos[p].forEach((x,k)=>{if(x===15||seen.has(x))return;seen.add(x);const t=x+r;if(t>15)return;if(t<15&&pos[p].includes(t))return;
+    if(t>=5&&t<=12&&t===8&&pos[1-p].includes(8))return;out.push({k,from:x,to:t})});return out}
+function apply(pos,p,m){pos[p][m.k]=m.to;let cap=false;if(m.to>=5&&m.to<=12){const o=pos[1-p].indexOf(m.to);if(o>=0){pos[1-p][o]=0;cap=true}}return{cap,again:ROS.has(m.to)}}
+const ROLLP=[1,4,6,4,1].map(x=>x/16);
+function doRoll(){if(S.phase!=='roll')return;S.dice=[0,1,2,3].map(()=>rand(2));S.roll=S.dice.reduce((a,b)=>a+b,0);S.anim=true;sfx('dice');
+  const ms=legal(S.pos,S.turn,S.roll);
+  if(!ms.length){S.msg=S.roll?`${who()} rolled ${S.roll} but can't move.`:`${who()} rolled 0.`;S.phase='wait';render();S.anim=false;const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;nextTurn(false)},1300);return}
+  S.phase='move';S.msg='';render();S.anim=false;if(isCpu()){const g=S.gen;setTimeout(()=>{if(g===S.gen)move(cpuPick(ms))},700)}
+  else if(ms.length===1&&ms[0].from===0&&S.pos[S.turn].filter(x=>x===0).length===S.pos[S.turn].filter(x=>x<15).length){/* only entering is possible: still let the player tap */}}
+const who=()=>cfg.mode==='cpu'?(S.turn===0?'You':'Computer'):S.turn===0?'Light':'Dark';
+function move(m){if(S.phase!=='move')return;const r=apply(S.pos,S.turn,m);S.last=[S.turn,m.to];
+  sfx(r.cap?'capture':m.to===15?'score':'move');if(r.again&&m.to<15)setTimeout(()=>sfx('good'),150);
+  S.msg=r.cap?`${who()} knocked a piece back!`:m.to===15?`${who()} bore a piece off.`:r.again?`Rosette! ${who()} roll${S.turn===0&&cfg.mode==='cpu'?'':'s'} again.`:'';
+  if(S.pos[S.turn].every(x=>x===15)){S.phase='over';render();finish();return}
+  nextTurn(r.again)}
+function nextTurn(again){if(!again)S.turn=1-S.turn;S.phase='roll';S.roll=null;render();maybeCpu()}
+function maybeCpu(){if(!isCpu())return;const g=S.gen;setTimeout(()=>{if(g===S.gen&&isCpu()&&S.phase==='roll')doRoll()},700)}
+function finish(){const w=S.turn,vs=cfg.mode==='cpu';if(vs){if(w===0)tally.w++;else tally.l++;store.set('parlor-ur-tally',tally)}
+  const left=S.pos[1-w].filter(x=>x<15).length;setTimeout(()=>{modal(`<h2>${vs?(w===0?'You win!':'Computer wins'):(w===0?'Light wins!':'Dark wins!')}</h2><p>All seven pieces home. The other side still had ${left} to go.</p>${vs?`<p>You've won ${tally.w} of ${tally.w+tally.l}.</p>`:''}<div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);$('mnew').onclick=newGame},500)}
+// ---------- computer ----------
+function evalPos(pos,p){// progress, safety and threat for player p
+  const o=1-p;let v=0;
+  for(const x of pos[p]){v+=x===15?20:x*1.0;if(x===8)v+=4;if(x>=5&&x<=12&&x!==8){// danger: rival pieces 1-4 behind on the shared row
+      let risk=0;for(const y of pos[o])if(y>0&&y<x&&x-y<=4&&(y>=5||x-y<=4))risk+=ROLLP[x-y];v-=risk*x*.7}}
+  for(const y of pos[o]){v-=y===15?20:y*1.0;if(y===8)v-=4}
+  return v}
+function cpuPick(ms){const lv=cfg.level,p=S.turn;if(lv==='easy')return Math.random()<.5?ms[rand(ms.length)]:best1(ms,p);
+  if(lv==='medium')return best1(ms,p);
+  // hard: expectimax one turn deep (my move, then every rival roll and their best reply)
+  let best=null;for(const m of ms){const pos=[S.pos[0].slice(),S.pos[1].slice()];const r=apply(pos,p,m);let v;
+    if(pos[p].every(x=>x===15))v=1e6;else if(r.again)v=evalPos(pos,p)+6;else{v=0;for(let roll=0;roll<=4;roll++){const rm=legal(pos,1-p,roll);let worst=evalPos(pos,p);
+        if(rm.length){worst=Infinity;for(const m2 of rm){const p2=[pos[0].slice(),pos[1].slice()];const r2=apply(p2,1-p,m2);const e=evalPos(p2,p)-(r2.again?6:0);if(e<worst)worst=e}}v+=ROLLP[roll]*worst}}
+    if(!best||v>best.v)best={m,v}}
+  return best.m}
+function best1(ms,p){let best=null;for(const m of ms){const pos=[S.pos[0].slice(),S.pos[1].slice()];const r=apply(pos,p,m);const v=evalPos(pos,p)+(r.cap?8:0)+(r.again?7:0)+Math.random()*.5;if(!best||v>best.v)best={m,v}}return best.m}
+// ---------- drawing ----------
+const piece=(p,mv,k)=>`<div class="pc ${p===0?'a':'b'}${mv?' mv':''}"${mv?` data-k="${k}" role="button" aria-label="Move this piece"`:''}></div>`;
+function render(){const ms=S.phase==='move'&&!isCpu()?legal(S.pos,S.turn,S.roll):[];const movable=new Set(ms.map(m=>m.from));
+  let h='';for(let r=0;r<3;r++)for(let c=0;c<8;c++){const gap=r!==1&&(c===4||c===5);if(gap){h+='<div class="sq gap"></div>';continue}
+    let occ=null;for(const p of[0,1])S.pos[p].forEach((x,k)=>{if(x>0&&x<15){const [rr,cc]=cell(p,x);if(rr===r&&cc===c)occ={p,k,x}}});
+    const ros=(r===1&&c===3)||(r!==1&&(c===0||c===6));const tg=ms.some(m=>{if(m.to===15)return false;const [rr,cc]=cell(S.turn,m.to);return rr===r&&cc===c});
+    const last=S.last&&S.last[1]<15&&(()=>{const [rr,cc]=cell(S.last[0],S.last[1]);return rr===r&&cc===c})();
+    h+=`<div class="sq${ros?' ros':''}${tg&&hoverFrom!=null?'':''}${last?' last':''}" data-r="${r}" data-c="${c}">${occ?piece(occ.p,occ.p===S.turn&&movable.has(occ.x),occ.k):''}</div>`}
+  $('board').innerHTML=h;
+  for(const p of[0,1]){const el=$(p===0?'side1':'side2'),wait=S.pos[p].map((x,k)=>({x,k})).filter(o=>o.x===0),home=S.pos[p].filter(x=>x===15).length;
+    const nm=cfg.mode==='cpu'?(p===0?'You':'Computer'):p===0?'Light':'Dark';
+    el.className='side'+(S.turn===p&&S.phase!=='over'?' cur':'');
+    el.innerHTML=`<span>${nm}</span><span class="stack">${wait.map((o,i)=>piece(p,i===0&&p===S.turn&&movable.has(0),o.k)).join('')}</span><span class="stack home" title="Finished">${`<div class="pc ${p===0?'a':'b'}"></div>`.repeat(home)} ${home}/7 home</span>`}
+  const tip=on=>`<svg class="die${S.anim?' roll':''}" viewBox="0 0 40 36"><path d="M20 2 L38 34 H2 Z" fill="#3a2a1a"/><path d="M20 2 L29 18 H11 Z" fill="${on?'#fff':'#6b5340'}"/></svg>`;
+  $('dice').innerHTML=(S.dice.length?S.dice:[0,0,0,0]).map(tip).join('');
+  $('msg').innerHTML=S.phase==='over'?'<b>Game over</b>':S.phase==='move'?`<b>${S.roll}</b>${isCpu()?'Computer is moving…':'Tap a highlighted piece.'}`:S.msg?S.msg:`${who()} to roll`;
+  $('roll').disabled=S.phase!=='roll'||isCpu();$('roll').textContent=isCpu()?'Computer…':`Roll${cfg.mode==='two'?' · '+who():''}`;$('level').hidden=cfg.mode!=='cpu'}
+let hoverFrom=null;
+document.addEventListener('click',e=>{const pc=e.target.closest('.pc.mv');if(!pc||S.phase!=='move'||isCpu())return;const k=+pc.dataset.k;const from=S.pos[S.turn][k];const m=legal(S.pos,S.turn,S.roll).find(m=>m.from===from);if(m)move({...m,k})});
+$('roll').onclick=doRoll;
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;if((e.key===' '||e.key==='r')&&S.phase==='roll'&&!isCpu()){e.preventDefault();doRoll()}});
+function setCfg(k,v){cfg[k]=v;store.set('parlor-ur',cfg);newGame()}
+$('mode').onchange=e=>setCfg('mode',e.target.value);$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-ur',cfg)};$('newgame').onclick=newGame;
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+for(const[k,ok]of[['mode',['cpu','two']],['level',['easy','medium','hard']]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+newGame();
+</script>
+</body>
+</html>

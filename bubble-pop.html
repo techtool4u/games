@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bubble Pop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with difficulty; score, level, shots until the next row and best; the playfield canvas (bubbles on a honeycomb grid, the launcher at the bottom with the next bubble); rules below. */
+:root{
+  --bg:#1b2a4a; --fg:#f2f6ff; --muted:#a8b6d6; --panel:#22355c; --line:#30477a; --chip:#2a3f6a; --accent:#ffd84a; --accent-ink:#1b2a4a; --field:#101b33;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0f1830; --panel:#162443; --field:#0a1226; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0f1830; --panel:#162443; --field:#0a1226; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:600px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.hud{display:flex;gap:8px}
+.hud div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px 10px;font-size:12px;color:var(--muted)}
+.hud b{display:block;font-weight:800;font-size:20px;color:var(--fg);font-variant-numeric:tabular-nums}
+.screen{position:relative;width:min(100%,calc((100vh - 230px)*2/3));aspect-ratio:2/3;margin:0 auto;border-radius:16px;overflow:hidden;background:var(--field);border:2px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{width:100%;height:100%;display:block}
+.msg{position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,18,38,.6);text-align:center;padding:20px}
+.msg div{display:flex;flex-direction:column;gap:10px;align-items:center}
+.msg b{font-family:var(--display);font-size:30px;color:var(--accent)}
+.msg p{margin:0}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.screen{grid-column:1;grid-row:1/span 5;width:calc((100vh - 20px)*2/3)}h1{font-size:28px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Bubble Pop</h1>
+    </div>
+    <div class="controls">
+      <select id="diff" aria-label="Difficulty"><option value="easy">Easy: 4 colors</option><option value="medium">Medium: 5 colors</option><option value="hard">Hard: 6 colors</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="hud"><div><b id="score">0</b>score</div><div><b id="level">1</b>level</div><div><b id="drop">8</b>shots to next row</div><div><b id="best">0</b>best</div></div>
+  <div class="screen" id="screen"><canvas id="cv"></canvas><div class="msg" id="msg" hidden></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Aim with your finger or mouse and let go (or click) to shoot. Bubbles bounce off the side walls.</li>
+        <li>Make a group of three or more of the same color to pop them. Any bubbles left hanging with nothing holding them up fall too, for bonus points.</li>
+        <li>Every few shots a new row pushes down from the top. If the bubbles reach the line at the bottom, the game is over.</li>
+        <li>Tap the launcher (or press Space) to swap the current and next bubble. Clear the board to go up a level.</li>
+        <li>Keyboard: ← → aim, ↑ or Enter shoots.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const W=320,H=480,COLS=10,R=16,D=32,RH=R*Math.sqrt(3),TOP=4,ROWS_MAX=14,SX=W/2,SY=H-34;
+const PAL=['#ff5a8a','#ffd84a','#4ade80','#38bdf8','#a78bfa','#fb923c'];
+const cfg=Object.assign({diff:'medium'},store.get('parlor-bubble',{}));
+const best=store.get('parlor-bubble-best',{});
+const cv=$('cv'),cx=cv.getContext('2d');
+let G=null,raf=0,last=0;
+const ncol=()=>({easy:4,medium:5,hard:6})[cfg.diff];
+const shifted=r=>(r+G.par)%2===1,cols=r=>shifted(r)?COLS-1:COLS;
+const pos=(r,c)=>({x:R+c*D+(shifted(r)?R:0),y:TOP+R+r*RH});
+const key=(r,c)=>r*16+c;
+function newGame(){cancelAnimationFrame(raf);G={grid:new Map(),par:0,score:0,level:1,shots:0,every:8,shot:null,aim:-Math.PI/2,falling:[],pops:[],state:'run',cur:0,next:0};
+  fill(5);G.cur=pick();G.next=pick();G.every=Math.max(4,9-G.level);G.left=G.every;$('msg').hidden=true;last=performance.now();raf=requestAnimationFrame(loop)}
+function fill(rows){for(let r=0;r<rows;r++)for(let c=0;c<cols(r);c++)G.grid.set(key(r,c),rand(Math.min(ncol(),3+G.level)))}
+function pick(){// only colors still on the board
+  const have=[...new Set(G.grid.values())];return have.length?have[rand(have.length)]:rand(ncol())}
+function nbrs(r,c){const s=shifted(r);return(s?[[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]]:[[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]]).map(([dr,dc])=>[r+dr,c+dc]).filter(([a,b])=>a>=0&&b>=0&&b<cols(a))}
+function shoot(){if(G.shot||G.state!=='run')return;const a=G.aim;G.shot={x:SX,y:SY,vx:Math.cos(a)*620,vy:Math.sin(a)*620,c:G.cur};G.cur=G.next;G.next=pick();sfx('pop')}
+function snap(s){// nearest empty cell to where the bubble stopped, next to the bubble it hit (or the top)
+  let best=null;for(let r=0;r<ROWS_MAX+2;r++)for(let c=0;c<cols(r);c++){if(G.grid.has(key(r,c)))continue;const p=pos(r,c),d=(p.x-s.x)**2+(p.y-s.y)**2;
+    const ok=r===0||nbrs(r,c).some(([a,b])=>G.grid.has(key(a,b)));if(ok&&(!best||d<best.d))best={r,c,d}}
+  if(!best)return;G.grid.set(key(best.r,best.c),s.c);
+  // pop a group of 3+
+  const grp=[[best.r,best.c]],seen=new Set([key(best.r,best.c)]);for(let k=0;k<grp.length;k++)for(const[a,b]of nbrs(...grp[k])){const kk=key(a,b);if(!seen.has(kk)&&G.grid.get(kk)===s.c){seen.add(kk);grp.push([a,b])}}
+  let popped=0,dropped=0;
+  if(grp.length>=3){for(const[a,b]of grp){G.pops.push({...pos(a,b),c:G.grid.get(key(a,b)),t:0});G.grid.delete(key(a,b))}popped=grp.length;
+    // anything not connected to the top falls
+    const hold=new Set(),st=[];for(let c=0;c<cols(0);c++)if(G.grid.has(key(0,c))){hold.add(key(0,c));st.push([0,c])}
+    while(st.length){const[a,b]=st.pop();for(const[x,y]of nbrs(a,b)){const kk=key(x,y);if(G.grid.has(kk)&&!hold.has(kk)){hold.add(kk);st.push([x,y])}}}
+    for(const[kk,col]of[...G.grid]){if(!hold.has(kk)){const r=Math.floor(kk/16),c=kk%16;G.falling.push({...pos(r,c),c:col,vy:0});G.grid.delete(kk);dropped++}}
+    G.score+=popped*10+dropped*dropped*10+(dropped?20:0);sfx(dropped?'clear':'good',{n:Math.min(4,1+Math.floor(dropped/3))})}
+  else{sfx('clack');G.left--;
+    if(G.left<=0){G.left=G.every;pushRow();sfx('drop')}}
+  if(!G.grid.size){G.level++;G.score+=500;sfx('win');G.state='ready';const nb=G.score>(best[cfg.diff]||0);if(nb){best[cfg.diff]=G.score;store.set('parlor-bubble-best',best)}
+    showMsg(`Level ${G.level-1} cleared!`,`+500 bonus. Next: ${Math.min(5+G.level,9)} rows.`,'Next level',()=>{G.grid.clear();G.par=0;fill(Math.min(5+G.level,9));G.every=Math.max(4,9-G.level);G.left=G.every;G.cur=pick();G.next=pick();G.state='run'});return}
+  // reached the bottom line?
+  for(const kk of G.grid.keys()){const r=Math.floor(kk/16);if(TOP+R+r*RH+R>=SY-R*1.5){gameOver();return}}}
+function pushRow(){const ng=new Map();for(const[kk,col]of G.grid){ng.set(kk+16,col)}G.grid=ng;G.par=(G.par+1)%2;for(let c=0;c<cols(0);c++)G.grid.set(key(0,c),pick())}
+function gameOver(){G.state='over';const nb=G.score>(best[cfg.diff]||0);if(nb){best[cfg.diff]=G.score;store.set('parlor-bubble-best',best)}sfx('lose');showMsg('Game over',`Score ${G.score}${nb?' · a new best':''}.`,'Play again',newGame)}
+function showMsg(t,p,b,fn){$('msg').innerHTML=`<div><b>${t}</b><p>${p}</p><button class="btn primary" id="go">${b}</button></div>`;$('msg').hidden=false;$('go').onclick=e=>{e.stopPropagation();$('msg').hidden=true;fn()}}
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  if(G.shot){const n=8;for(let k=0;k<n&&G.shot;k++){const s=G.shot;s.x+=s.vx*dt/n;s.y+=s.vy*dt/n;if(s.x<R){s.x=R;s.vx=-s.vx;sfx('tick')}if(s.x>W-R){s.x=W-R;s.vx=-s.vx;sfx('tick')}
+    let hit=s.y<=TOP+R;if(!hit)for(const kk of G.grid.keys()){const p=pos(Math.floor(kk/16),kk%16);if((p.x-s.x)**2+(p.y-s.y)**2<(D*.86)**2){hit=true;break}}
+    if(hit){G.shot=null;snap(s)}}}
+  for(const f of G.falling){f.vy+=900*dt;f.y+=f.vy*dt}G.falling=G.falling.filter(f=>f.y<H+R);for(const p of G.pops)p.t+=dt*4;G.pops=G.pops.filter(p=>p.t<1);
+  draw();updHud();raf=requestAnimationFrame(loop)}
+function ball(x,y,c,a=1,r=R-1){cx.globalAlpha=a;const g=cx.createRadialGradient(x-r*.35,y-r*.4,r*.1,x,y,r);g.addColorStop(0,'#fff');g.addColorStop(.25,PAL[c]);g.addColorStop(1,shade(PAL[c]));cx.fillStyle=g;cx.beginPath();cx.arc(x,y,r,0,7);cx.fill();cx.globalAlpha=1}
+function shade(h){const n=parseInt(h.slice(1),16);return`rgb(${(n>>16)*.6|0},${(n>>8&255)*.6|0},${(n&255)*.6|0})`}
+function draw(){const d=cv.width/W;cx.setTransform(d,0,0,d,0,0);cx.clearRect(0,0,W,H);
+  cx.strokeStyle='rgba(255,90,138,.5)';cx.setLineDash([5,6]);cx.beginPath();cx.moveTo(0,SY-R*1.5);cx.lineTo(W,SY-R*1.5);cx.stroke();cx.setLineDash([]);
+  for(const[kk,c]of G.grid){const p=pos(Math.floor(kk/16),kk%16);ball(p.x,p.y,c)}
+  for(const p of G.pops)ball(p.x,p.y,p.c,1-p.t,R*(1+p.t*.5));for(const f of G.falling)ball(f.x,f.y,f.c,.85);
+  if(G.state==='run'&&!G.shot){// aim guide with one wall bounce
+    cx.strokeStyle='rgba(255,255,255,.35)';cx.lineWidth=2;cx.setLineDash([2,7]);cx.beginPath();let x=SX,y=SY,vx=Math.cos(G.aim),vy=Math.sin(G.aim);cx.moveTo(x,y);
+    for(let k=0;k<2;k++){const t=vx>0?(W-R-x)/vx:vx<0?(R-x)/vx:1e9;const ty=(TOP+R-y)/vy;const tt=Math.min(t,ty,320);x+=vx*tt;y+=vy*tt;cx.lineTo(x,y);if(tt===ty)break;vx=-vx}cx.stroke();cx.setLineDash([])}
+  cx.fillStyle='rgba(255,255,255,.08)';cx.beginPath();cx.arc(SX,SY,R+8,0,7);cx.fill();
+  if(G.shot)ball(G.shot.x,G.shot.y,G.shot.c);else ball(SX,SY,G.cur);ball(SX+48,SY+8,G.next,.9,R*.7)}
+function updHud(){$('score').textContent=G.score;$('level').textContent=G.level;$('drop').textContent=G.left;$('best').textContent=best[cfg.diff]||0}
+function size(){const r=$('screen').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,3);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d)}
+const scr=$('screen');let aiming=false;
+function setAim(e){const r=scr.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H;let a=Math.atan2(y-SY,x-SX);if(a>-.15)a=a>Math.PI/2?-Math.PI+.15:-.15;G.aim=Math.max(-Math.PI+.15,Math.min(-.15,a))}
+scr.addEventListener('pointerdown',e=>{if(!$('msg').hidden||G.state!=='run')return;const r=scr.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H;
+  if(Math.hypot(x-SX,y-SY)<R+14||Math.hypot(x-SX-48,y-SY-8)<R){[G.cur,G.next]=[G.next,G.cur];sfx('tap');return}
+  aiming=true;setAim(e);try{scr.setPointerCapture(e.pointerId)}catch(x){}});
+scr.addEventListener('pointermove',e=>{if(aiming||e.pointerType==='mouse')setAim(e)});
+scr.addEventListener('pointerup',e=>{if(!aiming)return;aiming=false;setAim(e);shoot()});
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;if(!$('msg').hidden){if(e.key==='Enter'||e.key===' '){e.preventDefault();$('go').click()}return}
+  if(e.key==='ArrowLeft'){e.preventDefault();G.aim=Math.max(-Math.PI+.15,G.aim-.05)}else if(e.key==='ArrowRight'){e.preventDefault();G.aim=Math.min(-.15,G.aim+.05)}
+  else if(e.key==='ArrowUp'||e.key==='Enter'){e.preventDefault();shoot()}else if(e.key===' '){e.preventDefault();[G.cur,G.next]=[G.next,G.cur]}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelAnimationFrame(raf);else if(G){last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}});
+$('diff').onchange=e=>{cfg.diff=e.target.value;store.set('parlor-bubble',cfg);newGame()};$('newgame').onclick=newGame;
+addEventListener('resize',size);
+window.onAppBack=()=>false;
+if(!['easy','medium','hard'].includes(cfg.diff))cfg.diff='medium';$('diff').value=cfg.diff;size();newGame();
+</script>
+</body>
+</html>

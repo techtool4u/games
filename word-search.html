@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Search</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with theme and size; on wide screens the letter grid sits left and the word list right; on phones the word list goes under the grid. Found words get a colored capsule drawn over the grid. */
+:root{
+  --bg:#fff8e7; --fg:#3b2600; --muted:#8a6f3e; --panel:#ffffff; --line:#f0dfb8; --chip:#fdf0d2; --accent:#d9861a; --accent-ink:#ffffff; --grid:#fffdf6; --letter:#3b2600;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#1b1407; --fg:#fbecc8; --muted:#c9ad78; --panel:#271d0b; --line:#433316; --chip:#33270f; --accent:#f2a541; --accent-ink:#1b1407; --grid:#221a0a; --letter:#fbecc8; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#1b1407; --fg:#fbecc8; --muted:#c9ad78; --panel:#271d0b; --line:#433316; --chip:#33270f; --accent:#f2a541; --accent-ink:#1b1407; --grid:#221a0a; --letter:#fbecc8; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:960px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.game{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px;align-items:start}
+.gridwrap{position:relative;width:100%;max-width:min(620px,calc(100vh - 170px));margin:0 auto;aspect-ratio:1;background:var(--grid);border:1px solid var(--line);border-radius:16px;padding:8px;box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none;container-type:inline-size}
+.grid{position:relative;width:100%;height:100%;display:grid;grid-template-columns:repeat(var(--n),1fr);grid-template-rows:repeat(var(--n),1fr)}
+.cell{display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:calc(100cqw/var(--n)*.52);color:var(--letter);position:relative;z-index:2;cursor:pointer;border-radius:50%}
+.cell.hint{animation:hint 1.2s ease-in-out 2}
+@keyframes hint{50%{background:var(--accent);color:var(--accent-ink)}}
+svg.marks{position:absolute;inset:8px;width:calc(100% - 16px);height:calc(100% - 16px);z-index:1;pointer-events:none}
+svg.marks line{stroke-linecap:round;opacity:.38}
+svg.marks line.drag{opacity:.5}
+.side{display:flex;flex-direction:column;gap:10px}
+.words{display:flex;flex-wrap:wrap;gap:6px}
+.words span{background:var(--chip);border-radius:999px;padding:4px 10px;font-weight:800;font-size:14px;letter-spacing:.03em}
+.words span.found{text-decoration:line-through;opacity:.55;background:color-mix(in srgb,var(--c) 30%,var(--chip))}
+.stats{display:flex;gap:16px;font-size:14px;color:var(--muted)}
+.stats b{display:block;font-family:var(--display);font-size:24px;color:var(--fg);line-height:1.1}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:760px){.game{grid-template-columns:1fr}.gridwrap{max-width:100%}}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;align-items:start;padding-block:10px}.game{display:contents}header{grid-column:2;grid-row:1}.gridwrap{grid-column:1;grid-row:1/span 3;width:calc(100vh - 36px);max-width:none}.side{grid-column:2}h1{font-size:28px}}
+@media (prefers-reduced-motion:reduce){.cell.hint{animation:none;background:var(--accent);color:var(--accent-ink)}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Word Search</h1>
+    </div>
+    <div class="controls">
+      <select id="theme" aria-label="Theme"></select>
+      <select id="size" aria-label="Size"><option value="easy">Easy 8×8</option><option value="medium">Medium 10×10</option><option value="hard">Hard 12×12</option></select>
+      <button class="btn primary" id="newgame">New puzzle</button>
+    </div>
+  </header>
+  <div class="game">
+    <div class="gridwrap" id="gw"><svg class="marks" id="marks" aria-hidden="true"></svg><div class="grid" id="grid" role="grid" aria-label="Letter grid"></div></div>
+    <aside class="side">
+      <div class="panel"><p class="label" id="themeName">Words</p><div class="words" id="words"></div></div>
+      <div class="panel"><div class="stats"><div><b id="found">0</b>found</div><div><b id="time">0:00</b>time</div><div><b id="best">–</b>best</div></div></div>
+      <div class="acts"><button class="btn" id="hint">Hint</button></div>
+      <div class="panel">
+        <details>
+          <summary>How to play</summary>
+          <ul>
+            <li>Every word in the list is hidden in the grid in a straight line.</li>
+            <li>Drag across a word to circle it, or tap its first letter and then its last letter.</li>
+            <li>Easy words run across and down. Medium adds diagonals. Hard adds words spelled backwards, and has more of them.</li>
+            <li>Hint flashes the first letter of a word you haven't found yet.</li>
+          </ul>
+        </details>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const THEMES={
+  Animals:'ELEPHANT GIRAFFE ZEBRA MONKEY TIGER LION RABBIT TURTLE PENGUIN DOLPHIN KANGAROO PANDA HORSE CAMEL OTTER BEAVER SQUIRREL LIZARD MOOSE FOX WOLF BEAR GORILLA KOALA',
+  Fruit:'APPLE BANANA CHERRY GRAPE LEMON MANGO ORANGE PAPAYA PEACH PEAR PLUM KIWI MELON LIME APRICOT COCONUT FIG GUAVA PINEAPPLE RAISIN BERRY DATE OLIVE QUINCE',
+  Sports:'SOCCER TENNIS HOCKEY GOLF RUGBY CRICKET BOXING ROWING SKIING SURFING CYCLING ARCHERY FENCING JUDO KARATE BASEBALL NETBALL BOWLING SAILING DIVING POLO SQUASH SKATING DARTS',
+  Space:'PLANET COMET ORBIT ROCKET GALAXY NEBULA METEOR SATURN JUPITER MARS VENUS MERCURY NEPTUNE URANUS MOON STAR ASTEROID ECLIPSE CRATER TELESCOPE GRAVITY COSMOS SHUTTLE LUNAR',
+  Ocean:'WHALE SHARK CORAL REEF WAVE TIDE SQUID OCTOPUS CRAB LOBSTER SEAWEED SALMON TUNA SHELL ANCHOR HARBOR ISLAND LAGOON KELP STARFISH JELLYFISH SEAL CURRENT PLANKTON',
+  Kitchen:'SPOON FORK KNIFE PLATE BOWL OVEN KETTLE TOASTER BLENDER WHISK LADLE GRATER COLANDER SKILLET SPATULA TEAPOT APRON NAPKIN PANTRY FRIDGE SINK MUG JUG TRAY',
+  Weather:'SUNNY CLOUDY RAIN SNOW STORM THUNDER LIGHTNING WIND BREEZE FOG HAIL SLEET DRIZZLE RAINBOW TORNADO FROST HUMID MONSOON BLIZZARD GALE DROUGHT CYCLONE MIST DEW',
+  Music:'GUITAR PIANO VIOLIN DRUMS FLUTE TRUMPET CELLO HARP BANJO TUBA OBOE CLARINET MELODY RHYTHM TEMPO CHORD CHORUS LYRICS CONCERT ORCHESTRA OPERA BALLAD TUNE BASS',
+  Garden:'TULIP DAISY ROSE LILY ORCHID POPPY SUNFLOWER VIOLET IVY FERN MOSS HEDGE SHOVEL RAKE HOSE SEEDS SOIL COMPOST BLOSSOM PETAL STEM ROOT BEETLE WORM',
+  Travel:'TRAIN PLANE FERRY BUS TAXI BICYCLE SUBWAY TRAM TICKET PASSPORT LUGGAGE SUITCASE MAP COMPASS HOTEL AIRPORT STATION JOURNEY ROUTE CRUISE BACKPACK TOURIST VOYAGE CAMERA',
+  Colors:'RED BLUE GREEN YELLOW PURPLE ORANGE PINK BROWN BLACK WHITE GREY SILVER GOLD CRIMSON SCARLET INDIGO VIOLET TEAL TURQUOISE MAROON NAVY BEIGE LAVENDER AMBER',
+  Food:'PIZZA PASTA BREAD CHEESE BUTTER SOUP SALAD NOODLES RICE CURRY TACO BURRITO SUSHI WAFFLE PANCAKE COOKIE MUFFIN BAGEL SANDWICH OMELET YOGURT HONEY PICKLE PRETZEL'};
+const SIZES={easy:{n:8,words:6,dirs:[[0,1],[1,0]]},medium:{n:10,words:9,dirs:[[0,1],[1,0],[1,1],[-1,1]]},hard:{n:12,words:13,dirs:[[0,1],[1,0],[1,1],[-1,1],[0,-1],[-1,0],[-1,-1],[1,-1]]}};
+const COLORS=['#e8505b','#2c8bd6','#2eae5f','#a35bd6','#e8901e','#0fa3a3','#d6408f','#6d7b1c','#5b6bd6','#c4542a','#1f8f75','#b0426b','#7a5bd6'];
+const cfg=Object.assign({theme:'Animals',size:'medium'},store.get('parlor-wordsearch',{}));
+const best=store.get('parlor-wordsearch-best',{});
+let S=null,timer=0,drag=null,tapStart=null;
+function makePuzzle(){const sz=SIZES[cfg.size],n=sz.n,pool=shuffle(THEMES[cfg.theme].split(' ').filter(w=>w.length<=n));
+  for(let attempt=0;attempt<60;attempt++){const g=[...Array(n*n)].fill(''),placed=[];
+    for(const w of pool){if(placed.length>=sz.words)break;const opts=[];
+      for(const[dr,dc]of sz.dirs)for(let r=0;r<n;r++)for(let c=0;c<n;c++){const er=r+dr*(w.length-1),ec=c+dc*(w.length-1);if(er<0||er>=n||ec<0||ec>=n)continue;
+        let ok=true,overlap=0;for(let k=0;k<w.length;k++){const ch=g[(r+dr*k)*n+c+dc*k];if(ch&&ch!==w[k]){ok=false;break}if(ch)overlap++}
+        if(ok)opts.push({r,c,dr,dc,overlap})}
+      if(!opts.length)continue;
+      // prefer some crossings so the grid isn't just parallel lines
+      opts.sort((a,b)=>b.overlap-a.overlap+(Math.random()-.5)*1.5);const o=opts[Math.random()<.35?0:rand(opts.length)];
+      for(let k=0;k<w.length;k++)g[(o.r+o.dr*k)*n+o.c+o.dc*k]=w[k];placed.push({w,...o})}
+    if(placed.length>=sz.words){const AL='EEEEAAAIIOOUTTNNSSRRLLDDHCMPBGFYWKVJXQZ';for(let i=0;i<g.length;i++)if(!g[i])g[i]=AL[rand(AL.length)];return{n,g,words:placed}}}
+  return null}
+function newGame(){closeModal();clearInterval(timer);const p=makePuzzle();S={...p,found:[],t0:0,elapsed:0,done:false};S.words.sort((a,b)=>a.w.localeCompare(b.w));
+  tapStart=null;build();render();timer=setInterval(()=>{if(S.t0&&!S.done&&!document.hidden){S.elapsed=Math.floor((Date.now()-S.t0)/1000);$('time').textContent=fmt(S.elapsed)}},500)}
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+const key=()=>cfg.theme+'|'+cfg.size;
+function build(){const n=S.n;$('grid').style.setProperty('--n',n);$('gw').style.setProperty('--n',n);
+  $('grid').innerHTML=S.g.map((ch,i)=>`<div class="cell" data-i="${i}" role="gridcell" aria-label="${ch}, row ${Math.floor(i/n)+1}, column ${i%n+1}">${ch}</div>`).join('');
+  $('marks').setAttribute('viewBox',`0 0 ${n} ${n}`)}
+function render(){const n=S.n;
+  $('marks').innerHTML=S.found.map(f=>line(f.a,f.b,COLORS[f.k%COLORS.length])).join('')+(drag&&drag.b!=null?line(drag.a,drag.b,'var(--accent)','drag'):'')+(tapStart!=null&&!drag?line(tapStart,tapStart,'var(--accent)','drag'):'');
+  $('words').innerHTML=S.words.map((w,k)=>{const f=S.found.find(x=>x.k===k);return`<span class="${f?'found':''}" style="--c:${COLORS[k%COLORS.length]}">${w.w}</span>`}).join('');
+  $('themeName').textContent=`${cfg.theme} · ${S.words.length} words`;
+  $('found').textContent=`${S.found.length}/${S.words.length}`;$('time').textContent=fmt(S.elapsed);$('best').textContent=best[key()]?fmt(best[key()]):'–'}
+function line(a,b,col,cls=''){const n=S.n,x1=a%n+.5,y1=Math.floor(a/n)+.5,x2=b%n+.5,y2=Math.floor(b/n)+.5;return`<line class="${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width=".78"/>`}
+// The cell under a pointer, and the straight line from a to it (snapped to the nearest of the 8 directions).
+function cellAt(e){const r=$('grid').getBoundingClientRect(),n=S.n,c=Math.floor((e.clientX-r.left)/r.width*n),rr=Math.floor((e.clientY-r.top)/r.height*n);if(c<0||rr<0||c>=n||rr>=n)return null;return rr*n+c}
+function snap(a,b){const n=S.n,r1=Math.floor(a/n),c1=a%n,r2=Math.floor(b/n),c2=b%n;let dr=r2-r1,dc=c2-c1;const len=Math.max(Math.abs(dr),Math.abs(dc));if(!len)return a;
+  const ang=Math.round(Math.atan2(dr,dc)/(Math.PI/4)),DR=Math.round(Math.sin(ang*Math.PI/4)),DC=Math.round(Math.cos(ang*Math.PI/4));
+  let k=len;while(k>0){const r=r1+DR*k,c=c1+DC*k;if(r>=0&&r<n&&c>=0&&c<n)return r*n+c;k--}return a}
+function tryWord(a,b){if(a===b)return false;const n=S.n,r1=Math.floor(a/n),c1=a%n,r2=Math.floor(b/n),c2=b%n,dr=Math.sign(r2-r1),dc=Math.sign(c2-c1),len=Math.max(Math.abs(r2-r1),Math.abs(c2-c1))+1;
+  if(r1+dr*(len-1)!==r2||c1+dc*(len-1)!==c2)return false;
+  let s='';for(let k=0;k<len;k++)s+=S.g[(r1+dr*k)*n+c1+dc*k];
+  // a word counts whichever end you start from
+  const open=i=>!S.found.some(f=>f.k===i),rev=[...s].reverse().join('');
+  let k=S.words.findIndex((w,i)=>open(i)&&w.w===s);if(k>=0)return found(k,a,b);
+  k=S.words.findIndex((w,i)=>open(i)&&w.w===rev);if(k<0)return false;return found(k,b,a)}
+function found(k,a,b){if(!S.t0)S.t0=Date.now();S.found.push({k,a,b});sfx('good');
+  if(S.found.length===S.words.length){S.done=true;S.elapsed=Math.max(1,Math.floor((Date.now()-S.t0)/1000));const nb=!best[key()]||S.elapsed<best[key()];if(nb){best[key()]=S.elapsed;store.set('parlor-wordsearch-best',best)}
+    render();setTimeout(()=>{modal(`<h2>All found!</h2><p>All ${S.words.length} words in ${fmt(S.elapsed)}${nb?' · a new best':''}.</p><div class="row"><button class="btn primary" id="mnew">New puzzle</button></div>`);$('mnew').onclick=newGame},400)}
+  return true}
+const gw=$('gw');
+gw.addEventListener('pointerdown',e=>{if(S.done)return;const i=cellAt(e);if(i==null)return;e.preventDefault();gw.setPointerCapture(e.pointerId);if(!S.t0)S.t0=Date.now();drag={a:i,b:i,moved:false};render()});
+gw.addEventListener('pointermove',e=>{if(!drag)return;const i=cellAt(e);if(i==null)return;const b=snap(drag.a,i);if(b!==drag.b){drag.b=b;drag.moved=drag.moved||b!==drag.a;sfx('tick');render()}});
+gw.addEventListener('pointerup',e=>{if(!drag)return;const d=drag;drag=null;
+  if(d.moved){tapStart=null;if(!tryWord(d.a,d.b))sfx('bad')}
+  else{// tap-tap selection
+    if(tapStart==null){tapStart=d.a;sfx('tap')}else{const b=snap(tapStart,d.a);const a=tapStart;tapStart=null;if(a!==d.a&&!tryWord(a,b))sfx('bad')}}
+  render()});
+gw.addEventListener('pointercancel',()=>{drag=null;render()});
+$('hint').onclick=()=>{if(S.done)return;const left=S.words.map((w,i)=>i).filter(i=>!S.found.some(f=>f.k===i));if(!left.length)return;const w=S.words[left[rand(left.length)]];const el=$('grid').children[w.r*S.n+w.c];el.classList.remove('hint');void el.offsetWidth;el.classList.add('hint');sfx('select')};
+function setCfg(k,v){cfg[k]=v;store.set('parlor-wordsearch',cfg);newGame()}
+$('theme').innerHTML=Object.keys(THEMES).map(t=>`<option>${t}</option>`).join('');
+$('theme').onchange=e=>setCfg('theme',e.target.value);$('size').onchange=e=>setCfg('size',e.target.value);$('newgame').onclick=newGame;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){tapStart=null;render()}});
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(!THEMES[cfg.theme])cfg.theme='Animals';if(!SIZES[cfg.size])cfg.size='medium';$('theme').value=cfg.theme;$('size').value=cfg.size;newGame();
+</script>
+</body>
+</html>

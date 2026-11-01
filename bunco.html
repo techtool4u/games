@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bunco</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header; two team scoreboards (round points toward 21, rounds won); a felt table with four seats around the dice tray; Roll button; log and rules below. */
+:root{
+  --bg:#fbeef8; --fg:#3a0f33; --muted:#86607d; --panel:#ffffff; --line:#efd1e8; --chip:#f9e2f3; --accent:#b5179e; --accent-ink:#ffffff; --felt:#7a1268; --felt-2:#4f0b44; --die:#fffaf5; --pip:#3a0f33; --t0:#b5179e; --t1:#1f7ab8;
+  --display:"Lilita One", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#1a0b17; --fg:#fbe6f6; --muted:#c7a0bd; --panel:#26111f; --line:#43233a; --chip:#33182b; --accent:#f06bd8; --accent-ink:#2a0624; --t0:#f06bd8; --t1:#5fb4ef; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#1a0b17; --fg:#fbe6f6; --muted:#c7a0bd; --panel:#26111f; --line:#43233a; --chip:#33182b; --accent:#f06bd8; --accent-ink:#2a0624; --t0:#f06bd8; --t1:#5fb4ef; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:640px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.teams{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.team{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:8px 12px;display:flex;flex-direction:column;gap:4px}
+.team.cur{border-color:var(--c)}
+.team .nm{font-weight:800;font-size:13.5px;color:var(--c)}
+.team .pts{font-family:var(--display);font-size:30px;line-height:1}
+.team .bar{height:10px;border-radius:99px;background:var(--chip);overflow:hidden}
+.team .bar i{display:block;height:100%;background:var(--c);border-radius:99px;transition:width .35s}
+.team small{color:var(--muted);font-size:12.5px}
+.table{position:relative;background:radial-gradient(circle at 50% 40%,var(--felt),var(--felt-2));border-radius:24px;padding:12px;color:#fff;display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:auto auto auto;gap:8px;align-items:center;justify-items:center;box-shadow:inset 0 0 0 6px rgba(0,0,0,.12)}
+.seat{background:rgba(255,255,255,.12);border:2px solid transparent;border-radius:12px;padding:6px 10px;text-align:center;min-width:84px;font-size:13px;line-height:1.25}
+.seat b{display:block;font-size:14px}
+.seat.on{border-color:#fff;background:rgba(255,255,255,.24)}
+.seat .tm{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--c);margin-right:4px;vertical-align:middle}
+.s0{grid-column:2;grid-row:3}.s1{grid-column:1;grid-row:2}.s2{grid-column:2;grid-row:1}.s3{grid-column:3;grid-row:2}
+.mid{grid-column:2;grid-row:2;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:200px}
+.round{font-family:var(--display);font-size:20px;text-align:center;line-height:1.1}
+.round small{display:block;font-family:var(--body);font-size:12.5px;opacity:.85}
+.dice{display:flex;gap:10px;min-height:66px;align-items:center}
+.d{width:60px;aspect-ratio:1;border-radius:18%;background:var(--die);box-shadow:inset 0 -4px 0 rgba(0,0,0,.12),0 5px 8px rgba(0,0,0,.3);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:11%;box-sizing:border-box}
+.d i{width:70%;aspect-ratio:1;border-radius:50%;background:var(--pip);place-self:center}
+.d.hit{box-shadow:0 0 0 4px #ffd84a,0 5px 8px rgba(0,0,0,.3)}
+.d.roll{animation:shake .45s ease-out}
+@keyframes shake{0%{transform:rotate(-30deg) scale(.7)}60%{transform:rotate(12deg)}100%{transform:none}}
+.say{min-height:22px;font-weight:800;text-align:center;font-size:15px}
+.say.big{font-family:var(--display);font-size:34px;font-weight:400;color:#ffd84a;animation:pop .5s}
+@keyframes pop{0%{transform:scale(.4)}70%{transform:scale(1.15)}100%{transform:none}}
+.acts{display:flex;gap:8px;justify-content:center}
+.acts .btn{min-width:180px;min-height:52px;font-size:18px;background:#fff;color:var(--felt-2);border-color:#fff}
+.log{color:var(--muted);font-size:13.5px;text-align:center;min-height:20px}
+.row2{display:flex;gap:14px;flex-wrap:wrap;font-size:14px}
+@media (max-width:420px){.table{grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto auto}.s2{grid-column:1/3;grid-row:1}.s1{grid-column:1;grid-row:3}.s3{grid-column:2;grid-row:3}.mid{grid-column:1/3;grid-row:2;min-width:0}.s0{grid-column:1/3;grid-row:4}.seat{min-width:0;width:100%;box-sizing:border-box}.d{width:54px}}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);max-width:900px;align-items:start;column-gap:14px}.wrap>*{grid-column:1}.table{grid-column:2;grid-row:1/span 5;padding:8px;gap:6px}h1{font-size:30px}.team .pts{font-size:24px}.d{width:46px}.dice{min-height:50px}.acts .btn{min-height:44px}.round{font-size:17px}}
+@media (prefers-reduced-motion:reduce){.d.roll,.say.big{animation:none}.team .bar i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Bunco</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Players"><option value="1">You + computer partner vs 2 computers</option><option value="2">2 players (partners) vs 2 computers</option><option value="4">4 players, pass and play</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="teams" id="teams"></div>
+  <section class="table" aria-live="polite">
+    <div class="seat s0" id="seat0"></div><div class="seat s1" id="seat1"></div><div class="seat s2" id="seat2"></div><div class="seat s3" id="seat3"></div>
+    <div class="mid">
+      <div class="round" id="round"></div>
+      <div class="dice" id="dice"></div>
+      <div class="say" id="say"></div>
+      <div class="acts"><button class="btn primary" id="roll">Roll</button></div>
+    </div>
+  </section>
+  <div class="log" id="log"></div>
+  <div class="panel"><div class="row2"><label><input type="checkbox" id="fast"> Fast computer turns</label><span id="tally"></span></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Four players sit at the table, partners facing each other: your team against the other two. There are six rounds, and each round has a target number: 1 in round 1, 2 in round 2, and so on.</li>
+        <li>On your turn, roll three dice. Each die showing the round's number scores 1 point. Keep rolling as long as you score; when a roll scores nothing, the dice pass to the left.</li>
+        <li>Three of a kind that isn't the round's number scores 5. Three of the round's number is a <b>Bunco</b>: 21 points, which ends the round on the spot.</li>
+        <li>The first team to reach 21 points wins the round. After six rounds, the team that won more rounds wins the game. A tie goes to the team with more points, then more Buncos.</li>
+        <li>Keyboard: Space or R rolls.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const TARGET=21,ROUNDS=6;
+const cfg=Object.assign({mode:'1',fast:false},store.get('parlor-bunco',{}));
+const tally=store.get('parlor-bunco-tally',{won:0,played:0});
+let S=null;
+// Seats 0..3 go clockwise; partners are 0+2 (team 0) and 1+3 (team 1).
+function seats(){const m=cfg.mode;
+  if(m==='1')return[{name:'You'},{name:'Rosa',cpu:true},{name:'Pip',cpu:true},{name:'Jo',cpu:true}];
+  if(m==='2')return[{name:'Player 1'},{name:'Rosa',cpu:true},{name:'Player 2'},{name:'Jo',cpu:true}];
+  return[{name:'Player 1'},{name:'Player 2'},{name:'Player 3'},{name:'Player 4'}]}
+const teamOf=i=>i%2;
+function newGame(){closeModal();S={seat:seats(),round:1,turn:0,dice:[0,0,0],pts:[0,0],wins:[0,0],total:[0,0],buncos:[0,0,0,0],roundPts:[0,0,0,0],busy:false,over:false,say:'',big:false,log:'',gen:(S?S.gen:0)+1,anim:false,hits:[]};
+  S.seat.forEach(p=>{p.score=0});render();sfx('start');next()}
+const cur=()=>S.seat[S.turn];
+const delay=ms=>cfg.fast?Math.round(ms*.45):ms;
+function next(){render();if(S.over)return;if(cur().cpu){const g=S.gen;setTimeout(()=>{if(g===S.gen)roll()},delay(900))}}
+function roll(){if(S.over||S.busy)return;S.busy=true;const g=S.gen,r=S.round;
+  S.dice=[1,2,3].map(()=>1+rand(6));S.anim=true;S.say='';S.big=false;sfx('dice');
+  const hits=S.dice.filter(v=>v===r).length,three=S.dice[0]===S.dice[1]&&S.dice[1]===S.dice[2];
+  let gain=0,why='';
+  if(three&&S.dice[0]===r){gain=TARGET;why='BUNCO!';S.buncos[S.turn]++}
+  else if(three){gain=5;why='Three of a kind: 5'}
+  else if(hits){gain=hits;why=`+${hits}`}
+  S.hits=S.dice.map(v=>v===r);
+  const t=teamOf(S.turn);S.pts[t]+=gain;S.total[t]+=gain;S.roundPts[S.turn]+=gain;
+  S.say=gain?why:'No points. Pass the dice.';S.big=gain===TARGET;
+  S.log=gain?`${cur().name} ${gain===TARGET?'rolled a Bunco':`scored ${gain}`}.`:`${cur().name} rolled nothing.`;
+  render();S.anim=false;
+  setTimeout(()=>{if(g!==S.gen)return;
+    if(gain===TARGET)sfx('win');else if(gain>=5)sfx('good');else if(gain)sfx('score');
+    if(S.pts[t]>=TARGET){setTimeout(()=>{if(g===S.gen)endRound(t)},delay(gain===TARGET?1400:700));return}
+    if(!gain){S.turn=(S.turn+1)%4;if(!cur().cpu)setTimeout(()=>sfx('turn'),200)}
+    S.busy=false;next()},delay(600))}
+function endRound(t){S.wins[t]++;const r=S.round;
+  S.log=`Round ${r} goes to ${teamName(t)}, ${S.pts[0]} to ${S.pts[1]}.`;
+  if(r>=ROUNDS){finish();return}
+  S.round++;S.pts=[0,0];S.dice=[0,0,0];S.hits=[];S.say=`Round ${S.round}: roll ${S.round}s`;S.big=false;
+  // the team that lost the round starts the next one
+  S.turn=teamOf(S.turn)===t?(S.turn+1)%4:S.turn;S.busy=false;sfx('start');next()}
+const teamName=t=>{const a=S.seat[t],b=S.seat[t+2];return cfg.mode==='4'?`${a.name} & ${b.name}`:t===0?(cfg.mode==='1'?'Your team':'Your team'):'Their team'};
+function finish(){S.over=true;S.busy=false;render();
+  const [a,b]=S.wins,w=a!==b?(a>b?0:1):S.total[0]!==S.total[1]?(S.total[0]>S.total[1]?0:1):(S.buncos[0]+S.buncos[2])!==(S.buncos[1]+S.buncos[3])?((S.buncos[0]+S.buncos[2])>(S.buncos[1]+S.buncos[3])?0:1):-1;
+  if(cfg.mode!=='4'){tally.played++;if(w===0)tally.won++;store.set('parlor-bunco-tally',tally)}
+  const title=w<0?'A tie!':cfg.mode==='4'?`${teamName(w)} win!`:w===0?'You win!':'They win';
+  const mvp=S.seat.map((p,i)=>({p,i,s:S.roundPts[i]})).sort((x,y)=>y.s-x.s)[0];
+  setTimeout(()=>modal(`<h2>${title}</h2><p>Rounds won ${a} to ${b} · points ${S.total[0]} to ${S.total[1]}</p><p>Most points: ${mvp.p.name} (${mvp.s})${S.buncos.some(x=>x)?` · Buncos: ${S.seat.map((p,i)=>S.buncos[i]?`${p.name} ${S.buncos[i]}`:'').filter(Boolean).join(', ')}`:''}</p>${cfg.mode!=='4'?`<p>You've won ${tally.won} of ${tally.played}.</p>`:''}<div class="row"><button class="btn primary" id="mnew">Play again</button></div>`),700);
+  setTimeout(()=>{const b=$('mnew');if(b)b.onclick=newGame},720)}
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+const die=(v,hit)=>`<div class="d${S.anim&&v?' roll':''}${hit?' hit':''}" aria-label="${v||'not rolled'}">${[...Array(9)].map((_,k)=>v&&PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</div>`;
+function render(){if(!S)return;
+  $('teams').innerHTML=[0,1].map(t=>`<div class="team${!S.over&&teamOf(S.turn)===t?' cur':''}" style="--c:var(--t${t})"><span class="nm">${teamName(t)} · ${S.seat[t].name} & ${S.seat[t+2].name}</span><span class="pts">${S.pts[t]}<small> / ${TARGET}</small></span><div class="bar"><i style="width:${Math.min(100,100*S.pts[t]/TARGET)}%"></i></div><small>Rounds won: ${S.wins[t]}</small></div>`).join('');
+  S.seat.forEach((p,i)=>{$('seat'+i).className=`seat s${i}${i===S.turn&&!S.over?' on':''}`;$('seat'+i).style.setProperty('--c',`var(--t${teamOf(i)})`);
+    $('seat'+i).innerHTML=`<b><span class="tm"></span>${p.name}</b>${S.roundPts[i]} pts${S.buncos[i]?` · ${S.buncos[i]} Bunco${S.buncos[i]>1?'s':''}`:''}`});
+  $('round').innerHTML=S.over?'Game over':`Round ${S.round} of ${ROUNDS}<small>Roll ${S.round}s · ${cur().cpu?`${cur().name} is rolling`:`${cur().name==='You'?'your':cur().name+"'s"} turn`}</small>`;
+  $('dice').innerHTML=S.dice.map((v,i)=>die(v,v&&S.hits[i])).join('');
+  $('say').textContent=S.say;$('say').className='say'+(S.big?' big':'');
+  $('roll').disabled=S.over||S.busy||cur().cpu;$('roll').textContent=S.over?'Game over':cur().cpu?`${cur().name} is rolling…`:`Roll${cfg.mode!=='1'?' · '+cur().name:''}`;
+  $('log').textContent=S.log;$('fast').checked=cfg.fast;$('tally').textContent=cfg.mode!=='4'&&tally.played?`You've won ${tally.won} of ${tally.played}`:''}
+$('roll').onclick=roll;$('newgame').onclick=newGame;
+$('mode').onchange=e=>{cfg.mode=e.target.value;store.set('parlor-bunco',cfg);newGame()};
+$('fast').onchange=e=>{cfg.fast=e.target.checked;store.set('parlor-bunco',cfg)};
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!$('overlay').hidden||!S)return;const k=e.key.toLowerCase();if(k===' '||k==='r'){e.preventDefault();if(!cur().cpu)roll()}});
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(!['1','2','4'].includes(cfg.mode))cfg.mode='1';$('mode').value=cfg.mode;newGame();
+</script>
+</body>
+</html>

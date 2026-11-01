@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tower of Hanoi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with number of discs; moves and minimum; three pegs on a wooden base with colored discs; Undo, Restart, Show me; rules below. */
+:root{
+  --bg:#eaf2f8; --fg:#1d2a3a; --muted:#647487; --panel:#ffffff; --line:#d3e0ec; --chip:#dfeaf4; --accent:#2c58c4; --accent-ink:#ffffff; --wood:#8a5a2b; --wood-2:#6b431d; --peg:#b07a45;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0f1720; --fg:#e4edf6; --muted:#97a8ba; --panel:#16212c; --line:#26384a; --chip:#1d2b38; --accent:#7fa4ff; --accent-ink:#0f1720; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0f1720; --fg:#e4edf6; --muted:#97a8ba; --panel:#16212c; --line:#26384a; --chip:#1d2b38; --accent:#7fa4ff; --accent-ink:#0f1720; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:720px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.stats{display:flex;gap:8px}
+.stats div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 12px;font-size:13px;color:var(--muted)}
+.stats b{display:block;font-weight:800;font-size:22px;color:var(--fg);font-variant-numeric:tabular-nums}
+.stage{position:relative;height:min(52vh,340px);background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.base{position:absolute;left:3%;right:3%;bottom:8%;height:5%;min-height:10px;background:linear-gradient(var(--peg),var(--wood-2));border-radius:8px}
+.peg{position:absolute;bottom:8%;width:33.33%;height:84%;cursor:pointer}
+.peg::before{content:'';position:absolute;left:50%;bottom:0;width:12px;margin-left:-6px;height:100%;background:linear-gradient(90deg,var(--wood),var(--peg),var(--wood));border-radius:6px 6px 0 0}
+.peg.target::before{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 45%,transparent)}
+.disc{position:absolute;left:50%;height:var(--dh);border-radius:999px;transform:translateX(-50%);transition:bottom .16s,left .16s;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18);pointer-events:none;display:grid;place-items:center;font-weight:800;color:rgba(255,255,255,.85);font-size:12px}
+.disc.up{transition:bottom .12s}
+.acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.msg{text-align:center;color:var(--muted);min-height:20px;font-weight:700}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);column-gap:16px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.stage{grid-column:1;grid-row:1/span 6;height:calc(100vh - 20px)}h1{font-size:26px}}
+@media (prefers-reduced-motion:reduce){.disc{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Tower of Hanoi</h1>
+    </div>
+    <div class="controls">
+      <select id="n" aria-label="Discs"><option value="3">3 discs</option><option value="4">4 discs</option><option value="5">5 discs</option><option value="6">6 discs</option><option value="7">7 discs</option><option value="8">8 discs</option></select>
+      <button class="btn primary" id="newgame">Restart</button>
+    </div>
+  </header>
+  <div class="stats"><div><b id="moves">0</b>moves</div><div><b id="min">7</b>fewest possible</div><div><b id="best">–</b>your best</div></div>
+  <div class="stage" id="stage" aria-label="Three pegs"><div class="base"></div></div>
+  <div class="msg" id="msg">Tap a peg to lift its top disc, then tap where it goes.</div>
+  <div class="acts"><button class="btn" id="undo">Undo</button><button class="btn" id="demo">Show me</button></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Move the whole stack from the left peg to the right peg.</li>
+        <li>Move one disc at a time, and never put a bigger disc on a smaller one.</li>
+        <li>Tap a peg to lift its top disc, then tap another peg to drop it. You can also drag a disc, or use the keys 1, 2 and 3.</li>
+        <li>The fewest moves for n discs is 2ⁿ − 1: 7 for three discs, 255 for eight.</li>
+        <li>Show me finishes the puzzle from wherever you are, the quickest way.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const COLORS=['#e8505b','#f39237','#f6c445','#5cb85c','#2eb5a0','#2c8bd6','#6a5bd6','#c04fb0'];
+const cfg=Object.assign({n:4},store.get('parlor-hanoi',{}));
+const best=store.get('parlor-hanoi-best',{});
+let S=null,demoT=0;
+function newGame(){closeModal();clearTimeout(demoT);const n=+cfg.n;S={n,pegs:[[...Array(n)].map((_,k)=>n-k),[],[]],held:-1,moves:0,hist:[],won:false,demo:false};build();render()}
+function build(){$('stage').innerHTML='<div class="base"></div>'+[0,1,2].map(p=>`<div class="peg" data-p="${p}" style="left:${p*33.33}%" role="button" aria-label="Peg ${p+1}"></div>`).join('')+[...Array(S.n)].map((_,k)=>`<div class="disc" data-d="${k+1}"></div>`).join('')}
+function render(){const st=$('stage'),H=st.clientHeight,W=st.clientWidth,n=S.n,dh=Math.min(28,(H*.7)/(n+1.5));st.style.setProperty('--dh',dh+'px');
+  S.pegs.forEach((pg,p)=>pg.forEach((d,k)=>{const el=st.querySelector(`.disc[data-d="${d}"]`);const lifted=S.held===p&&k===pg.length-1;
+    const w=Math.min(W*.31,40+(W*.31-40)*(d/n));el.style.width=w+'px';el.style.background=COLORS[(d-1)%COLORS.length];
+    el.style.left=`${(p+.5)*33.33}%`;el.style.bottom=lifted?`calc(92% - ${dh}px)`:`calc(8% + ${k*dh}px + 5%)`;el.classList.toggle('up',lifted);el.textContent=n>5?'':d}));
+  st.querySelectorAll('.peg').forEach(el=>el.classList.toggle('target',S.held>=0&&+el.dataset.p!==S.held&&legal(S.held,+el.dataset.p)));
+  $('moves').textContent=S.moves;$('min').textContent=2**S.n-1;$('best').textContent=best[S.n]||'–';$('undo').disabled=!S.hist.length||S.demo;$('demo').textContent=S.demo?'Stop':'Show me'}
+const topOf=p=>S.pegs[p][S.pegs[p].length-1];
+const legal=(a,b)=>S.pegs[a].length&&(!S.pegs[b].length||topOf(b)>topOf(a));
+function tapPeg(p){if(S.won||S.demo)return;if(S.held<0){if(!S.pegs[p].length)return;S.held=p;sfx('tap');render();return}
+  if(p===S.held){S.held=-1;sfx('tick');render();return}
+  if(!legal(S.held,p)){sfx('error');$('msg').textContent='A bigger disc can\'t go on a smaller one.';return}
+  move(S.held,p)}
+function move(a,b){S.hist.push([a,b]);S.pegs[b].push(S.pegs[a].pop());S.held=-1;S.moves++;sfx('place');$('msg').textContent='';render();
+  if(S.pegs[2].length===S.n){S.won=true;const min=2**S.n-1;if(!S.demo&&(!best[S.n]||S.moves<best[S.n])){best[S.n]=S.moves;store.set('parlor-hanoi-best',best)}render();
+    setTimeout(()=>{if(S.demo){S.demo=false;render();$('msg').textContent='Solved. Restart to try it yourself.';return}sfx('win');modal(`<h2>Stacked!</h2><p>${S.moves} moves${S.moves===min?', the fewest possible!':`. The fewest possible is ${min}.`}</p><div class="row"><button class="btn" id="mclose">Close</button>${S.n<8?`<button class="btn primary" id="mmore">Try ${S.n+1} discs</button>`:''}</div>`);
+      $('mclose').onclick=closeModal;const m=$('mmore');if(m)m.onclick=()=>{cfg.n=S.n+1;store.set('parlor-hanoi',cfg);$('n').value=cfg.n;newGame()}},400)}}
+// The quickest finish from any position: to put disc k on peg t, first move the discs above it out of the way.
+function plan(){const where=[];S.pegs.forEach((pg,p)=>pg.forEach(d=>where[d]=p));const out=[];
+  const go=(k,t)=>{if(k<1)return;if(where[k]===t){go(k-1,t);return}const other=3-where[k]-t;go(k-1,other);out.push([where[k],t]);where[k]=t;go(k-1,t)};
+  go(S.n,2);return out}
+function demo(){if(S.won)return;if(S.demo){S.demo=false;clearTimeout(demoT);render();return}S.demo=true;S.held=-1;const steps=plan();let k=0;const sp=Math.max(80,500-S.n*50);
+  const run=()=>{if(!S.demo)return;if(k<steps.length){move(...steps[k++]);demoT=setTimeout(run,sp)}};run()}
+$('stage').addEventListener('click',e=>{if(drag&&drag.moved)return;const st=$('stage').getBoundingClientRect();const p=Math.min(2,Math.floor((e.clientX-st.left)/st.width*3));tapPeg(p)});
+// drag a disc from one peg to another
+let drag=null;
+$('stage').addEventListener('pointerdown',e=>{const st=$('stage').getBoundingClientRect();drag={p:Math.min(2,Math.floor((e.clientX-st.left)/st.width*3)),x:e.clientX,moved:false}});
+$('stage').addEventListener('pointermove',e=>{if(drag&&Math.abs(e.clientX-drag.x)>25)drag.moved=true});
+$('stage').addEventListener('pointerup',e=>{if(!drag)return;const d=drag;setTimeout(()=>{drag=null},0);if(!d.moved||S.won||S.demo)return;const st=$('stage').getBoundingClientRect(),to=Math.min(2,Math.max(0,Math.floor((e.clientX-st.left)/st.width*3)));
+  if(to!==d.p){S.held=-1;if(legal(d.p,to))move(d.p,to);else{sfx('error');$('msg').textContent='A bigger disc can\'t go on a smaller one.'}}});
+document.addEventListener('keydown',e=>{if((e.target.closest&&e.target.closest('select,input'))||!$('overlay').hidden)return;if('123'.includes(e.key)&&e.key){tapPeg(+e.key-1)}else if(e.key==='Escape'){S.held=-1;render()}else if((e.key==='z'&&(e.ctrlKey||e.metaKey))||e.key==='u')$('undo').click()});
+$('undo').onclick=()=>{if(S.demo||!S.hist.length||S.won)return;const [a,b]=S.hist.pop();S.pegs[a].push(S.pegs[b].pop());S.moves++;S.held=-1;sfx('slide');render()};
+$('demo').onclick=demo;$('newgame').onclick=newGame;$('n').onchange=e=>{cfg.n=+e.target.value;store.set('parlor-hanoi',cfg);newGame()};
+addEventListener('resize',()=>S&&render());
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+if(![3,4,5,6,7,8].includes(+cfg.n))cfg.n=4;$('n').value=cfg.n;newGame();
+</script>
+</body>
+</html>
