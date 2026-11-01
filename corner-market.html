@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Corner Market</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header; coins and goal strip; the whole shop drawn on one canvas (garden plots at the top, shelves in the middle, the till and the door at the bottom), sized to fit a phone; rules below. */
+:root{
+  --bg:#fff7ec; --fg:#33261a; --muted:#8a7461; --panel:#ffffff; --line:#f0dfc8; --chip:#fbead3; --accent:#2f9e6e; --accent-ink:#ffffff;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#1b140e; --fg:#f6eadb; --muted:#c3a98c; --panel:#251c14; --line:#3d2e20; --chip:#30241a; --accent:#4cc38a; --accent-ink:#1b140e; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#1b140e; --fg:#f6eadb; --muted:#c3a98c; --panel:#251c14; --line:#3d2e20; --chip:#30241a; --accent:#4cc38a; --accent-ink:#1b140e; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:560px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.coins{font-family:var(--display);font-size:26px;display:flex;align-items:center;gap:6px}
+.coins i{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3a0,#f2b400 60%,#c98a00);display:inline-block}
+.goal{flex:1;font-size:13.5px;color:var(--muted);text-align:right}
+.screen{position:relative;width:min(100%,calc((100vh - 200px)*3/5));aspect-ratio:3/5;margin:0 auto;border-radius:18px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:0 10px 26px -14px rgba(60,30,0,.5)}
+canvas{width:100%;height:100%;display:block}
+.msg{position:absolute;inset:0;display:grid;place-items:center;background:rgba(40,25,10,.45);text-align:center;padding:18px}
+.msg div{background:var(--panel);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px;align-items:center;max-width:320px}
+.msg b{font-family:var(--display);font-size:26px}
+.msg p{margin:0;color:var(--muted)}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:6px;align-items:start}.wrap>*{grid-column:2}.screen{grid-column:1;grid-row:1/span 5;width:calc((100vh - 16px)*3/5)}h1{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Corner Market</h1>
+    </div>
+    <div class="controls"><button class="btn" id="reset">Start over</button></div>
+  </header>
+  <div class="bar"><span class="coins"><i></i><span id="coins">0</span></span><span class="goal" id="goal"></span></div>
+  <div class="screen" id="screen"><canvas id="cv"></canvas><div class="msg" id="msg" hidden></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>You run a little corner market. <b>Walk</b> by dragging anywhere on the shop (your shopkeeper walks the way you drag), or with the arrow keys / WASD.</li>
+        <li>Walk over ripe produce in the garden to pick it up (you can carry a few at a time), then walk to its shelf to stock it.</li>
+        <li>Customers take what they want from the shelves and queue at the till. Stand on the green till mat to take their money. If a shelf stays empty too long, they leave without buying.</li>
+        <li>Stand on a dashed <b>unlock pad</b> to pay for it bit by bit: new produce, a bigger basket, faster shoes, a cashier, and a farmhand who restocks for you.</li>
+        <li>The shop saves itself, so you can come back any time.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const W=360,H=600;
+const PRODUCTS={tomato:{name:'Tomatoes',col:'#e63946',price:4,grow:6},corn:{name:'Corn',col:'#f4c430',price:7,grow:8},apple:{name:'Apples',col:'#8bc34a',price:11,grow:10},egg:{name:'Eggs',col:'#fff3e0',price:16,grow:12}};
+// Everything has a fixed place in the shop. Plots and shelves belong to a product.
+const PLOTS=[{id:'p1',k:'tomato',x:40,y:70},{id:'p2',k:'tomato',x:100,y:70},{id:'p3',k:'corn',x:160,y:70},{id:'p4',k:'corn',x:220,y:70},{id:'p5',k:'apple',x:280,y:70},{id:'p6',k:'apple',x:280,y:140},{id:'p7',k:'egg',x:40,y:140},{id:'p8',k:'egg',x:100,y:140}];
+const SHELVES=[{id:'s1',k:'tomato',x:60,y:290},{id:'s2',k:'corn',x:150,y:290},{id:'s3',k:'apple',x:240,y:290},{id:'s4',k:'egg',x:150,y:380}];
+const TILL={x:70,y:500},DOOR={x:300,y:585};
+const PADS=[
+  {id:'u_p2',label:'Tomato plot',cost:30,x:100,y:70,gives:['p2'],need:[]},
+  {id:'u_corn',label:'Corn plot + shelf',cost:80,x:160,y:70,gives:['p3','s2'],need:['u_p2']},
+  {id:'u_bag',label:'Bigger basket',cost:120,x:300,y:440,gives:['bag'],need:['u_corn']},
+  {id:'u_p4',label:'Corn plot',cost:150,x:220,y:70,gives:['p4'],need:['u_corn']},
+  {id:'u_apple',label:'Apple tree + shelf',cost:260,x:280,y:70,gives:['p5','s3'],need:['u_corn']},
+  {id:'u_cash',label:'Hire a cashier',cost:350,x:150,y:500,gives:['cashier'],need:['u_apple']},
+  {id:'u_shoes',label:'Faster shoes',cost:300,x:300,y:500,gives:['shoes'],need:['u_bag']},
+  {id:'u_egg',label:'Hen house + egg shelf',cost:600,x:40,y:140,gives:['p7','s4'],need:['u_apple']},
+  {id:'u_p6',label:'Apple tree',cost:500,x:280,y:140,gives:['p6'],need:['u_apple']},
+  {id:'u_farm',label:'Hire a farmhand',cost:900,x:220,y:140,gives:['farmhand'],need:['u_egg']},
+  {id:'u_p8',label:'Hen house',cost:800,x:100,y:140,gives:['p8'],need:['u_egg']},
+  {id:'u_sign',label:'Big shop sign',cost:1500,x:300,y:230,gives:['sign'],need:['u_farm']}];
+const SAVE='parlor-market';
+let S=null,raf=0,last=0,move={x:0,y:0},keys={};
+const has=id=>S.owned.includes(id);
+function fresh(){return{coins:0,owned:['p1','s1'],paid:{},shelf:{},plots:{},total:0}}
+function load(){const s=store.get(SAVE,null);S=s&&s.owned?Object.assign(fresh(),s):fresh();
+  Object.assign(S,{me:{x:180,y:440,carry:[]},customers:[],queue:[],spawn:3,serveT:0,float:[],helper:{x:200,y:200,carry:[],task:null},cashier:{x:TILL.x-30,y:TILL.y}});
+  for(const p of PLOTS){if(S.plots[p.id]==null)S.plots[p.id]=0}for(const s of SHELVES){if(S.shelf[s.id]==null)S.shelf[s.id]=has(s.id)?3:0}}
+function save(){const {coins,owned,paid,shelf,plots,total}=S;store.set(SAVE,{coins:Math.floor(coins),owned,paid,shelf,plots,total})}
+const cap=()=>has('bag')?8:4,speed=()=>has('shoes')?150:110;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;step(dt);draw();ui();raf=requestAnimationFrame(loop)}
+function step(dt){const me=S.me;
+  // walking
+  let mx=move.x,my=move.y;if(keys.left)mx=-1;if(keys.right)mx=1;if(keys.up)my=-1;if(keys.down)my=1;const m=Math.hypot(mx,my);
+  if(m>.05){const k=Math.min(1,m);me.x+=mx/m*k*speed()*dt;me.y+=my/m*k*speed()*dt;me.face=mx<0?-1:1;me.walk=(me.walk||0)+dt}
+  me.x=Math.max(14,Math.min(W-14,me.x));me.y=Math.max(40,Math.min(H-24,me.y));
+  // garden grows
+  for(const p of PLOTS){if(!has(p.id))continue;S.plots[p.id]=Math.min(1,S.plots[p.id]+dt/PRODUCTS[p.k].grow)}
+  // picking up, stocking (for you and the farmhand)
+  const work=(w,isMe)=>{for(const p of PLOTS){if(!has(p.id)||S.plots[p.id]<1||dist(w,p)>26)continue;const room=(isMe?cap():6)-w.carry.length;if(room<=0)continue;const n=Math.min(room,3);for(let i=0;i<n;i++)w.carry.push(p.k);S.plots[p.id]=0;if(isMe)sfx('pop')}
+    for(const s of SHELVES){if(!has(s.id)||dist(w,s)>34)continue;const i=w.carry.lastIndexOf(s.k);if(i>=0&&S.shelf[s.id]<12){w.stockT=(w.stockT||0)-dt;if(w.stockT<=0){w.carry.splice(i,1);S.shelf[s.id]++;w.stockT=.1;if(isMe)sfx('tap')}}}};
+  work(me,true);
+  // the farmhand: pick the emptiest shelf, fetch from a ripe plot, stock it
+  if(has('farmhand')){const h=S.helper;if(!h.task){const needs=SHELVES.filter(s=>has(s.id)&&S.shelf[s.id]<8).sort((a,b)=>S.shelf[a.id]-S.shelf[b.id]);
+      for(const s of needs){const p=PLOTS.find(p=>p.k===s.k&&has(p.id)&&S.plots[p.id]>=1);if(p){h.task={p,s};break}}}
+    if(h.task){const tgt=h.carry.length?h.task.s:h.task.p;const d=dist(h,tgt);if(d>4){h.x+=(tgt.x-h.x)/d*80*dt;h.y+=(tgt.y-h.y)/d*80*dt}work(h,false);if(h.carry.length===0&&tgt===h.task.s)h.task=null;if(!h.carry.length&&S.plots[h.task?.p?.id]<1&&tgt===h.task?.p)h.task=null}}
+  // customers arrive, shop, queue, pay
+  S.spawn-=dt;const maxC=has('sign')?9:6;
+  if(S.spawn<=0&&S.customers.length<maxC){const kinds=SHELVES.filter(s=>has(s.id)).map(s=>s.k);const want=[];for(let i=0;i<1+Math.floor(Math.random()*3);i++)want.push(kinds[Math.floor(Math.random()*kinds.length)]);
+    S.customers.push({x:DOOR.x,y:DOOR.y,want,got:[],state:'shop',patience:30,hue:Math.floor(Math.random()*360),bob:Math.random()*6});S.spawn=Math.max(2.5,(has('sign')?4:6)-S.owned.length*.15)+Math.random()*2}
+  for(const c of S.customers){c.bob+=dt*8;
+    if(c.state==='shop'){const k=c.want[c.got.length];const s=SHELVES.find(s=>s.k===k);const tgt={x:s.x+(Math.random()-.5)*2,y:s.y+30};if(walkTo(c,tgt,60,dt)){if(S.shelf[s.id]>0){S.shelf[s.id]--;c.got.push(k);if(c.got.length===c.want.length){c.state='queue';S.queue.push(c)}}else{c.patience-=dt;if(c.patience<=0){c.state='leave';c.angry=true;S.float.push({x:c.x,y:c.y-24,t:1.2,txt:'😠'})}}}}
+    else if(c.state==='queue'){const i=S.queue.indexOf(c);walkTo(c,{x:TILL.x+20+i*22,y:TILL.y+34},70,dt)}
+    else if(c.state==='leave'){if(walkTo(c,DOOR,70,dt))c.gone=true}}
+  S.customers=S.customers.filter(c=>!c.gone);
+  // serving at the till: you on the mat, or the cashier
+  const serving=dist(me,TILL)<26||has('cashier');const front=S.queue[0];
+  if(serving&&front&&dist(front,{x:TILL.x+20,y:TILL.y+34})<8){S.serveT+=dt;if(S.serveT>(has('cashier')&&dist(me,TILL)>=26?.9:.5)){S.serveT=0;S.queue.shift();front.state='leave';const pay=front.got.reduce((a,k)=>a+PRODUCTS[k].price,0);S.coins+=pay;S.total+=pay;S.float.push({x:TILL.x,y:TILL.y-20,t:1,txt:`+${pay}`});sfx('chips')}}else S.serveT=0;
+  // unlock pads
+  for(const p of PADS){if(has(p.id)||!p.need.every(has))continue;if(dist(me,p)<22&&S.coins>0){const left=p.cost-(S.paid[p.id]||0);const take=Math.min(left,Math.max(1,Math.ceil(p.cost*1.2*dt)),Math.floor(S.coins));if(take>0){S.coins-=take;S.paid[p.id]=(S.paid[p.id]||0)+take;if(Math.random()<.3)sfx('tick')}
+      if((S.paid[p.id]||0)>=p.cost){S.owned.push(p.id,...p.gives);for(const g of p.gives)if(g.startsWith('s'))S.shelf[g]=0;sfx('win');S.float.push({x:p.x,y:p.y-20,t:1.6,txt:p.label+'!'});save()}}}
+  for(const f of S.float)f.t-=dt;S.float=S.float.filter(f=>f.t>0);
+  S.saveT=(S.saveT||0)+dt;if(S.saveT>4){S.saveT=0;save()}}
+function walkTo(c,t,sp,dt){const d=dist(c,t);if(d<3)return true;c.x+=(t.x-c.x)/d*Math.min(d,sp*dt);c.y+=(t.y-c.y)/d*Math.min(d,sp*dt);return false}
+// ---------- drawing ----------
+function draw(){const s=cv.width/W;cx.setTransform(s,0,0,s,0,0);
+  cx.fillStyle='#8bc06a';cx.fillRect(0,0,W,200);cx.fillStyle='#7aad5c';for(let y=0;y<200;y+=20)for(let x=(y/20%2)*20;x<W;x+=40)cx.fillRect(x,y,20,20);
+  cx.fillStyle='#e8d5b5';cx.fillRect(0,200,W,H-200);cx.fillStyle='#dcc6a2';for(let y=200;y<H;y+=30)for(let x=((y-200)/30%2)*30;x<W;x+=60)cx.fillRect(x,y,30,30);
+  cx.fillStyle='#b5651d';cx.fillRect(0,196,W,8);cx.fillStyle='#f6eadb';cx.fillRect(150,196,60,8);
+  cx.fillStyle='#6b4a2a';cx.fillRect(DOOR.x-26,H-10,52,10);
+  // pads
+  for(const p of PADS){if(has(p.id)||!p.need.every(has))continue;const paid=(S.paid[p.id]||0)/p.cost;
+    cx.strokeStyle='#ffffff';cx.setLineDash([5,4]);cx.lineWidth=2;cx.strokeRect(p.x-24,p.y-24,48,48);cx.setLineDash([]);cx.fillStyle='rgba(47,158,110,.35)';cx.fillRect(p.x-24,p.y+24-48*paid,48,48*paid);
+    cx.fillStyle='#33261a';cx.font='bold 9px Nunito,sans-serif';cx.textAlign='center';wrapText(p.label,p.x,p.y-6,46);cx.font='bold 11px Nunito,sans-serif';cx.fillStyle='#7a5200';cx.fillText('● '+(p.cost-(S.paid[p.id]||0)),p.x,p.y+16)}
+  // plots
+  for(const p of PLOTS){if(!has(p.id))continue;const g=S.plots[p.id],pr=PRODUCTS[p.k];
+    if(p.k==='egg'){cx.fillStyle='#c0392b';cx.fillRect(p.x-22,p.y-18,44,36);cx.fillStyle='#8e2c1f';cx.beginPath();cx.moveTo(p.x-26,p.y-16);cx.lineTo(p.x,p.y-32);cx.lineTo(p.x+26,p.y-16);cx.fill();cx.fillStyle='#3b2a1a';cx.fillRect(p.x-7,p.y,14,18)}
+    else if(p.k==='apple'){cx.fillStyle='#6b4a2a';cx.fillRect(p.x-4,p.y,8,22);cx.fillStyle='#4caf50';cx.beginPath();cx.arc(p.x,p.y-6,22,0,7);cx.fill()}
+    else{cx.fillStyle='#7a5230';cx.fillRect(p.x-24,p.y-20,48,40);cx.fillStyle='#6a4526';for(let k=0;k<3;k++)cx.fillRect(p.x-24,p.y-14+k*13,48,3);
+      cx.fillStyle='#3f8f3f';for(let k=0;k<3;k++){const hh=6+g*14;cx.fillRect(p.x-16+k*14,p.y+12-hh,4,hh)}}
+    if(g>=1){for(let k=0;k<3;k++){cx.fillStyle=pr.col;cx.strokeStyle='rgba(0,0,0,.25)';cx.lineWidth=1;cx.beginPath();cx.arc(p.x-12+k*12,p.y-(p.k==='apple'?6:4)+(k%2)*6,5,0,7);cx.fill();cx.stroke()}}
+    else{cx.fillStyle='rgba(0,0,0,.25)';cx.fillRect(p.x-18,p.y+22,36,4);cx.fillStyle='#fff';cx.fillRect(p.x-18,p.y+22,36*g,4)}}
+  // shelves
+  for(const s of SHELVES){if(!has(s.id))continue;const pr=PRODUCTS[s.k],n=S.shelf[s.id];cx.fillStyle='#8a5a2b';cx.fillRect(s.x-36,s.y-16,72,28);cx.fillStyle='#a87444';cx.fillRect(s.x-36,s.y-16,72,6);
+    for(let i=0;i<n;i++){cx.fillStyle=pr.col;cx.beginPath();cx.arc(s.x-30+(i%6)*12,s.y-4+Math.floor(i/6)*9,4.5,0,7);cx.fill()}
+    cx.fillStyle='#33261a';cx.font='bold 10px Nunito,sans-serif';cx.textAlign='center';cx.fillText(`${pr.name} · ${pr.price}●`,s.x,s.y+26);if(n===0){cx.fillStyle='#e63946';cx.fillText('EMPTY',s.x,s.y+2)}}
+  // till
+  cx.fillStyle=dist(S.me,TILL)<26?'#5dd39e':'#9be3c1';cx.fillRect(TILL.x-22,TILL.y-22,44,44);cx.fillStyle='#4a3a2a';cx.fillRect(TILL.x-28,TILL.y-40,56,16);cx.fillStyle='#333';cx.fillRect(TILL.x-8,TILL.y-50,16,12);cx.fillStyle='#fff';cx.font='bold 9px Nunito,sans-serif';cx.textAlign='center';cx.fillText('TILL',TILL.x,TILL.y+4);
+  if(has('cashier'))person(S.cashier.x,S.cashier.y,'#2f9e6e','#ffd6a5',0,1);
+  if(has('farmhand'))person(S.helper.x,S.helper.y,'#c77d2e','#e0ac69',S.helper.carry.length,1,S.helper.carry);
+  if(has('sign')){cx.fillStyle='#ff6b6b';cx.fillRect(250,212,100,26);cx.fillStyle='#fff';cx.font='bold 12px Fredoka,sans-serif';cx.fillText('CORNER MARKET',300,229)}
+  for(const c of S.customers){person(c.x,c.y+Math.sin(c.bob)*1.2,`hsl(${c.hue},55%,55%)`,'#f1c27d',0,1);if(c.state==='shop'){const k=c.want[c.got.length];cx.fillStyle='#fff';cx.beginPath();cx.arc(c.x+12,c.y-26,8,0,7);cx.fill();cx.fillStyle=PRODUCTS[k].col;cx.beginPath();cx.arc(c.x+12,c.y-26,5,0,7);cx.fill();if(c.patience<12){cx.fillStyle='#e63946';cx.fillRect(c.x-10,c.y-38,20*c.patience/12,3)}}}
+  const me=S.me;person(me.x,me.y,'#3a86ff','#f1c27d',me.carry.length,me.face||1,me.carry,true);
+  for(const f of S.float){cx.globalAlpha=Math.min(1,f.t*2);cx.fillStyle='#7a5200';cx.font='bold 13px Fredoka,sans-serif';cx.textAlign='center';cx.fillText(f.txt,f.x,f.y-(1.6-f.t)*14);cx.globalAlpha=1}}
+function person(x,y,shirt,skin,n,face,carry,me){cx.fillStyle='rgba(0,0,0,.18)';cx.beginPath();cx.ellipse(x,y+12,10,4,0,0,7);cx.fill();
+  cx.fillStyle=shirt;cx.fillRect(x-8,y-6,16,16);if(me){cx.fillStyle='#fff';cx.fillRect(x-6,y-2,12,12)}// apron
+  cx.fillStyle=skin;cx.beginPath();cx.arc(x,y-12,8,0,7);cx.fill();cx.fillStyle='#3b2a1a';cx.beginPath();cx.arc(x,y-15,8,Math.PI,0);cx.fill();
+  if(me){cx.fillStyle='#e63946';cx.fillRect(x-9,y-21,18,4)}// cap
+  cx.fillStyle='#222';cx.fillRect(x+face*3-1,y-13,2,2);
+  if(carry&&carry.length){for(let i=0;i<carry.length;i++){cx.fillStyle=PRODUCTS[carry[i]].col;cx.strokeStyle='rgba(0,0,0,.3)';cx.beginPath();cx.arc(x,y-26-i*7,4.5,0,7);cx.fill();cx.stroke()}}}
+function wrapText(t,x,y,w){const words=t.split(' ');let line='',yy=y-6;for(const wd of words){const test=line?line+' '+wd:wd;if(cx.measureText(test).width>w&&line){cx.fillText(line,x,yy);line=wd;yy+=10}else line=test}cx.fillText(line,x,yy)}
+function ui(){$('coins').textContent=Math.floor(S.coins);const next=PADS.filter(p=>!has(p.id)&&p.need.every(has));$('goal').textContent=next.length?`Next: ${next[0].label} (${next[0].cost})`:'Everything unlocked: the best shop on the block!'}
+function size(){const r=$('screen').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,3);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d)}
+// ---------- controls: drag anywhere like a joystick ----------
+const scr=$('screen');let drag=null;
+scr.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,id:e.pointerId};try{scr.setPointerCapture(e.pointerId)}catch(x){}});
+scr.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;const r=scr.getBoundingClientRect(),k=W/r.width;let dx=(e.clientX-drag.x)*k,dy=(e.clientY-drag.y)*k;const d=Math.hypot(dx,dy);
+  if(d>40){drag.x+=(dx/d)*(d-40)/k;drag.y+=(dy/d)*(d-40)/k;dx=dx/d*40;dy=dy/d*40}move={x:dx/30,y:dy/30}});
+const end=e=>{if(drag&&e.pointerId===drag.id){drag=null;move={x:0,y:0}}};scr.addEventListener('pointerup',end);scr.addEventListener('pointercancel',end);
+const KM={arrowleft:'left',a:'left',arrowright:'right',d:'right',arrowup:'up',w:'up',arrowdown:'down',s:'down'};
+document.addEventListener('keydown',e=>{const m=KM[e.key.toLowerCase()];if(m&&!(e.target.closest&&e.target.closest('select,input'))){e.preventDefault();keys[m]=true}});
+document.addEventListener('keyup',e=>{const m=KM[e.key.toLowerCase()];if(m)keys[m]=false});
+$('reset').onclick=()=>{if(!confirm('Start a brand-new shop? Your coins and unlocks will be lost.'))return;store.set(SAVE,null);load()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save();cancelAnimationFrame(raf)}else{last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}});
+addEventListener('pagehide',save);addEventListener('resize',size);
+window.onAppBack=()=>false;
+const cv=$('cv'),cx=cv.getContext('2d');
+load();size();
+if(!S.total){$('msg').innerHTML='<div><b>Your own shop!</b><p>Pick ripe tomatoes in the garden, stock the shelf, then stand at the till to take the money.</p><button class="btn primary" id="go">Open the doors</button></div>';$('msg').hidden=false;$('go').onclick=()=>{$('msg').hidden=true}}
+last=performance.now();raf=requestAnimationFrame(loop);
+</script>
+</body>
+</html>
