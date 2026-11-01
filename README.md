@@ -90,6 +90,7 @@ Self-contained HTML files. No install or build step.
 - `rock-paper-scissors.html` — Rock Paper Scissors, best-of matches against a computer that learns your habits, or 2 players.
 - `whodunit.html` — Whodunit, a deduction mystery: move through the manor, make suggestions and solve the case before rival detectives.
 - `logic-grid.html` — Logic Grid, generated who-owns-what puzzles in three sizes, each solvable by pure logic, with hints.
+- `firefly-maze.html` — Firefly Maze, an original arcade maze chase: three hand-designed neon hedge mazes, beetles with different hunting habits, moon drops that let you catch them, side tunnels and garden bonus treats.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.
 
