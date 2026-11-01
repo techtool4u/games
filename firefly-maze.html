@@ -85,7 +85,7 @@ canvas{width:100%;height:100%;display:block}
         <li>Beetles hunt you, each with its own habit: red chases you, purple cuts you off ahead, blue flanks you, and green wanders. Every so often they tire and head for their corners. If one catches you, you lose a life.</li>
         <li>Eat a big silver <b>moon drop</b> and the beetles get dizzy for a few seconds: now you can catch them, for 200, 400, 800 and 1,600 points in a row. A caught beetle scuttles back to its burrow and comes out again.</li>
         <li>The openings at the sides lead round to the other side of the maze. Beetles slow down in them.</li>
-        <li>Garden treats (berries, acorns, mushrooms, honey…) appear under the burrow twice a maze for bonus points.</li>
+        <li>Garden treats (blueberries, acorns, mushrooms, honey…) appear under the burrow twice a maze for bonus points.</li>
         <li>Steer with the arrow keys or WASD, by swiping, or with the pad; you can press a direction early. An extra life comes at 10,000 points. P pauses.</li>
       </ul>
     </details>
@@ -110,7 +110,7 @@ const best=store.get('parlor-firefly-best',{});
 const cv=$('cv'),cx=cv.getContext('2d');
 let G=null,raf=0,last=0;
 const BEETLES=[{name:'red',col:'#ff4d5e',mode:'chase'},{name:'purple',col:'#d17bff',mode:'ahead'},{name:'blue',col:'#3ec6ff',mode:'flank'},{name:'green',col:'#7dff8f',mode:'wander'}];
-const TREATS=[['Berries','#ff4d7d',100],['Acorn','#c98a3c',300],['Mushroom','#ff5a3c',500],['Honey','#ffb400',700],['Pear','#b7e34a',1000],['Plum','#8a4bd6',2000],['Golden leaf','#ffd84a',3000]];
+const TREATS=[['Blueberries','#4f6bd6',100],['Acorn','#c98a3c',300],['Mushroom','#ff5a3c',500],['Honey','#ffb400',700],['Pear','#b7e34a',1000],['Clover','#3ecf6e',2000],['Golden leaf','#ffd84a',3000]];
 const tile=(x,y)=>{if(y<0||y>=H)return'#';x=(x+W)%W;return G.maze[y][x]};
 const walk=(x,y,bug)=>{const t=tile(x,y);return t!=='#'&&(bug||(t!=='-'&&t!=='B'))};
 function newGame(){cancelAnimationFrame(raf);G={score:0,level:1,lives:3,state:'ready',extra:false};newLevel();showMsg('Firefly Maze','READY!','Start')}
@@ -193,7 +193,7 @@ function draw(){const s=cv.width/W;cx.setTransform(s,0,0,s,0,0);cx.fillStyle='#0
   cx.strokeStyle='#ffb3d1';cx.lineWidth=.12;cx.beginPath();cx.moveTo(G.door.x+.05,G.door.y+.5);cx.lineTo(G.door.x+.95,G.door.y+.5);cx.stroke();
   cx.fillStyle='#ffe9a0';for(const i of G.dots){cx.beginPath();cx.arc(i%W+.5,Math.floor(i/W)+.5,.1,0,7);cx.fill()}
   for(const i of G.moons){const r=.28+Math.sin(t*6)*.05;cx.fillStyle='#e8f1ff';cx.shadowColor='#bcd4ff';cx.shadowBlur=8/(s/20);cx.beginPath();cx.arc(i%W+.5,Math.floor(i/W)+.5,r,0,7);cx.fill();cx.shadowBlur=0}
-  if(G.treat){const {x,y,col}=G.treat;cx.fillStyle=col;cx.beginPath();cx.arc(x+.4,y+.55,.2,0,7);cx.arc(x+.62,y+.5,.18,0,7);cx.fill();cx.strokeStyle='#4caf50';cx.lineWidth=.08;cx.beginPath();cx.moveTo(x+.5,y+.35);cx.lineTo(x+.6,y+.15);cx.stroke()}
+  if(G.treat)drawTreat(G.treat);
   const pos=a=>[a.x+.5+(a.dir>=0?DX[a.dir]*a.t:0),a.y+.5+(a.dir>=0?DY[a.dir]*a.t:0)];
   for(const b of G.bugs){let [x,y]=pos(b);if(b.state==='home')y+=Math.sin((b.bob||0)*6)*.15;cx.save();cx.translate(x,y);cx.rotate((b.dir>=0?b.dir:2)*Math.PI/2);
     if(b.state==='eyes'){cx.fillStyle='#fff';cx.beginPath();cx.arc(-.12,-.1,.09,0,7);cx.arc(.12,-.1,.09,0,7);cx.fill();cx.restore();continue}
@@ -207,6 +207,16 @@ function draw(){const s=cv.width/W;cx.setTransform(s,0,0,s,0,0);cx.fillStyle='#0
   cx.font='bold .55px "Fredoka",sans-serif';cx.textAlign='center';cx.textBaseline='middle';
   for(const q of G.pop){cx.fillStyle=`rgba(120,220,255,${Math.min(1,q.t)})`;cx.fillText(q.txt,q.x+.5,q.y+.5-(1.4-q.t)*.4)}
   if(G.readyT>0&&G.state==='run'){cx.fillStyle='#ffe066';cx.font='bold .9px "Fredoka",sans-serif';cx.fillText('READY!',W/2,G.start.y-2.5+.5)}}
+// each garden treat has its own little picture
+function drawTreat({x,y,name,col}){const c=(f,a,b,r)=>{cx.fillStyle=f;cx.beginPath();cx.arc(x+a,y+b,r,0,7);cx.fill()};cx.save();
+  if(name==='Blueberries'){c(col,.36,.58,.15);c(col,.64,.58,.15);c(col,.5,.36,.15);c('rgba(255,255,255,.5)',.47,.32,.04);cx.fillStyle='#4caf50';cx.fillRect(x+.42,y+.12,.16,.07)}
+  else if(name==='Acorn'){cx.fillStyle=col;cx.beginPath();cx.ellipse(x+.5,y+.6,.2,.25,0,0,7);cx.fill();cx.fillStyle='#6b4a22';cx.beginPath();cx.ellipse(x+.5,y+.38,.26,.13,0,0,7);cx.fill();cx.fillRect(x+.48,y+.15,.05,.12)}
+  else if(name==='Mushroom'){cx.fillStyle='#f3e6cf';cx.fillRect(x+.4,y+.5,.2,.32);cx.fillStyle=col;cx.beginPath();cx.ellipse(x+.5,y+.5,.34,.24,0,Math.PI,0);cx.fill();c('#fff',.38,.38,.05);c('#fff',.6,.36,.06)}
+  else if(name==='Honey'){cx.fillStyle=col;cx.beginPath();cx.roundRect?cx.roundRect(x+.25,y+.32,.5,.5,.12):cx.rect(x+.25,y+.32,.5,.5);cx.fill();cx.fillStyle='#8a5a22';cx.fillRect(x+.22,y+.24,.56,.12);cx.fillStyle='#fff6';cx.fillRect(x+.32,y+.45,.08,.25)}
+  else if(name==='Pear'){c(col,.5,.63,.2);c(col,.5,.4,.13);cx.strokeStyle='#6b4a22';cx.lineWidth=.06;cx.beginPath();cx.moveTo(x+.5,y+.28);cx.lineTo(x+.55,y+.14);cx.stroke()}
+  else if(name==='Clover'){c(col,.38,.42,.14);c(col,.62,.42,.14);c(col,.5,.62,.14);cx.strokeStyle='#2a8a4a';cx.lineWidth=.06;cx.beginPath();cx.moveTo(x+.5,y+.6);cx.lineTo(x+.6,y+.9);cx.stroke()}
+  else{cx.fillStyle=col;cx.beginPath();cx.ellipse(x+.5,y+.5,.32,.18,-.6,0,7);cx.fill();cx.strokeStyle='#b8860b';cx.lineWidth=.04;cx.beginPath();cx.moveTo(x+.25,y+.68);cx.lineTo(x+.75,y+.32);cx.stroke()}
+  cx.restore()}
 function size(){const r=$('screen').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,3);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);draw()}
 const setDir=d=>{if(G)G.p.want=d};
 document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;const k=e.key.toLowerCase();const d={arrowup:0,w:0,arrowright:1,d:1,arrowdown:2,s:2,arrowleft:3,a:3}[k];
