@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Slice Factory</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header; coins and per-second strip; a small canvas showing the pizza line (dough, sauce, cheese, oven, boxes) with pizzas riding the belt; a big bake button; then the station upgrade list, the menu, and extras. In landscape the line and button sit on the left and the lists scroll on the right. */
+:root{
+  --bg:#fff6ee; --fg:#34211a; --muted:#8c6f62; --panel:#ffffff; --line:#f2dccd; --chip:#fbe7d8; --accent:#d9480f; --accent-ink:#ffffff;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#1c1210; --fg:#f8e9df; --muted:#c7a597; --panel:#271a16; --line:#412b23; --chip:#33221c; --accent:#ff7a3d; --accent-ink:#1c1210; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#1c1210; --fg:#f8e9df; --muted:#c7a597; --panel:#271a16; --line:#412b23; --chip:#33221c; --accent:#ff7a3d; --accent-ink:#1c1210; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:600px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.bar{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.coins{font-family:var(--display);font-size:28px;display:flex;align-items:center;gap:6px}
+.coins i{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3a0,#f2b400 60%,#c98a00);display:inline-block;align-self:center}
+.ps{color:var(--muted);font-weight:700}
+.ps b{color:var(--fg)}
+.rushon{color:var(--accent);font-weight:800}
+.line{position:relative;border-radius:16px;overflow:hidden;background:#f7d9b9;box-shadow:0 8px 22px -14px rgba(80,30,0,.5)}
+.line canvas{width:100%;aspect-ratio:12/5;display:block}
+.rush{position:absolute;top:8px;padding:8px 12px;border-radius:999px;border:0;background:#ffd43b;color:#5c2b00;font:700 14px var(--display);box-shadow:0 4px 0 #c99a00;cursor:pointer;animation:bob .7s ease-in-out infinite alternate;min-height:40px}
+@keyframes bob{to{transform:translateY(4px)}}
+.bake{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;border:0;border-radius:18px;background:var(--accent);color:var(--accent-ink);font:600 22px var(--display);cursor:pointer;box-shadow:0 5px 0 rgba(0,0,0,.25);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.bake:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.bake small{font:700 13px var(--body);opacity:.85}
+.float{position:absolute;pointer-events:none;font:700 18px var(--display);color:var(--accent-ink);animation:up .8s ease-out forwards}
+@keyframes up{to{transform:translateY(-36px);opacity:0}}
+.sec{display:flex;flex-direction:column;gap:8px}
+.sech{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sech h2{font-family:var(--display);font-weight:600;font-size:20px;margin:0}
+.seg{display:flex;background:var(--chip);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--fg);font:700 13px var(--body);padding:6px 12px;border-radius:999px;cursor:pointer;min-height:32px}
+.seg button.on{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.item{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.item.slow{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--chip)}
+.ic canvas{width:32px;height:32px}
+.nm{font-weight:800;display:flex;gap:6px;align-items:center;flex-wrap:wrap;line-height:1.2}
+.tag{font-size:11px;font-weight:800;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:1px 7px}
+.sub{font-size:13px;color:var(--muted)}
+.meter{height:6px;border-radius:3px;background:var(--chip);margin-top:4px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.buy{min-width:96px;min-height:44px;border-radius:12px;border:0;background:var(--accent);color:var(--accent-ink);font:700 14px var(--body);cursor:pointer;padding:4px 10px;line-height:1.15}
+.buy small{display:block;font-size:11px;opacity:.85}
+.buy:disabled{background:var(--chip);color:var(--muted);cursor:default}
+.buy.done{background:transparent;color:var(--muted)}
+.stage{display:flex;flex-direction:column;gap:inherit}
+.lists{display:flex;flex-direction:column;gap:12px}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto 1fr;column-gap:16px;row-gap:8px;padding-block:6px;align-items:start}.wrap>header{grid-column:1;grid-row:1}.stage{grid-column:1;grid-row:2;position:sticky;top:6px;gap:8px}.lists{grid-column:2;grid-row:1/span 2}h1{font-size:26px}.bake{min-height:52px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Slice Factory</h1>
+    </div>
+    <div class="controls"><button class="btn" id="reset">Start over</button></div>
+  </header>
+  <div class="stage">
+  <div class="bar"><span class="coins"><i></i><span id="coins">0</span></span><span class="ps"><b id="ps">0</b> a second<span id="rushinfo"></span></span></div>
+  <div class="line" id="line"><canvas id="cv"></canvas></div>
+  <button class="bake" id="bake">Bake a pizza <small id="tapv"></small></button>
+  </div>
+  <div class="lists">
+  <div class="sec">
+    <div class="sech"><h2>Kitchen</h2><div class="seg" id="mult"><button data-m="1" class="on">×1</button><button data-m="10">×10</button><button data-m="max">Max</button></div></div>
+    <div id="stations" class="sec"></div>
+  </div>
+  <div class="sec">
+    <div class="sech"><h2>Menu</h2></div>
+    <div id="menu" class="sec"></div>
+  </div>
+  <div class="sec">
+    <div class="sech"><h2>Extras</h2></div>
+    <div id="extras" class="sec"></div>
+  </div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Your pizzeria makes pizzas on a line: <b>dough → sauce → cheese → oven → boxes</b>. Every finished box is sold.</li>
+        <li>The line only goes as fast as its <b>slowest station</b> (marked “slowest”). Upgrade that one to sell more pizzas a second.</li>
+        <li>Every 25 levels a station doubles its speed.</li>
+        <li>Tap <b>Bake a pizza</b> to make one by hand. <b>Quick hands</b> makes each tap count for more.</li>
+        <li>New <b>menu</b> pizzas sell for more. Customers always order the best pizza you know.</li>
+        <li>When a <b>rush order</b> pops up over the line, tap it: everything sells for double for 30 seconds.</li>
+        <li>Once you've earned a million coins you can <b>open a new shop</b>: start over with gold stars, each one making every pizza worth 10% more.</li>
+        <li>The kitchen keeps working (at half speed) while you're away, for up to 4 hours.</li>
+      </ul>
+    </details>
+  </div>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const SAVE='parlor-slice';
+const ST=[
+  {k:'dough',name:'Dough table',base:.5,c0:10},
+  {k:'sauce',name:'Sauce station',base:.42,c0:16},
+  {k:'cheese',name:'Cheese grater',base:.36,c0:26},
+  {k:'oven',name:'Stone oven',base:.3,c0:42},
+  {k:'box',name:'Boxing counter',base:.45,c0:22}];
+const MENU=[
+  {name:'Plain cheese',v:5,cost:0,top:[]},
+  {name:'Tomato & basil',v:12,cost:400,top:['#2f9e44']},
+  {name:'Spicy salami',v:30,cost:4000,top:['#c92a2a']},
+  {name:'Mushroom',v:80,cost:35000,top:['#a07850']},
+  {name:'Four cheese',v:220,cost:280000,top:['#fff3bf','#ffe066']},
+  {name:'Garden veggie',v:600,cost:2e6,top:['#2f9e44','#f59f00','#c92a2a']},
+  {name:'Golden truffle',v:1800,cost:1.6e7,top:['#5c3b1e','#ffd43b']},
+  {name:'Chef’s legend',v:6000,cost:1.5e8,top:['#c92a2a','#2f9e44','#ffd43b','#a07850']}];
+const GROW=1.15;
+let S,mult='1',raf=0,last=0,uiT=0,rushSpawnT=0,saveT=0;
+const fresh=()=>({coins:0,total:0,life:0,stars:0,lv:[1,1,1,1,1],menu:0,hands:0,rushT:0,nextRush:45,t:Date.now(),made:0});
+function load(){S=Object.assign(fresh(),store.get(SAVE,null)||{});if(!Array.isArray(S.lv)||S.lv.length!==5)S.lv=[1,1,1,1,1];}
+function save(){S.t=Date.now();store.set(SAVE,S)}
+const rate=i=>ST[i].base*S.lv[i]*Math.pow(2,Math.floor(S.lv[i]/25));
+const lineRate=()=>Math.min(...ST.map((_,i)=>rate(i)));
+const slowest=()=>{let b=0;for(let i=1;i<5;i++)if(rate(i)<rate(b))b=i;return b};
+const value=()=>MENU[S.menu].v*(1+.1*S.stars)*(S.rushT>0?2:1);
+const perSec=()=>lineRate()*value();
+const tapPizzas=()=>1+S.hands*2;
+const handsCost=()=>Math.round(25*Math.pow(1.9,S.hands));
+const unitCost=i=>ST[i].c0*Math.pow(GROW,S.lv[i]-1);
+function costN(i,n){return unitCost(i)*(Math.pow(GROW,n)-1)/(GROW-1)}
+function maxN(i){const n=Math.floor(Math.log(S.coins*(GROW-1)/unitCost(i)+1)/Math.log(GROW));return Math.max(0,n)}
+function buyCount(i){return mult==='max'?Math.max(1,maxN(i)):+mult}
+const starsFor=()=>Math.floor(Math.sqrt(S.total/1e6)*2);
+function fmt(n){if(n<1000)return n<10&&n%1?n.toFixed(1):String(Math.floor(n));const u=['K','M','B','T','q','Q'];let i=-1;while(n>=1000&&i<u.length-1){n/=1000;i++}return(n<10?n.toFixed(2):n<100?n.toFixed(1):Math.floor(n))+u[i]}
+function earn(c){S.coins+=c;S.total+=c;S.life+=c}
+// ---------- the pizza line, drawn ----------
+const W=360,H=150,BELT=104,SX=[40,112,184,256,328];
+let pies=[],spawnAcc=0,glow=0;
+function step(dt){
+  const r=lineRate();earn(r*value()*dt);S.made+=r*dt;
+  if(S.rushT>0){S.rushT=Math.max(0,S.rushT-dt)}
+  S.nextRush-=dt;if(S.nextRush<=0&&!$('rushbtn')){showRush();S.nextRush=70+Math.random()*60}
+  rushSpawnT-=dt;const rb=$('rushbtn');if(rb&&rushSpawnT<=0)rb.remove();
+  spawnAcc+=Math.min(r,3)*dt;while(spawnAcc>=1){spawnAcc--;addPie()}
+  const sp=46+Math.min(r,3)*12;
+  for(const p of pies){p.x+=sp*dt;let st=0;for(const x of SX)if(p.x>=x)st++;if(st>p.st&&st===4)glow=.4;p.st=st}
+  pies=pies.filter(p=>p.x<W+20);glow=Math.max(0,glow-dt);
+  saveT+=dt;if(saveT>5){saveT=0;save()}}
+function addPie(){if(pies.length<30)pies.push({x:-14,st:0,top:MENU[S.menu].top,seed:Math.random()*6})}
+function showRush(){const b=document.createElement('button');b.className='rush';b.id='rushbtn';b.textContent='Rush order! Tap';b.style.left=(10+Math.random()*45)+'%';rushSpawnT=9;
+  b.onclick=()=>{S.rushT=30;b.remove();sfx('score');toast('Rush order: double coins for 30 seconds!');ui()};$('line').appendChild(b)}
+function pieDraw(c,x,y,st,top,seed,r=13){
+  if(st>=5){c.fillStyle='#c98a4b';c.fillRect(x-14,y-10,28,20);c.fillStyle='#e0a96a';c.fillRect(x-14,y-10,28,6);c.fillStyle='#d9480f';c.beginPath();c.arc(x,y+3,4,0,7);c.fill();return}
+  if(st===0){c.fillStyle='#f3dcb2';c.beginPath();c.arc(x,y,7,0,7);c.fill();c.fillStyle='rgba(255,255,255,.5)';c.beginPath();c.arc(x-2,y-2,2.5,0,7);c.fill();return}
+  c.fillStyle=st>=4?'#d9973f':'#f0d29c';c.beginPath();c.ellipse(x,y,r,r*.62,0,0,7);c.fill();
+  if(st>=2){c.fillStyle=st>=4?'#b8321e':'#d6362a';c.beginPath();c.ellipse(x,y,r-3,(r-3)*.62,0,0,7);c.fill()}
+  if(st>=3){c.fillStyle=st>=4?'#f7c948':'#fff1b0';for(let i=0;i<6;i++){const a=seed+i*1.05,d=(i%2?4:6);c.beginPath();c.ellipse(x+Math.cos(a)*d,y+Math.sin(a)*d*.62,4,2.6,0,0,7);c.fill()}
+    if(st>=4)for(let i=0;i<top.length*2;i++){const a=seed*2+i*2.3,d=3+(i*3)%6;c.fillStyle=top[i%top.length];c.beginPath();c.ellipse(x+Math.cos(a)*d,y+Math.sin(a)*d*.62,2.2,1.5,0,0,7);c.fill()}}}
+function stationDraw(c,i,x,y,s=1){c.save();c.translate(x,y);c.scale(s,s);
+  if(i===0){c.fillStyle='#e9e3d7';c.beginPath();c.moveTo(-12,8);c.lineTo(-9,-12);c.lineTo(9,-12);c.lineTo(12,8);c.closePath();c.fill();c.fillStyle='#c4b59a';c.fillRect(-9,-12,18,4);c.fillStyle='#8c6f62';c.font='bold 8px Nunito,sans-serif';c.textAlign='center';c.fillText('FLOUR',0,2)}
+  if(i===1){c.fillStyle='#868e96';c.fillRect(-12,-6,24,14);c.fillStyle='#d6362a';c.beginPath();c.ellipse(0,-6,12,4,0,0,7);c.fill();c.strokeStyle='#5c3b1e';c.lineWidth=2.5;c.beginPath();c.moveTo(3,-6);c.lineTo(10,-16);c.stroke()}
+  if(i===2){c.fillStyle='#ffd43b';c.beginPath();c.moveTo(-12,8);c.lineTo(12,8);c.lineTo(12,-2);c.lineTo(-4,-12);c.lineTo(-12,-6);c.closePath();c.fill();c.fillStyle='#f0b400';for(const [a,b] of [[-5,-2],[4,2],[6,-4]]){c.beginPath();c.arc(a,b,2,0,7);c.fill()}}
+  if(i===3){c.fillStyle='#a0522d';c.beginPath();c.arc(0,4,15,Math.PI,0);c.lineTo(15,8);c.lineTo(-15,8);c.fill();c.fillStyle='#3b1d10';c.beginPath();c.arc(0,8,8,Math.PI,0);c.fill();c.fillStyle='#ff922b';c.beginPath();c.arc(0,8,5,Math.PI,0);c.fill()}
+  if(i===4){for(let k=0;k<3;k++){c.fillStyle=k%2?'#e0a96a':'#c98a4b';c.fillRect(-12,2-k*6,24,6)}c.fillStyle='#d9480f';c.fillRect(-3,-12,6,2)}
+  c.restore()}
+function draw(){const d=Math.min(devicePixelRatio||1,3),r=cv.getBoundingClientRect();if(cv.width!==Math.round(r.width*d)){cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d)}
+  const c=cx;c.setTransform(cv.width/W,0,0,cv.height/H,0,0);
+  c.fillStyle='#f7d9b9';c.fillRect(0,0,W,H);
+  c.fillStyle='#eecaa3';for(let x=0;x<W;x+=24)for(let y=0;y<62;y+=24)if((x/24+y/24)%2)c.fillRect(x,y,24,24);// wall tiles
+  c.fillStyle='#8c5a3c';c.fillRect(0,62,W,8);// counter top edge
+  const slow=slowest();
+  for(let i=0;i<5;i++){const x=SX[i];c.fillStyle=i===slow?'rgba(217,72,15,.18)':'rgba(255,255,255,.35)';c.beginPath();c.roundRect?c.roundRect(x-30,8,60,50,10):c.rect(x-30,8,60,50);c.fill();
+    stationDraw(c,i,x,34);c.fillStyle='#5c3b1e';c.font='bold 9px Nunito,sans-serif';c.textAlign='center';c.fillText('Lv '+S.lv[i],x,54);
+    if(i===3&&glow>0){c.fillStyle=`rgba(255,146,43,${glow})`;c.beginPath();c.arc(x,BELT,22,0,7);c.fill()}}
+  // belt
+  c.fillStyle='#495057';c.fillRect(0,BELT-14,W,28);c.fillStyle='#5f676f';const off=(performance.now()/30)%16;for(let x=-16+off;x<W;x+=16)c.fillRect(x,BELT-14,6,28);
+  c.fillStyle='#343a40';c.fillRect(0,BELT+14,W,4);
+  for(const p of pies)pieDraw(c,p.x,BELT,p.st,p.top,p.seed);
+  c.fillStyle='#8c5a3c';c.fillRect(0,BELT+18,W,H-BELT-18);c.fillStyle='#fff6ee';c.font='bold 11px Fredoka,sans-serif';c.textAlign='left';
+  c.fillText('Now serving: '+MENU[S.menu].name,10,H-12);c.textAlign='right';c.fillText(fmt(S.made)+' made',W-10,H-12)}
+function loop(t){const dt=Math.min(.25,(t-last)/1000);last=t;step(dt);draw();uiT+=dt;if(uiT>.25){uiT=0;ui()}raf=requestAnimationFrame(loop)}
+// ---------- lists ----------
+function icon(i){const c=document.createElement('canvas');c.width=64;c.height=64;const g=c.getContext('2d');g.scale(2,2);stationDraw(g,i,16,18,.9);return c}
+function menuIcon(m){const c=document.createElement('canvas');c.width=64;c.height=64;const g=c.getContext('2d');g.scale(2,2);pieDraw(g,16,16,4,MENU[m].top,1.3,15);return c}
+function build(){
+  const st=$('stations');st.innerHTML='';
+  ST.forEach((s,i)=>{const row=document.createElement('div');row.className='item';row.id='st'+i;row.innerHTML=`<div class="ic"></div><div><div class="nm">${s.name}<span class="tag" hidden>slowest</span></div><div class="sub"></div><div class="meter"><i></i></div></div><button class="buy"></button>`;
+    row.querySelector('.ic').appendChild(icon(i));row.querySelector('.buy').onclick=()=>buyStation(i);st.appendChild(row)});
+  const me=$('menu');me.innerHTML='';
+  MENU.forEach((m,i)=>{if(i===0)return;const row=document.createElement('div');row.className='item';row.id='mn'+i;row.innerHTML=`<div class="ic"></div><div><div class="nm">${m.name}</div><div class="sub">Sells for ${fmt(m.v)} each</div></div><button class="buy"></button>`;
+    row.querySelector('.ic').appendChild(menuIcon(i));row.querySelector('.buy').onclick=()=>buyMenu(i);me.appendChild(row)});
+  const ex=$('extras');ex.innerHTML=`<div class="item" id="hands"><div class="ic" style="font:700 20px var(--display)">✋</div><div><div class="nm">Quick hands</div><div class="sub"></div></div><button class="buy"></button></div>
+  <div class="item" id="shop"><div class="ic" style="font:700 20px var(--display);color:#f2b400">★</div><div><div class="nm">Open a new shop</div><div class="sub"></div></div><button class="buy"></button></div>`;
+  $('hands').querySelector('.buy').onclick=buyHands;$('shop').querySelector('.buy').onclick=newShop;ui()}
+function ui(){
+  $('coins').textContent=fmt(S.coins);$('ps').textContent=fmt(perSec());
+  $('rushinfo').innerHTML=S.rushT>0?` · <span class="rushon">rush ×2 ${Math.ceil(S.rushT)}s</span>`:'';
+  $('tapv').textContent='+'+fmt(value()*tapPizzas());
+  const slow=slowest(),top=Math.max(...ST.map((_,i)=>rate(i)));
+  ST.forEach((s,i)=>{const row=$('st'+i),n=buyCount(i),cost=costN(i,n),L=S.lv[i],next=25*(Math.floor(L/25)+1);
+    row.classList.toggle('slow',i===slow);row.querySelector('.tag').hidden=i!==slow;
+    row.querySelector('.sub').textContent=`Lv ${L} · ${fmt(rate(i))} pizzas/s · ×2 at Lv ${next}`;
+    row.querySelector('.meter i').style.width=(100*rate(i)/top).toFixed(1)+'%';
+    const b=row.querySelector('.buy');b.innerHTML=`Upgrade${n>1?' ×'+n:''}<small>${fmt(cost)}</small>`;b.disabled=S.coins<cost});
+  MENU.forEach((m,i)=>{if(!i)return;const row=$('mn'+i),b=row.querySelector('.buy');row.hidden=i>S.menu+2;
+    if(i<=S.menu){b.textContent='On the menu';b.disabled=true;b.className='buy done'}
+    else{b.className='buy';b.innerHTML=i===S.menu+1?`Learn it<small>${fmt(m.cost)}</small>`:`Locked<small>${fmt(m.cost)}</small>`;b.disabled=i!==S.menu+1||S.coins<m.cost}});
+  const h=$('hands');h.querySelector('.sub').textContent=`Each tap bakes ${tapPizzas()} pizza${tapPizzas()>1?'s':''} → ${tapPizzas()+2}`;
+  const hb=h.querySelector('.buy');hb.innerHTML=`Train<small>${fmt(handsCost())}</small>`;hb.disabled=S.coins<handsCost();
+  const sh=$('shop'),gain=starsFor();
+  sh.querySelector('.sub').textContent=S.total<1e6?`Earn ${fmt(1e6)} coins in this shop first (${fmt(S.total)} so far). You have ${S.stars} ★ (+${S.stars*10}%).`:`Start over with ${S.stars+gain} ★ (+${(S.stars+gain)*10}% on every pizza).`;
+  const sb=sh.querySelector('.buy');sb.innerHTML=`Open<small>+${gain} ★</small>`;sb.disabled=S.total<1e6||gain<1}
+function buyStation(i){const n=buyCount(i),c=costN(i,n);if(S.coins<c)return;S.coins-=c;S.lv[i]+=n;sfx(S.lv[i]%25<n?'score':'place');if(S.lv[i]%25<n)toast(`${ST[i].name} doubled its speed!`);ui()}
+function buyMenu(i){const m=MENU[i];if(i!==S.menu+1||S.coins<m.cost)return;S.coins-=m.cost;S.menu=i;sfx('score');toast(`${m.name} is on the menu!`);ui()}
+function buyHands(){const c=handsCost();if(S.coins<c)return;S.coins-=c;S.hands++;sfx('place');ui()}
+function newShop(){const g=starsFor();if(S.total<1e6||g<1)return;
+  modal(`<h2>New shop?</h2><p>You'll start again from a small kitchen, but with <b>${S.stars+g} gold stars</b>: every pizza sells for ${(S.stars+g)*10}% more, forever.</p><div class="row"><button class="btn" id="no">Not yet</button><button class="btn primary" id="yes">Open it</button></div>`);
+  $('no').onclick=closeModal;$('yes').onclick=()=>{const keep={stars:S.stars+g,life:S.life};S=Object.assign(fresh(),keep);pies=[];save();closeModal();sfx('win');build()}}
+function bake(e){const n=tapPizzas();earn(value()*n);S.made+=n;addPie();sfx('pop');
+  const f=document.createElement('span');f.className='float';f.textContent='+'+fmt(value()*n);const b=$('bake'),r=b.getBoundingClientRect();
+  f.style.left=((e&&e.clientX?e.clientX-r.left:r.width/2)-16)+'px';f.style.top='4px';b.appendChild(f);setTimeout(()=>f.remove(),800);ui()}
+$('bake').addEventListener('click',bake);
+$('mult').onclick=e=>{const b=e.target.closest('button');if(!b)return;mult=b.dataset.m;for(const x of $('mult').children)x.classList.toggle('on',x===b);ui()};
+$('reset').onclick=()=>{if(!confirm('Close this pizzeria for good and start from nothing? Coins, upgrades and stars will be lost.'))return;S=fresh();pies=[];save();build()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save();cancelAnimationFrame(raf)}else{away();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}});
+addEventListener('pagehide',save);
+function away(){const sec=Math.min(4*3600,(Date.now()-S.t)/1000);if(sec<30)return;const rushWas=S.rushT;S.rushT=0;const got=lineRate()*value()*sec*.5;S.rushT=rushWas;if(got<1)return;earn(got);S.made+=lineRate()*sec*.5;save();
+  const m=Math.round(sec/60);modal(`<h2>Welcome back!</h2><p>While you were away (${m<60?m+' min':(sec/3600).toFixed(1)+' h'}) the kitchen sold pizzas worth</p><div class="coins" style="justify-content:center"><i></i>${fmt(got)}</div><div class="row"><button class="btn primary" id="ok">Collect</button></div>`);$('ok').onclick=()=>{closeModal();sfx('chips')}}
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+window.SF={get S(){return S},step,buyStation,buyMenu,buyHands,newShop,lineRate,perSec,slowest,costN,unitCost,ui,bake};
+const cv=$('cv'),cx=cv.getContext('2d');
+load();build();away();
+last=performance.now();raf=requestAnimationFrame(loop);
+</script>
+</body>
+</html>

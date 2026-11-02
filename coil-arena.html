@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coil Arena</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with rival count; the arena canvas filling most of the screen (your length, the leaderboard and the minimap drawn on it); a Boost button on touch screens; best length and rules below. */
+:root{
+  --bg:#101626; --fg:#eef3ff; --muted:#9aa6c4; --panel:#18203a; --line:#27325a; --chip:#1f2848; --accent:#ffcc33; --accent-ink:#101626;
+  --display:"Lilita One", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0a0e1a; --panel:#121a30; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0a0e1a; --panel:#121a30; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:900px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.screen{position:relative;width:100%;height:min(calc(100vh - 210px),72vw,640px);min-height:320px;border-radius:16px;overflow:hidden;background:#0c1226;border:2px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{width:100%;height:100%;display:block}
+.msg{position:absolute;inset:0;display:grid;place-items:center;background:rgba(8,12,26,.6);text-align:center;padding:16px}
+.msg div{display:flex;flex-direction:column;gap:10px;align-items:center}
+.msg b{font-family:var(--display);font-size:clamp(26px,7vw,40px);color:var(--accent)}
+.msg p{margin:0;max-width:360px}
+.boost{position:absolute;right:14px;bottom:14px;width:78px;height:78px;border-radius:50%;border:0;background:rgba(255,204,51,.85);color:#101626;font-weight:800;font-size:15px;display:none;touch-action:none}
+.boost.on{background:#fff}
+@media (pointer:coarse){.boost{display:block}}
+.row2{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.row2 b{color:var(--fg)}
+@media (max-height:520px) and (orientation:landscape){.wrap{padding-block:6px;gap:6px}header{display:none}.screen{height:calc(100vh - 60px)}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Coil Arena</h1>
+    </div>
+    <div class="controls">
+      <select id="rivals" aria-label="Rivals"><option value="6">6 rivals (calm)</option><option value="10">10 rivals</option><option value="14">14 rivals (busy)</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div class="screen" id="screen"><canvas id="cv"></canvas><button class="boost" id="boost">BOOST</button><div class="msg" id="msg" hidden></div></div>
+  <div class="panel"><div class="row2"><span>Best length: <b id="best">0</b></span><span>Snakes knocked out this game: <b id="kos">0</b></span></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Steer your coil around the arena and eat the glowing orbs to grow longer.</li>
+        <li>If your head runs into another coil's body, you're out. Make other coils run into <i>yours</i>: when they're knocked out they burst into a trail of big orbs.</li>
+        <li>Heads-on, the longer coil wins. The arena wall is deadly too.</li>
+        <li><b>Boost</b> to dash: it's how you cut in front of rivals, but it costs a little length while you hold it.</li>
+        <li><b>Phone:</b> drag anywhere to steer (your coil heads the way you drag) and hold the Boost button. <b>Computer:</b> the coil follows the mouse; hold the mouse button or Space to boost. Arrow keys or A/D also turn.</li>
+        <li>Your score is the longest you grew. P pauses.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const WORLD=2400,SEG=7,COLORS=[['#ffcc33','#ff8a00'],['#4cc9f0','#4361ee'],['#f72585','#b5179e'],['#80ed99','#38a3a5'],['#ff6b6b','#c0392b'],['#c77dff','#7b2cbf'],['#ffd6a5','#e09f3e'],['#90e0ef','#0096c7'],['#f4a261','#e76f51'],['#b8f2e6','#5e60ce'],['#fdffb6','#9bf6ff'],['#ffadad','#ff5d8f'],['#caffbf','#2a9d8f'],['#a0c4ff','#3a0ca3'],['#ffc6ff','#7209b7']];
+const NAMES=['Noodle','Zigzag','Ribbon','Slinky','Twister','Fizz','Pretzel','Lasso','Wiggles','Spaghet','Coily','Doodle','Squiggle','Loop','Rascal'];
+const cfg=Object.assign({rivals:10},store.get('parlor-coil',{}));
+let bestLen=store.get('parlor-coil-best',0);
+const cv=$('cv'),cx=cv.getContext('2d');
+let G=null,raf=0,last=0,input={angle:null,boost:false,turn:0};
+function snake(x,y,len,ci,name,bot){const a=Math.random()*Math.PI*2;const pts=[];for(let i=0;i<Math.max(8,len/1.2);i++)pts.push({x:x-Math.cos(a)*i*SEG,y:y-Math.sin(a)*i*SEG});
+  return{x,y,a,ta:a,pts,mass:len,ci,name,bot,alive:true,boost:false,think:0,kills:0}}
+const lenOf=s=>Math.max(8,Math.floor(s.mass/1.2));
+const radius=s=>Math.min(16,6+Math.sqrt(s.mass)*.45);
+function newGame(){cancelAnimationFrame(raf);G={snakes:[],orbs:[],state:'ready',t:0,kos:0,maxLen:0};
+  const me=snake(WORLD/2,WORLD/2,14,0,'You',false);G.me=me;G.snakes.push(me);
+  for(let i=0;i<+cfg.rivals;i++)G.snakes.push(spawnBot(i+1));
+  for(let i=0;i<600;i++)G.orbs.push(orb());
+  draw();showMsg('Coil Arena','Eat orbs, grow long, and make the other coils crash into you.','Start')}
+function spawnBot(k){let x,y;do{x=200+Math.random()*(WORLD-400);y=200+Math.random()*(WORLD-400)}while(G.me&&Math.hypot(x-G.me.x,y-G.me.y)<500);
+  return snake(x,y,10+Math.random()*60,k%COLORS.length,NAMES[k%NAMES.length],true)}
+function orb(x,y,v){return{x:x??60+Math.random()*(WORLD-120),y:y??60+Math.random()*(WORLD-120),v:v??(1+Math.random()*1.5),c:Math.floor(Math.random()*COLORS.length)}}
+function start(){$('msg').hidden=true;if(G.state==='over')newGame(),$('msg').hidden=true;G.state='run';last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
+function showMsg(t,p,b){$('msg').innerHTML=`<div><b>${t}</b><p>${p}</p><button class="btn primary" id="go">${b}</button></div>`;$('msg').hidden=false;$('go').onclick=e=>{e.stopPropagation();start()}}
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;const n=Math.ceil(dt/(1/120));for(let k=0;k<n&&G.state==='run';k++)step(dt/n);draw();if(G.state==='run')raf=requestAnimationFrame(loop)}
+// ---------- bots ----------
+function botThink(s){const r=radius(s);let best=null,bd=1e9;
+  for(const o of G.orbs){const d=Math.hypot(o.x-s.x,o.y-s.y)-o.v*30;if(d<bd&&d<500){bd=d;best=o}}
+  let ta=best?Math.atan2(best.y-s.y,best.x-s.x):s.a+(Math.random()-.5);
+  // smaller coils nearby: try to cut in front of them
+  for(const o of G.snakes){if(o===s||!o.alive)continue;const d=Math.hypot(o.x-s.x,o.y-s.y);if(d<260&&o.mass<s.mass*.8&&Math.random()<.5){ta=Math.atan2(o.y+Math.sin(o.a)*120-s.y,o.x+Math.cos(o.a)*120-s.x)}}
+  // look ahead for bodies and walls, steer to the clearest side
+  const danger=a=>{let worst=0;for(let k=1;k<=4;k++){const px=s.x+Math.cos(a)*k*28,py=s.y+Math.sin(a)*k*28;if(px<40||py<40||px>WORLD-40||py>WORLD-40)worst=Math.max(worst,5-k);
+      for(const o of G.snakes){if(o===s||!o.alive||Math.abs(o.x-px)>600||Math.abs(o.y-py)>600)continue;const rr=radius(o)+r+6;for(let i=0;i<o.pts.length;i+=2){const p=o.pts[i];if(Math.abs(p.x-px)<rr&&Math.abs(p.y-py)<rr){worst=Math.max(worst,5-k);break}}}}return worst};
+  // near the wall: head back toward the middle before anything else
+  const edge=Math.min(s.x,s.y,WORLD-s.x,WORLD-s.y);if(edge<220){const ahead=Math.min(s.x+Math.cos(s.a)*160,s.y+Math.sin(s.a)*160,WORLD-s.x-Math.cos(s.a)*160,WORLD-s.y-Math.sin(s.a)*160);if(ahead<edge+40)ta=Math.atan2(WORLD/2-s.y,WORLD/2-s.x)}
+  if(danger(ta)>0){let bestA=ta,bv=99;for(const off of[.6,-.6,1.2,-1.2,1.8,-1.8,2.6,-2.6]){const v=danger(s.a+off);if(v<bv){bv=v;bestA=s.a+off}}ta=bestA}
+  s.ta=ta;s.boost=s.mass>30&&Math.random()<.04}
+// ---------- the step ----------
+function step(dt){G.t+=dt;
+  for(const s of G.snakes){if(!s.alive)continue;
+    if(s.bot){s.think-=dt;if(s.think<=0){s.think=.12+Math.random()*.1;botThink(s)}}
+    else{if(input.angle!=null)s.ta=input.angle;else if(input.turn)s.ta=s.a+input.turn*.6;s.boost=input.boost&&s.mass>12}
+    const turn=(3.4-Math.min(1.6,s.mass/120))*dt;let d=((s.ta-s.a+Math.PI*3)%(Math.PI*2))-Math.PI;s.a+=Math.max(-turn,Math.min(turn,d));
+    const sp=(s.boost?260:150)*dt;s.x+=Math.cos(s.a)*sp;s.y+=Math.sin(s.a)*sp;
+    if(s.boost){s.mass-=6*dt;if(Math.random()<dt*8){const tl=s.pts[s.pts.length-1];G.orbs.push(orb(tl.x,tl.y,1))}}
+    // body follows the head: add a point every SEG pixels
+    // pts[0] is always the head; a new body point is laid each time the head has moved SEG past the last one
+    s.pts[0]={x:s.x,y:s.y};const lastPt=s.pts[1];if(!lastPt||Math.hypot(s.x-lastPt.x,s.y-lastPt.y)>=SEG)s.pts.splice(1,0,{x:s.x,y:s.y});
+    while(s.pts.length>lenOf(s))s.pts.pop();
+    if(s.x<0||s.y<0||s.x>WORLD||s.y>WORLD){kill(s,null);continue}
+    // eat
+    const r=radius(s)+8;for(let i=G.orbs.length-1;i>=0;i--){const o=G.orbs[i];if(Math.abs(o.x-s.x)<r+6&&Math.abs(o.y-s.y)<r+6&&Math.hypot(o.x-s.x,o.y-s.y)<r+o.v*2){s.mass+=o.v;G.orbs.splice(i,1);if(!s.bot&&Math.random()<.5)sfx('tick')}}}
+  // collisions: a head touching another coil's body
+  for(const s of G.snakes){if(!s.alive)continue;const r=radius(s);
+    for(const o of G.snakes){if(o===s||!o.alive)continue;if(Math.abs(o.x-s.x)>1200||Math.abs(o.y-s.y)>1200)continue;const ro=radius(o);
+      // head to head: the longer one wins
+      if(Math.hypot(o.x-s.x,o.y-s.y)<r+ro){if(s.mass<o.mass){kill(s,o);break}continue}
+      for(let i=3;i<o.pts.length;i++){const p=o.pts[i];if(Math.abs(p.x-s.x)<r+ro&&Math.abs(p.y-s.y)<r+ro&&Math.hypot(p.x-s.x,p.y-s.y)<r*.8+ro){kill(s,o);break}}if(!s.alive)break}}
+  // keep the arena lively
+  while(G.orbs.length<600)G.orbs.push(orb());
+  const bots=G.snakes.filter(s=>s.bot&&s.alive).length;if(bots<+cfg.rivals&&Math.random()<dt*.5)G.snakes.push(spawnBot(Math.floor(Math.random()*30)+1));
+  G.snakes=G.snakes.filter(s=>s.alive||s===G.me);
+  if(G.me.alive){G.maxLen=Math.max(G.maxLen,Math.floor(G.me.mass))}}
+function kill(s,by){s.alive=false;// burst into orbs along the body
+  for(let i=0;i<s.pts.length;i+=2){const p=s.pts[i];G.orbs.push(orb(p.x+(Math.random()-.5)*10,p.y+(Math.random()-.5)*10,Math.min(5,1.5+s.mass/s.pts.length*2)))}
+  if(by)by.kills++;
+  if(by===G.me){G.kos++;$('kos').textContent=G.kos;sfx('capture')}
+  if(s===G.me){G.state='over';sfx('lose');const nb=G.maxLen>bestLen;if(nb){bestLen=G.maxLen;store.set('parlor-coil-best',bestLen)}$('best').textContent=bestLen;
+    setTimeout(()=>showMsg(by?`${by.name} got you`:'You hit the wall',`You grew to <b>${G.maxLen}</b>${nb?' · a new best!':''} and knocked out ${G.kos} coil${G.kos===1?'':'s'}.`,'Play again'),700)}}
+// ---------- drawing ----------
+function draw(){const W=cv.width,H=cv.height,dpr=W/cv.clientWidth||1;cx.setTransform(1,0,0,1,0,0);cx.fillStyle='#0c1226';cx.fillRect(0,0,W,H);
+  const me=G.me,zoom=dpr*Math.max(.55,Math.min(1,1.05-radius(me)/40)),camx=me.x-W/2/zoom,camy=me.y-H/2/zoom;
+  cx.setTransform(zoom,0,0,zoom,-camx*zoom,-camy*zoom);
+  // hex-ish grid floor
+  cx.strokeStyle='rgba(120,150,255,.07)';cx.lineWidth=2;const g=60,x0=Math.floor(camx/g)*g,y0=Math.floor(camy/g)*g;cx.beginPath();
+  for(let x=x0;x<camx+W/zoom+g;x+=g){cx.moveTo(x,camy);cx.lineTo(x,camy+H/zoom)}for(let y=y0;y<camy+H/zoom+g;y+=g){cx.moveTo(camx,y);cx.lineTo(camx+W/zoom,y)}cx.stroke();
+  cx.strokeStyle='#ff4d6d';cx.lineWidth=8;cx.strokeRect(0,0,WORLD,WORLD);
+  const vis=(x,y,m=40)=>x>camx-m&&y>camy-m&&x<camx+W/zoom+m&&y<camy+H/zoom+m;
+  for(const o of G.orbs){if(!vis(o.x,o.y))continue;const c=COLORS[o.c][0];cx.fillStyle=c;cx.globalAlpha=.25;cx.beginPath();cx.arc(o.x,o.y,o.v*4+3,0,7);cx.fill();cx.globalAlpha=1;cx.beginPath();cx.arc(o.x,o.y,o.v*2+1.5,0,7);cx.fill()}
+  const order=G.snakes.filter(s=>s.alive).sort((a,b)=>(a===me)-(b===me));
+  for(const s of order){const r=radius(s),[c1,c2]=COLORS[s.ci];
+    for(let i=s.pts.length-1;i>=0;i--){const p=s.pts[i];if(!vis(p.x,p.y))continue;cx.fillStyle=Math.floor(i/3)%2?c2:c1;cx.beginPath();cx.arc(p.x,p.y,r,0,7);cx.fill()}
+    if(s.boost){cx.strokeStyle='rgba(255,255,255,.35)';cx.lineWidth=3;cx.beginPath();cx.arc(s.x,s.y,r+4,0,7);cx.stroke()}
+    // eyes
+    for(const sd of[-1,1]){const ex=s.x+Math.cos(s.a+sd*.6)*r*.55,ey=s.y+Math.sin(s.a+sd*.6)*r*.55;cx.fillStyle='#fff';cx.beginPath();cx.arc(ex,ey,r*.38,0,7);cx.fill();cx.fillStyle='#111';cx.beginPath();cx.arc(ex+Math.cos(s.a)*r*.12,ey+Math.sin(s.a)*r*.12,r*.18,0,7);cx.fill()}
+    if(vis(s.x,s.y)){cx.fillStyle='rgba(255,255,255,.85)';cx.font=`bold ${12}px Nunito,sans-serif`;cx.textAlign='center';cx.fillText(s===me?'You':s.name,s.x,s.y-r-10)}}
+  cx.setTransform(dpr,0,0,dpr,0,0);const vw=cv.clientWidth,vh=cv.clientHeight;
+  // your length
+  cx.fillStyle='rgba(0,0,0,.35)';cx.fillRect(10,10,120,30);cx.fillStyle='#fff';cx.font='bold 15px Nunito,sans-serif';cx.textAlign='left';cx.fillText(`Length ${Math.floor(me.mass)}`,18,30);
+  // leaderboard
+  const top=G.snakes.filter(s=>s.alive).sort((a,b)=>b.mass-a.mass);const rank=top.indexOf(me)+1;cx.fillStyle='rgba(0,0,0,.35)';cx.fillRect(vw-150,10,140,22+18*Math.min(5,top.length));
+  cx.font='bold 13px Nunito,sans-serif';top.slice(0,5).forEach((s,k)=>{cx.fillStyle=s===me?'#ffcc33':'#fff';cx.textAlign='left';cx.fillText(`${k+1}. ${s===me?'You':s.name}`,vw-142,28+k*18);cx.textAlign='right';cx.fillText(Math.floor(s.mass),vw-18,28+k*18)});
+  if(rank>5){cx.fillStyle='#ffcc33';cx.textAlign='left';cx.fillText(`${rank}. You  ${Math.floor(me.mass)}`,vw-142,28+5*18)}
+  // minimap
+  const mm=Math.min(90,vw*.22);cx.fillStyle='rgba(0,0,0,.35)';cx.fillRect(10,vh-mm-10,mm,mm);for(const s of G.snakes){if(!s.alive)continue;cx.fillStyle=s===me?'#ffcc33':'rgba(255,255,255,.5)';cx.fillRect(10+s.x/WORLD*mm-1.5,vh-mm-10+s.y/WORLD*mm-1.5,s===me?4:3,s===me?4:3)}}
+function size(){const r=$('screen').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);if(G)draw()}
+// ---------- controls ----------
+const scr=$('screen');let drag=null;
+scr.addEventListener('pointerdown',e=>{if(e.target.closest('.boost')||!$('msg').hidden)return;drag={x:e.clientX,y:e.clientY,id:e.pointerId};if(e.pointerType==='mouse')input.boost=true;try{scr.setPointerCapture(e.pointerId)}catch(x){}});
+scr.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&!drag){const r=scr.getBoundingClientRect();input.angle=Math.atan2(e.clientY-r.top-r.height/2,e.clientX-r.left-r.width/2);return}
+  if(!drag||e.pointerId!==drag.id)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>8){input.angle=Math.atan2(dy,dx);if(Math.hypot(dx,dy)>40){drag.x=e.clientX-dx*.6;drag.y=e.clientY-dy*.6}}
+  if(e.pointerType==='mouse'){const r=scr.getBoundingClientRect();input.angle=Math.atan2(e.clientY-r.top-r.height/2,e.clientX-r.left-r.width/2)}});
+const end=e=>{if(drag&&e.pointerId===drag.id){drag=null;if(e.pointerType==='mouse')input.boost=false}};scr.addEventListener('pointerup',end);scr.addEventListener('pointercancel',end);
+const bb=$('boost');bb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();input.boost=true;bb.classList.add('on')});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>bb.addEventListener(ev,()=>{input.boost=false;bb.classList.remove('on')}));
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;const k=e.key.toLowerCase();
+  if(!$('msg').hidden&&(k==='enter'||k===' ')){e.preventDefault();$('go').click();return}
+  if(k===' '){e.preventDefault();input.boost=true}else if(k==='arrowleft'||k==='a'){input.angle=null;input.turn=-1}else if(k==='arrowright'||k==='d'){input.angle=null;input.turn=1}else if(k==='p'||k==='escape')pause()});
+document.addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k===' ')input.boost=false;if(['arrowleft','a','arrowright','d'].includes(k))input.turn=0});
+function pause(){if(G&&G.state==='run'){G.state='paused';cancelAnimationFrame(raf);showMsg('Paused','','Resume')}}
+$('newgame').onclick=()=>{newGame();size()};$('rivals').onchange=e=>{cfg.rivals=+e.target.value;store.set('parlor-coil',cfg);newGame();size()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
+addEventListener('resize',size);
+window.onAppBack=()=>{if(G.state==='run'){pause();return true}return false};
+if(![6,10,14].includes(+cfg.rivals))cfg.rivals=10;$('rivals').value=cfg.rivals;$('best').textContent=bestLen;newGame();size();
+</script>
+</body>
+</html>

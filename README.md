@@ -90,6 +90,10 @@ Self-contained HTML files. No install or build step.
 - `rock-paper-scissors.html` — Rock Paper Scissors, best-of matches against a computer that learns your habits, or 2 players.
 - `whodunit.html` — Whodunit, a deduction mystery: move through the manor, make suggestions and solve the case before rival detectives.
 - `logic-grid.html` — Logic Grid, generated who-owns-what puzzles in three sizes, each solvable by pure logic, with hints.
+- `coil-arena.html` — Coil Arena, an original snake battle arena: grow by eating orbs, boost to cut off computer rivals, and climb the leaderboard.
+- `corner-market.html` — Corner Market, an original grocery shop builder: pick produce, stock shelves, serve customers at the till and unlock a bigger store with helpers.
+- `slice-factory.html` — Slice Factory, an original idle pizzeria tycoon: upgrade the slowest station on a five-step pizza line, add pricier pizzas, catch rush orders and open new shops.
+- `blaster-run.html` — Blaster Run, an original side-scrolling run-and-gun: three stages with walkers, turrets, drones and a guardian boss each, eight-way aiming and power-ups.
 - `firefly-maze.html` — Firefly Maze, an original arcade maze chase: three hand-designed neon hedge mazes, beetles with different hunting habits, moon drops that let you catch them, side tunnels and garden bonus treats.
 - `sweet-swap.html` — Sweet Swap, a match-three candy puzzle with 12 levels (score, collect and jelly goals) and saved stars.
 - `lineup-detective.html` — Lineup Detective, a face-guessing deduction game vs the computer.

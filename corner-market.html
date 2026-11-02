@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Corner Market</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header; coins and goal strip; the whole shop drawn on one canvas (garden plots at the top, shelves in the middle, the till and the door at the bottom), sized to fit a phone; rules below. */
+:root{
+  --bg:#fff7ec; --fg:#33261a; --muted:#8a7461; --panel:#ffffff; --line:#f0dfc8; --chip:#fbead3; --accent:#2f9e6e; --accent-ink:#ffffff;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#1b140e; --fg:#f6eadb; --muted:#c3a98c; --panel:#251c14; --line:#3d2e20; --chip:#30241a; --accent:#4cc38a; --accent-ink:#1b140e; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#1b140e; --fg:#f6eadb; --muted:#c3a98c; --panel:#251c14; --line:#3d2e20; --chip:#30241a; --accent:#4cc38a; --accent-ink:#1b140e; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:560px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.coins{font-family:var(--display);font-size:26px;display:flex;align-items:center;gap:6px}
+.coins i{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3a0,#f2b400 60%,#c98a00);display:inline-block}
+.goal{flex:1;font-size:13.5px;color:var(--muted);text-align:right}
+.screen{position:relative;width:min(100%,calc((100vh - 200px)*3/5));aspect-ratio:3/5;margin:0 auto;border-radius:18px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:0 10px 26px -14px rgba(60,30,0,.5)}
+canvas{width:100%;height:100%;display:block}
+.msg{position:absolute;inset:0;display:grid;place-items:center;background:rgba(40,25,10,.45);text-align:center;padding:18px}
+.msg div{background:var(--panel);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px;align-items:center;max-width:320px}
+.msg b{font-family:var(--display);font-size:26px}
+.msg p{margin:0;color:var(--muted)}
+@media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;padding-block:6px;align-items:start}.wrap>*{grid-column:2}.screen{grid-column:1;grid-row:1/span 5;width:calc((100vh - 16px)*3/5)}h1{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Corner Market</h1>
+    </div>
+    <div class="controls"><button class="btn" id="reset">Start over</button></div>
+  </header>
+  <div class="bar"><span class="coins"><i></i><span id="coins">0</span></span><span class="goal" id="goal"></span></div>
+  <div class="screen" id="screen"><canvas id="cv"></canvas><div class="msg" id="msg" hidden></div></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>You run a little corner market. <b>Walk</b> by dragging anywhere on the shop (your shopkeeper walks the way you drag), or with the arrow keys / WASD.</li>
+        <li>Walk over ripe produce in the garden to pick it up (you can carry a few at a time), then walk to its shelf to stock it.</li>
+        <li>Customers take what they want from the shelves and queue at the till. Stand on the green till mat to take their money. If a shelf stays empty too long, they leave without buying.</li>
+        <li>Stand on a dashed <b>unlock pad</b> to pay for it bit by bit: new produce, a bigger basket, faster shoes, a cashier, and a farmhand who restocks for you.</li>
+        <li>The shop saves itself, so you can come back any time.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const W=360,H=600;
+const PRODUCTS={tomato:{name:'Tomatoes',col:'#e63946',price:4,grow:6},corn:{name:'Corn',col:'#f4c430',price:7,grow:8},apple:{name:'Apples',col:'#8bc34a',price:11,grow:10},egg:{name:'Eggs',col:'#fff3e0',price:16,grow:12}};
+// Everything has a fixed place in the shop. Plots and shelves belong to a product.
+const PLOTS=[{id:'p1',k:'tomato',x:40,y:70},{id:'p2',k:'tomato',x:100,y:70},{id:'p3',k:'corn',x:160,y:70},{id:'p4',k:'corn',x:220,y:70},{id:'p5',k:'apple',x:280,y:70},{id:'p6',k:'apple',x:280,y:140},{id:'p7',k:'egg',x:40,y:140},{id:'p8',k:'egg',x:100,y:140}];
+const SHELVES=[{id:'s1',k:'tomato',x:60,y:290},{id:'s2',k:'corn',x:150,y:290},{id:'s3',k:'apple',x:240,y:290},{id:'s4',k:'egg',x:150,y:380}];
+const TILL={x:70,y:500},DOOR={x:300,y:585};
+const PADS=[
+  {id:'u_p2',label:'Tomato plot',cost:30,x:100,y:70,gives:['p2'],need:[]},
+  {id:'u_corn',label:'Corn plot + shelf',cost:80,x:160,y:70,gives:['p3','s2'],need:['u_p2']},
+  {id:'u_bag',label:'Bigger basket',cost:120,x:300,y:440,gives:['bag'],need:['u_corn']},
+  {id:'u_p4',label:'Corn plot',cost:150,x:220,y:70,gives:['p4'],need:['u_corn']},
+  {id:'u_apple',label:'Apple tree + shelf',cost:260,x:280,y:70,gives:['p5','s3'],need:['u_corn']},
+  {id:'u_cash',label:'Hire a cashier',cost:350,x:150,y:500,gives:['cashier'],need:['u_apple']},
+  {id:'u_shoes',label:'Faster shoes',cost:300,x:300,y:500,gives:['shoes'],need:['u_bag']},
+  {id:'u_egg',label:'Hen house + egg shelf',cost:600,x:40,y:140,gives:['p7','s4'],need:['u_apple']},
+  {id:'u_p6',label:'Apple tree',cost:500,x:280,y:140,gives:['p6'],need:['u_apple']},
+  {id:'u_farm',label:'Hire a farmhand',cost:900,x:220,y:140,gives:['farmhand'],need:['u_egg']},
+  {id:'u_p8',label:'Hen house',cost:800,x:100,y:140,gives:['p8'],need:['u_egg']},
+  {id:'u_sign',label:'Big shop sign',cost:1500,x:300,y:230,gives:['sign'],need:['u_farm']}];
+const SAVE='parlor-market';
+let S=null,raf=0,last=0,move={x:0,y:0},keys={};
+const has=id=>S.owned.includes(id);
+function fresh(){return{coins:0,owned:['p1','s1'],paid:{},shelf:{},plots:{},total:0}}
+function load(){const s=store.get(SAVE,null);S=s&&s.owned?Object.assign(fresh(),s):fresh();
+  Object.assign(S,{me:{x:180,y:440,carry:[]},customers:[],queue:[],spawn:3,serveT:0,float:[],helper:{x:200,y:200,carry:[],task:null},cashier:{x:TILL.x-30,y:TILL.y}});
+  for(const p of PLOTS){if(S.plots[p.id]==null)S.plots[p.id]=0}for(const s of SHELVES){if(S.shelf[s.id]==null)S.shelf[s.id]=has(s.id)?3:0}}
+function save(){const {coins,owned,paid,shelf,plots,total}=S;store.set(SAVE,{coins:Math.floor(coins),owned,paid,shelf,plots,total})}
+const cap=()=>has('bag')?8:4,speed=()=>has('shoes')?150:110;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;step(dt);draw();ui();raf=requestAnimationFrame(loop)}
+function step(dt){const me=S.me;
+  // walking
+  let mx=move.x,my=move.y;if(keys.left)mx=-1;if(keys.right)mx=1;if(keys.up)my=-1;if(keys.down)my=1;const m=Math.hypot(mx,my);
+  if(m>.05){const k=Math.min(1,m);me.x+=mx/m*k*speed()*dt;me.y+=my/m*k*speed()*dt;me.face=mx<0?-1:1;me.walk=(me.walk||0)+dt}
+  me.x=Math.max(14,Math.min(W-14,me.x));me.y=Math.max(40,Math.min(H-24,me.y));
+  // garden grows
+  for(const p of PLOTS){if(!has(p.id))continue;S.plots[p.id]=Math.min(1,S.plots[p.id]+dt/PRODUCTS[p.k].grow)}
+  // picking up, stocking (for you and the farmhand)
+  const work=(w,isMe)=>{for(const p of PLOTS){if(!has(p.id)||S.plots[p.id]<1||dist(w,p)>26)continue;const room=(isMe?cap():6)-w.carry.length;if(room<=0)continue;const n=Math.min(room,3);for(let i=0;i<n;i++)w.carry.push(p.k);S.plots[p.id]=0;if(isMe)sfx('pop')}
+    for(const s of SHELVES){if(!has(s.id)||dist(w,s)>34)continue;const i=w.carry.lastIndexOf(s.k);if(i>=0&&S.shelf[s.id]<12){w.stockT=(w.stockT||0)-dt;if(w.stockT<=0){w.carry.splice(i,1);S.shelf[s.id]++;w.stockT=.1;if(isMe)sfx('tap')}}}};
+  work(me,true);
+  // the farmhand: pick the emptiest shelf, fetch from a ripe plot, stock it
+  if(has('farmhand')){const h=S.helper;if(!h.task){const needs=SHELVES.filter(s=>has(s.id)&&S.shelf[s.id]<8).sort((a,b)=>S.shelf[a.id]-S.shelf[b.id]);
+      for(const s of needs){const p=PLOTS.find(p=>p.k===s.k&&has(p.id)&&S.plots[p.id]>=1);if(p){h.task={p,s};break}}}
+    if(h.task){const tgt=h.carry.length?h.task.s:h.task.p;const d=dist(h,tgt);if(d>4){h.x+=(tgt.x-h.x)/d*80*dt;h.y+=(tgt.y-h.y)/d*80*dt}work(h,false);if(h.carry.length===0&&tgt===h.task.s)h.task=null;if(!h.carry.length&&S.plots[h.task?.p?.id]<1&&tgt===h.task?.p)h.task=null}}
+  // customers arrive, shop, queue, pay
+  S.spawn-=dt;const maxC=has('sign')?9:6;
+  if(S.spawn<=0&&S.customers.length<maxC){const kinds=SHELVES.filter(s=>has(s.id)).map(s=>s.k);const want=[];for(let i=0;i<1+Math.floor(Math.random()*3);i++)want.push(kinds[Math.floor(Math.random()*kinds.length)]);
+    S.customers.push({x:DOOR.x,y:DOOR.y,want,got:[],state:'shop',patience:30,hue:Math.floor(Math.random()*360),bob:Math.random()*6});S.spawn=Math.max(2.5,(has('sign')?4:6)-S.owned.length*.15)+Math.random()*2}
+  for(const c of S.customers){c.bob+=dt*8;
+    if(c.state==='shop'){const k=c.want[c.got.length];const s=SHELVES.find(s=>s.k===k);const tgt={x:s.x+(Math.random()-.5)*2,y:s.y+30};if(walkTo(c,tgt,60,dt)){if(S.shelf[s.id]>0){S.shelf[s.id]--;c.got.push(k);if(c.got.length===c.want.length){c.state='queue';S.queue.push(c)}}else{c.patience-=dt;if(c.patience<=0){c.state='leave';c.angry=true;S.float.push({x:c.x,y:c.y-24,t:1.2,txt:'😠'})}}}}
+    else if(c.state==='queue'){const i=S.queue.indexOf(c);walkTo(c,{x:TILL.x+20+i*22,y:TILL.y+34},70,dt)}
+    else if(c.state==='leave'){if(walkTo(c,DOOR,70,dt))c.gone=true}}
+  S.customers=S.customers.filter(c=>!c.gone);
+  // serving at the till: you on the mat, or the cashier
+  const serving=dist(me,TILL)<26||has('cashier');const front=S.queue[0];
+  if(serving&&front&&dist(front,{x:TILL.x+20,y:TILL.y+34})<8){S.serveT+=dt;if(S.serveT>(has('cashier')&&dist(me,TILL)>=26?.9:.5)){S.serveT=0;S.queue.shift();front.state='leave';const pay=front.got.reduce((a,k)=>a+PRODUCTS[k].price,0);S.coins+=pay;S.total+=pay;S.float.push({x:TILL.x,y:TILL.y-20,t:1,txt:`+${pay}`});sfx('chips')}}else S.serveT=0;
+  // unlock pads
+  for(const p of PADS){if(has(p.id)||!p.need.every(has))continue;if(dist(me,p)<22&&S.coins>0){const left=p.cost-(S.paid[p.id]||0);const take=Math.min(left,Math.max(1,Math.ceil(p.cost*1.2*dt)),Math.floor(S.coins));if(take>0){S.coins-=take;S.paid[p.id]=(S.paid[p.id]||0)+take;if(Math.random()<.3)sfx('tick')}
+      if((S.paid[p.id]||0)>=p.cost){S.owned.push(p.id,...p.gives);for(const g of p.gives)if(g.startsWith('s'))S.shelf[g]=0;sfx('win');S.float.push({x:p.x,y:p.y-20,t:1.6,txt:p.label+'!'});save()}}}
+  for(const f of S.float)f.t-=dt;S.float=S.float.filter(f=>f.t>0);
+  S.saveT=(S.saveT||0)+dt;if(S.saveT>4){S.saveT=0;save()}}
+function walkTo(c,t,sp,dt){const d=dist(c,t);if(d<3)return true;c.x+=(t.x-c.x)/d*Math.min(d,sp*dt);c.y+=(t.y-c.y)/d*Math.min(d,sp*dt);return false}
+// ---------- drawing ----------
+let BG=null;
+function rng(seed){return()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646}}
+function buildBG(){const s=cv.width/W;BG=document.createElement('canvas');BG.width=cv.width;BG.height=cv.height;const g=BG.getContext('2d');g.setTransform(s,0,0,s,0,0);const R=rng(11);
+  // garden: grass with clumps and blades
+  let gr=g.createLinearGradient(0,0,0,200);gr.addColorStop(0,'#6aa84f');gr.addColorStop(1,'#578f3c');g.fillStyle=gr;g.fillRect(0,0,W,200);
+  for(let i=0;i<240;i++){const x=R()*W,y=R()*200,r=6+R()*18;g.fillStyle=R()<.5?`rgba(35,85,20,${.05+R()*.08})`:`rgba(180,220,120,${.05+R()*.07})`;g.beginPath();g.ellipse(x,y,r,r*.55,R()*3,0,7);g.fill()}
+  g.lineWidth=.8;for(let i=0;i<1400;i++){const x=R()*W,y=4+R()*192,h=2.5+R()*4;g.strokeStyle=R()<.55?'rgba(38,92,28,.6)':'rgba(176,222,120,.55)';g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+(R()-.5)*2,y-h*.6,x+(R()-.5)*3,y-h);g.stroke()}
+  for(let i=0;i<14;i++){const x=R()*W,y=R()*190;g.fillStyle=['#fff','#ffe066','#f783ac'][i%3];for(let k=0;k<4;k++){g.beginPath();g.arc(x+Math.cos(k*1.57)*1.6,y+Math.sin(k*1.57)*1.6,1.3,0,7);g.fill()}g.fillStyle='#f59f00';g.beginPath();g.arc(x,y,1,0,7);g.fill()}
+  // stepping stones from the garden gate
+  for(const [x,y,r] of [[182,184,9],[172,166,8],[184,149,8],[170,128,8],[182,108,9]]){g.fillStyle='rgba(0,0,0,.18)';g.beginPath();g.ellipse(x+1,y+2,r,r*.7,.3,0,7);g.fill();const sg=g.createRadialGradient(x-3,y-3,1,x,y,r);sg.addColorStop(0,'#d7d2c8');sg.addColorStop(1,'#9c958a');g.fillStyle=sg;g.beginPath();g.ellipse(x,y,r,r*.7,.3,0,7);g.fill()}
+  // shop floor: wooden planks
+  const PH=18;for(let y=206,row=0;y<H;y+=PH,row++){let x=-R()*80;while(x<W){const len=60+R()*90,t=R();const c1=`hsl(${30+t*6},${42+t*10}%,${66+t*8}%)`,c2=`hsl(${28+t*6},${40+t*10}%,${58+t*8}%)`;const pg=g.createLinearGradient(0,y,0,y+PH);pg.addColorStop(0,c1);pg.addColorStop(1,c2);g.fillStyle=pg;g.fillRect(x,y,len,PH);
+      g.strokeStyle='rgba(110,70,35,.18)';g.lineWidth=.6;for(let k=0;k<3;k++){const yy=y+3+R()*(PH-6);g.beginPath();g.moveTo(x+2,yy);g.bezierCurveTo(x+len*.3,yy+(R()-.5)*3,x+len*.7,yy+(R()-.5)*3,x+len-2,yy+(R()-.5)*2);g.stroke()}
+      if(R()<.25){g.fillStyle='rgba(110,70,35,.25)';g.beginPath();g.ellipse(x+10+R()*(len-20),y+PH/2,2.5,1.4,0,0,7);g.fill()}
+      g.fillStyle='rgba(80,45,20,.45)';g.fillRect(x+len-1,y,1,PH);x+=len}
+    g.fillStyle='rgba(80,45,20,.35)';g.fillRect(0,y+PH-1,W,1)}
+  const vg=g.createRadialGradient(W/2,400,80,W/2,400,300);vg.addColorStop(0,'rgba(255,240,210,.12)');vg.addColorStop(1,'rgba(60,30,5,.22)');g.fillStyle=vg;g.fillRect(0,206,W,H-206);
+  // wall between garden and shop, with an open doorway
+  g.fillStyle='rgba(0,0,0,.18)';g.fillRect(0,206,W,6);
+  const wg=g.createLinearGradient(0,190,0,206);wg.addColorStop(0,'#f3e6d0');wg.addColorStop(1,'#d8c3a2');g.fillStyle=wg;g.fillRect(0,190,150,16);g.fillRect(210,190,W-210,16);
+  g.fillStyle='#a0703f';g.fillRect(0,188,150,4);g.fillRect(210,188,W-210,4);g.fillStyle='rgba(0,0,0,.12)';for(let x=0;x<W;x+=24)if(x<146||x>210)g.fillRect(x,192,1,14);
+  g.fillStyle='#8a6a48';g.fillRect(146,186,6,22);g.fillRect(208,186,6,22);g.fillStyle='#bfa98a';g.fillRect(152,200,56,6);
+  // front door: glass doors and a mat
+  g.fillStyle='#4a5560';g.fillRect(DOOR.x-34,H-14,68,14);const dg=g.createLinearGradient(0,H-12,0,H);dg.addColorStop(0,'#cfe8f3');dg.addColorStop(1,'#8fb8cc');g.fillStyle=dg;g.fillRect(DOOR.x-31,H-11,30,11);g.fillRect(DOOR.x+1,H-11,30,11);
+  g.fillStyle='rgba(255,255,255,.6)';g.fillRect(DOOR.x-26,H-10,3,9);g.fillRect(DOOR.x+6,H-10,3,9);
+  g.fillStyle='#6b4a2a';g.fillRect(DOOR.x-24,H-34,48,18);g.strokeStyle='rgba(0,0,0,.25)';g.lineWidth=1;for(let x=DOOR.x-22;x<DOOR.x+24;x+=4){g.beginPath();g.moveTo(x,H-33);g.lineTo(x,H-17);g.stroke()}
+}
+const SKINS=['#f1c27d','#e0ac69','#c68642','#8d5524','#ffdbac'],HAIRS=['#2b1d14','#5a3825','#a0522d','#d9b26f','#1a1a1a','#9a9a9a'];
+function shade(x,y,rx,ry,a=.22){cx.fillStyle=`rgba(0,0,0,${a})`;cx.beginPath();cx.ellipse(x,y,rx,ry,0,0,7);cx.fill()}
+function item(k,x,y,r=4.5){const c=cx;
+  if(k==='tomato'){const g=c.createRadialGradient(x-r*.35,y-r*.35,r*.1,x,y,r);g.addColorStop(0,'#ff9b8a');g.addColorStop(.45,'#e3342f');g.addColorStop(1,'#8e1b1b');c.fillStyle=g;c.beginPath();c.ellipse(x,y,r,r*.92,0,0,7);c.fill();
+    c.fillStyle='#2f7d32';for(let i=0;i<5;i++){const a=i*1.2566;c.beginPath();c.ellipse(x+Math.cos(a)*r*.32,y-r*.5+Math.sin(a)*r*.22,r*.34,r*.12,a,0,7);c.fill()}}
+  else if(k==='corn'){c.save();c.translate(x,y);c.rotate(-.6);c.fillStyle='#6a9f3a';c.beginPath();c.ellipse(-r*.15,0,r*.62,r*1.35,0,0,7);c.fill();const g=c.createLinearGradient(-r*.5,0,r*.5,0);g.addColorStop(0,'#e0a800');g.addColorStop(.5,'#ffe066');g.addColorStop(1,'#d39e00');c.fillStyle=g;c.beginPath();c.ellipse(r*.12,-r*.15,r*.45,r*1.15,0,0,7);c.fill();
+    c.fillStyle='rgba(150,100,0,.35)';for(let j=-3;j<=3;j++)for(let i=-1;i<=1;i++){c.beginPath();c.arc(r*.12+i*r*.25,-r*.15+j*r*.3,r*.07,0,7);c.fill()}c.fillStyle='#8bc34a';c.beginPath();c.moveTo(-r*.5,r*.9);c.quadraticCurveTo(-r*.2,0,-r*.05,-r*1.2);c.quadraticCurveTo(-r*.1,0,r*.2,r*.9);c.fill();c.restore()}
+  else if(k==='apple'){const g=c.createRadialGradient(x-r*.35,y-r*.3,r*.1,x,y,r);g.addColorStop(0,'#e6f7a8');g.addColorStop(.5,'#8cc63f');g.addColorStop(1,'#3f6e1d');c.fillStyle=g;c.beginPath();c.arc(x-r*.18,y,r*.82,0,7);c.arc(x+r*.18,y,r*.82,0,7);c.fill();
+    c.fillStyle='rgba(214,60,40,.35)';c.beginPath();c.ellipse(x+r*.35,y+r*.15,r*.45,r*.55,0,0,7);c.fill();c.strokeStyle='#5c3b1e';c.lineWidth=r*.18;c.beginPath();c.moveTo(x,y-r*.6);c.lineTo(x+r*.15,y-r*1.05);c.stroke();c.fillStyle='#4caf50';c.beginPath();c.ellipse(x+r*.45,y-r*.95,r*.35,r*.15,-.5,0,7);c.fill()}
+  else{const g=c.createRadialGradient(x-r*.3,y-r*.35,r*.1,x,y,r);g.addColorStop(0,'#ffffff');g.addColorStop(.6,'#f4e6cf');g.addColorStop(1,'#c7ab82');c.fillStyle=g;c.beginPath();c.ellipse(x,y,r*.78,r,0,0,7);c.fill()}}
+function rrect(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.arcTo(x+w,y,x+w,y+h,r);cx.arcTo(x+w,y+h,x,y+h,r);cx.arcTo(x,y+h,x,y,r);cx.arcTo(x,y,x+w,y,r);cx.closePath()}
+function bed(x,y){shade(x+2,y+3,27,22,.2);const fg=cx.createLinearGradient(0,y-21,0,y+21);fg.addColorStop(0,'#a77a4c');fg.addColorStop(1,'#7a5330');cx.fillStyle=fg;rrect(x-25,y-21,50,42,3);cx.fill();
+  const sg=cx.createLinearGradient(0,y-17,0,y+17);sg.addColorStop(0,'#5a3b22');sg.addColorStop(1,'#46301c');cx.fillStyle=sg;cx.fillRect(x-21,y-17,42,34);
+  for(let k=0;k<3;k++){cx.fillStyle='rgba(120,85,50,.55)';cx.fillRect(x-21,y-12+k*11,42,3);cx.fillStyle='rgba(20,10,0,.35)';cx.fillRect(x-21,y-9+k*11,42,2)}
+  cx.fillStyle='rgba(255,255,255,.12)';cx.fillRect(x-25,y-21,50,2)}
+function leafy(x,y,s){const cols=['#2e7d32','#43a047','#66bb6a'];for(let i=0;i<5;i++){const a=i*1.26+.3;cx.fillStyle=cols[i%3];cx.beginPath();cx.ellipse(x+Math.cos(a)*4*s,y+Math.sin(a)*3*s,4.5*s,2.6*s,a,0,7);cx.fill()}}
+function drawPlot(p,g){const x=p.x,y=p.y;
+  if(p.k==='tomato'){bed(x,y);for(let k=0;k<3;k++){const px=x-13+k*13,py=y-1+(k%2)*4,s=.45+Math.min(1,g)*.65;cx.strokeStyle='#8d6e4a';cx.lineWidth=1.2;cx.beginPath();cx.moveTo(px+5,py+8);cx.lineTo(px+5,py-12);cx.stroke();leafy(px,py,s);
+      if(g>=1){item('tomato',px-3,py-2,3.6);item('tomato',px+3,py+3,3.4);item('tomato',px+2,py-6,3.2)}else if(g>.5){cx.fillStyle='#9ccc65';cx.beginPath();cx.arc(px+2,py,2,0,7);cx.fill()}}}
+  else if(p.k==='corn'){bed(x,y);for(let k=0;k<3;k++){const px=x-14+k*14,base=y+14,h=8+Math.min(1,g)*26;cx.strokeStyle='#558b2f';cx.lineWidth=2.4;cx.lineCap='round';cx.beginPath();cx.moveTo(px,base);cx.lineTo(px,base-h);cx.stroke();
+      cx.lineWidth=1.6;cx.strokeStyle='#7cb342';for(let j=0;j<3;j++){const yy=base-h*(.3+j*.25),d=j%2?1:-1;cx.beginPath();cx.moveTo(px,yy);cx.quadraticCurveTo(px+d*8,yy-6,px+d*10,yy+1);cx.stroke()}
+      if(g>=1){item('corn',px+4,base-h*.55,4)}cx.fillStyle='#d4b25a';cx.beginPath();cx.moveTo(px-2,base-h);cx.lineTo(px,base-h-5);cx.lineTo(px+2,base-h);cx.fill()}cx.lineCap='butt'}
+  else if(p.k==='apple'){shade(x+3,y+18,24,8,.25);const tg=cx.createLinearGradient(x-5,0,x+5,0);tg.addColorStop(0,'#4e342e');tg.addColorStop(1,'#795548');cx.fillStyle=tg;cx.fillRect(x-4,y,8,18);
+    for(const [dx,dy,r,c] of [[-10,-2,14,'#2e7d32'],[10,-2,14,'#2e7d32'],[0,-14,15,'#388e3c'],[-6,-8,13,'#43a047'],[7,-10,12,'#4caf50'],[-2,-18,8,'#66bb6a']]){const lg=cx.createRadialGradient(x+dx-r*.3,y+dy-r*.4,1,x+dx,y+dy,r);lg.addColorStop(0,'#81c784');lg.addColorStop(1,c);cx.fillStyle=lg;cx.beginPath();cx.arc(x+dx,y+dy,r,0,7);cx.fill()}
+    cx.fillStyle='rgba(20,60,20,.25)';for(let i=0;i<10;i++){cx.beginPath();cx.arc(x-14+((i*7)%28),y-16+((i*11)%22),2,0,7);cx.fill()}
+    if(g>=1){for(const [dx,dy] of [[-12,-4],[8,-12],[12,2],[-3,-18],[-6,4]])item('apple',x+dx,y+dy,3.6)}else{cx.fillStyle='#fff';for(const [dx,dy] of [[-10,-6],[8,-14],[11,0]])if(g>.3){cx.beginPath();cx.arc(x+dx,y+dy,1.8,0,7);cx.fill()}}}
+  else{shade(x+2,y+20,28,7,.22);const wg=cx.createLinearGradient(x-22,0,x+22,0);wg.addColorStop(0,'#b5733b');wg.addColorStop(1,'#8a5228');cx.fillStyle=wg;cx.fillRect(x-20,y-12,40,30);cx.fillStyle='rgba(0,0,0,.15)';for(let k=0;k<5;k++)cx.fillRect(x-20,y-8+k*6,40,1);
+    cx.fillStyle='#7f2d1d';cx.beginPath();cx.moveTo(x-25,y-10);cx.lineTo(x,y-28);cx.lineTo(x+25,y-10);cx.closePath();cx.fill();cx.strokeStyle='rgba(255,255,255,.18)';cx.lineWidth=1;for(let k=1;k<4;k++){cx.beginPath();cx.moveTo(x-25+k*6,y-10-k*4.4);cx.lineTo(x+25-k*6,y-10-k*4.4);cx.stroke()}
+    cx.fillStyle='#2b1a10';rrect(x-6,y+2,12,16,5);cx.fill();cx.fillStyle='#a77a4c';cx.fillRect(x-4,y+18,8,5);
+    const hx=x+18,hy=y+12;shade(hx,hy+5,6,2);cx.fillStyle='#fafafa';cx.beginPath();cx.ellipse(hx,hy,6,4.5,0,0,7);cx.fill();cx.beginPath();cx.arc(hx+4,hy-4,3,0,7);cx.fill();cx.fillStyle='#e53935';cx.beginPath();cx.arc(hx+4,hy-7.5,1.6,0,7);cx.fill();cx.fillStyle='#ffa000';cx.beginPath();cx.moveTo(hx+7,hy-4);cx.lineTo(hx+9.5,hy-3);cx.lineTo(hx+7,hy-2.5);cx.fill();cx.fillStyle='#222';cx.fillRect(hx+4.5,hy-5,1,1);
+    if(g>=1){cx.fillStyle='#d9b85c';cx.beginPath();cx.ellipse(x-14,y+16,9,4.5,0,0,7);cx.fill();cx.strokeStyle='#b8953e';cx.lineWidth=.7;for(let i=0;i<6;i++){cx.beginPath();cx.moveTo(x-22+i*3,y+13);cx.lineTo(x-19+i*3,y+19);cx.stroke()}item('egg',x-17,y+14,3.3);item('egg',x-11,y+14.5,3.3);item('egg',x-14,y+11.5,3.1)}}
+  if(g<1){cx.fillStyle='rgba(0,0,0,.35)';rrect(x-18,y+23,36,5,2.5);cx.fill();cx.fillStyle='#ffe066';rrect(x-18,y+23,Math.max(5,36*g),5,2.5);cx.fill()}}
+function drawShelf(s){const pr=PRODUCTS[s.k],n=S.shelf[s.id],x=s.x,y=s.y;shade(x+2,y+16,40,6,.25);
+  const fg=cx.createLinearGradient(0,y-18,0,y+14);fg.addColorStop(0,'#b07a46');fg.addColorStop(1,'#7d5230');cx.fillStyle=fg;rrect(x-38,y-18,76,32,3);cx.fill();
+  cx.fillStyle='#4a2f1a';cx.fillRect(x-34,y-14,68,22);cx.fillStyle='rgba(255,255,255,.1)';cx.fillRect(x-34,y-14,68,2);
+  for(let i=0;i<n;i++){const col=i%6,row=Math.floor(i/6);item(s.k,x-28+col*11.2+(row?5:0),y-5+row*7-(row?4:0)+((i*7)%3)*.6,s.k==='egg'?4:4.7)}
+  cx.fillStyle='rgba(0,0,0,.25)';cx.fillRect(x-38,y+9,76,5);cx.fillStyle='#c48b55';cx.fillRect(x-38,y+8,76,2);
+  // chalk price board
+  cx.fillStyle='#8a6a48';cx.fillRect(x-21,y+13,2,4);cx.fillRect(x+19,y+13,2,4);cx.fillStyle='#2f3a32';rrect(x-26,y+16,52,14,3);cx.fill();cx.strokeStyle='#a0703f';cx.lineWidth=1.5;cx.stroke();
+  cx.fillStyle=n?'#f5f5f0':'#ff8787';cx.font='bold 9px Nunito,sans-serif';cx.textAlign='center';if(!n){cx.fillText('SOLD OUT',x,y+26);return}const t=`${pr.name} ${pr.price}`,w=cx.measureText(t).width;cx.fillText(t,x-4,y+26);cx.fillStyle='#f2b400';cx.beginPath();cx.arc(x-4+w/2+5,y+23,3.2,0,7);cx.fill()}
+function drawTill(){const x=TILL.x,y=TILL.y,on=dist(S.me,TILL)<26;
+  // rubber mat
+  cx.fillStyle=on?'#40c08a':'#2f8f68';rrect(x-22,y-20,44,42,5);cx.fill();cx.strokeStyle='rgba(0,0,0,.18)';cx.lineWidth=1;for(let k=0;k<6;k++){cx.beginPath();cx.moveTo(x-18,y-14+k*7);cx.lineTo(x+18,y-14+k*7);cx.stroke()}
+  if(on){cx.strokeStyle='rgba(255,255,255,.7)';cx.lineWidth=2;rrect(x-22,y-20,44,42,5);cx.stroke()}
+  // counter with belt and register
+  shade(x+2,y-24,34,6,.25);const cg=cx.createLinearGradient(0,y-46,0,y-24);cg.addColorStop(0,'#6d4c33');cg.addColorStop(1,'#4a3322');cx.fillStyle=cg;rrect(x-32,y-46,64,22,3);cx.fill();
+  cx.fillStyle='#d6d0c4';cx.fillRect(x-32,y-46,64,3);cx.fillStyle='#222';cx.fillRect(x+2,y-41,26,12);cx.fillStyle='#3a3a3a';for(let k=0;k<6;k++)cx.fillRect(x+3+k*4.3,y-41,1.5,12);
+  const rg=cx.createLinearGradient(0,y-56,0,y-34);rg.addColorStop(0,'#9aa3ab');rg.addColorStop(1,'#5b636b');cx.fillStyle=rg;rrect(x-26,y-50,22,18,3);cx.fill();cx.fillStyle='#163c2a';cx.fillRect(x-23,y-48,16,6);cx.fillStyle='#69f0ae';cx.font='bold 5px monospace';cx.textAlign='center';cx.fillText('0.00',x-15,y-43.5);
+  cx.fillStyle='#d8dde2';for(let i=0;i<3;i++)for(let j=0;j<2;j++)cx.fillRect(x-23+i*5.5,y-40+j*4,4,3);
+  cx.fillStyle='rgba(255,255,255,.85)';cx.font='bold 8px Nunito,sans-serif';cx.fillText('PAY HERE',x,y+16)}
+function drawPad(p){const paid=(S.paid[p.id]||0)/p.cost,x=p.x,y=p.y;cx.fillStyle='rgba(255,255,255,.55)';rrect(x-24,y-24,48,48,7);cx.fill();
+  cx.save();rrect(x-24,y-24,48,48,7);cx.clip();cx.fillStyle='rgba(47,158,110,.45)';cx.fillRect(x-24,y+24-48*paid,48,48*paid);cx.restore();
+  cx.strokeStyle='#2f9e6e';cx.setLineDash([5,4]);cx.lineWidth=2;rrect(x-24,y-24,48,48,7);cx.stroke();cx.setLineDash([]);
+  cx.fillStyle='#33261a';cx.font='bold 9px Nunito,sans-serif';cx.textAlign='center';wrapText(p.label,x,y-6,46);
+  const cg=cx.createRadialGradient(x-10,y+12,1,x-8,y+14,5);cg.addColorStop(0,'#fff3a0');cg.addColorStop(1,'#d39e00');cx.fillStyle=cg;cx.beginPath();cx.arc(x-9,y+14,4.5,0,7);cx.fill();cx.fillStyle='#5a3d00';cx.font='bold 11px Nunito,sans-serif';cx.textAlign='left';cx.fillText(String(p.cost-Math.floor(S.paid[p.id]||0)),x-2,y+18);cx.textAlign='center'}
+function drawSign(){const x=300,y=226;cx.strokeStyle='#666';cx.lineWidth=1;cx.beginPath();cx.moveTo(x-40,206);cx.lineTo(x-40,y-12);cx.moveTo(x+40,206);cx.lineTo(x+40,y-12);cx.stroke();
+  shade(x+2,y+18,50,4,.2);const g=cx.createLinearGradient(0,y-12,0,y+12);g.addColorStop(0,'#2f7d55');g.addColorStop(1,'#1d5a3b');cx.fillStyle=g;rrect(x-52,y-12,104,24,5);cx.fill();cx.strokeStyle='#e0b45c';cx.lineWidth=2;rrect(x-49,y-9,98,18,3);cx.stroke();
+  cx.fillStyle='#fff5dc';cx.font='600 12px Fredoka,sans-serif';cx.textAlign='center';cx.fillText('CORNER MARKET',x,y+4.5)}
+function draw(){const s=cv.width/W;if(!BG||BG.width!==cv.width)buildBG();cx.setTransform(1,0,0,1,0,0);cx.drawImage(BG,0,0);cx.setTransform(s,0,0,s,0,0);
+  for(const p of PADS){if(has(p.id)||!p.need.every(has))continue;drawPad(p)}
+  for(const p of PLOTS){if(has(p.id))drawPlot(p,S.plots[p.id])}
+  for(const sh of SHELVES){if(has(sh.id))drawShelf(sh)}
+  drawTill();if(has('sign'))drawSign();
+  const ppl=[];if(has('cashier'))ppl.push({y:S.cashier.y,f:()=>person(S.cashier.x,S.cashier.y,'#2f9e6e',SKINS[4],0,1,null,false,{hair:HAIRS[3],apron:true})});
+  if(has('farmhand'))ppl.push({y:S.helper.y,f:()=>person(S.helper.x,S.helper.y,'#c77d2e',SKINS[2],S.helper.carry.length,1,S.helper.carry,false,{hair:HAIRS[0],hat:'#d4a94f'})});
+  for(const c of S.customers)ppl.push({y:c.y,f:()=>{person(c.x,c.y+Math.sin(c.bob)*1.2,`hsl(${c.hue},50%,52%)`,SKINS[c.hue%5],0,1,null,false,{hair:HAIRS[c.hue%6],long:c.hue%3===0});basket(c.x+10,c.y+4,c.got);
+    if(c.state==='shop'){const k=c.want[c.got.length];cx.fillStyle='#fff';cx.strokeStyle='rgba(0,0,0,.15)';cx.lineWidth=1;cx.beginPath();cx.arc(c.x+13,c.y-30,8.5,0,7);cx.fill();cx.stroke();cx.beginPath();cx.moveTo(c.x+8,c.y-24);cx.lineTo(c.x+6,c.y-19);cx.lineTo(c.x+11,c.y-23);cx.fill();item(k,c.x+13,c.y-30,4.6);
+      if(c.patience<12){cx.fillStyle='rgba(0,0,0,.3)';cx.fillRect(c.x-10,c.y-42,20,3);cx.fillStyle='#e63946';cx.fillRect(c.x-10,c.y-42,20*c.patience/12,3)}}}});
+  const me=S.me;ppl.push({y:me.y,f:()=>person(me.x,me.y,'#3a86ff',SKINS[0],me.carry.length,me.face||1,me.carry,true)});
+  ppl.sort((a,b)=>a.y-b.y).forEach(p=>p.f());
+  for(const f of S.float){cx.globalAlpha=Math.min(1,f.t*2);cx.font='bold 14px Fredoka,sans-serif';cx.textAlign='center';cx.strokeStyle='#fff';cx.lineWidth=3;cx.strokeText(f.txt,f.x,f.y-(1.6-f.t)*14);cx.fillStyle='#b07800';cx.fillText(f.txt,f.x,f.y-(1.6-f.t)*14);cx.globalAlpha=1}}
+function basket(x,y,got){cx.strokeStyle='#8d6e4a';cx.lineWidth=1.3;cx.beginPath();cx.arc(x,y-1,5,Math.PI,0);cx.stroke();for(let i=0;i<got.length&&i<3;i++)item(got[i],x-3+i*3,y,2.6);cx.fillStyle='#b8894f';rrect(x-6,y,12,6,2);cx.fill();cx.strokeStyle='rgba(90,60,30,.6)';cx.lineWidth=.6;for(let i=1;i<4;i++){cx.beginPath();cx.moveTo(x-6+i*3,y);cx.lineTo(x-6+i*3,y+6);cx.stroke()}}
+function person(x,y,shirt,skin,n,face,carry,me,o={}){const t=performance.now()/1000;shade(x,y+13,10,3.8,.25);
+  cx.fillStyle='#37474f';cx.fillRect(x-6,y+6,5,7);cx.fillRect(x+1,y+6,5,7);cx.fillStyle='#222';cx.fillRect(x-6.5,y+12,6,2.5);cx.fillRect(x+.5,y+12,6,2.5);
+  const bg=cx.createLinearGradient(x-9,y-8,x+9,y+8);bg.addColorStop(0,shirt);bg.addColorStop(1,'rgba(0,0,0,.25)');cx.fillStyle=shirt;rrect(x-9,y-8,18,17,5);cx.fill();cx.fillStyle=bg;rrect(x-9,y-8,18,17,5);cx.fill();
+  if(me||o.apron){cx.fillStyle=me?'#fff':'#e8f5e9';rrect(x-6,y-4,12,13,2);cx.fill();cx.strokeStyle='rgba(0,0,0,.15)';cx.lineWidth=.6;cx.beginPath();cx.moveTo(x-6,y-4);cx.lineTo(x-8,y-8);cx.moveTo(x+6,y-4);cx.lineTo(x+8,y-8);cx.stroke();if(me){cx.fillStyle='#e63946';cx.fillRect(x-3,y+1,6,2)}}
+  cx.fillStyle=skin;cx.beginPath();cx.ellipse(x-10,y+2,2.6,4.5,0,0,7);cx.ellipse(x+10,y+2,2.6,4.5,0,0,7);cx.fill();
+  const hg=cx.createRadialGradient(x-3,y-16,1,x,y-13,9);hg.addColorStop(0,'#fff3e0');hg.addColorStop(.25,skin);hg.addColorStop(1,skin);cx.fillStyle=hg;cx.beginPath();cx.arc(x,y-13,8,0,7);cx.fill();
+  const hair=o.hair||'#3b2a1a';cx.fillStyle=hair;cx.beginPath();cx.arc(x,y-15,8.3,Math.PI*1.02,Math.PI*1.98);cx.fill();if(o.long){cx.fillRect(x-8.3,y-15,3,10);cx.fillRect(x+5.3,y-15,3,10)}
+  if(me){cx.fillStyle='#e63946';cx.beginPath();cx.arc(x,y-17,8.5,Math.PI,0);cx.fill();cx.fillRect(x+face*4-6,y-18,12,3)}
+  if(o.hat){cx.fillStyle=o.hat;cx.beginPath();cx.ellipse(x,y-17,12,4,0,0,7);cx.fill();cx.beginPath();cx.arc(x,y-18,7,Math.PI,0);cx.fill()}
+  cx.fillStyle='#222';cx.beginPath();cx.arc(x+face*2-2.2,y-12.5,1.1,0,7);cx.arc(x+face*2+2.2,y-12.5,1.1,0,7);cx.fill();cx.strokeStyle='rgba(120,40,20,.6)';cx.lineWidth=.8;cx.beginPath();cx.arc(x+face*2,y-10,2,.3,Math.PI-.3);cx.stroke();
+  if(carry&&carry.length){cx.fillStyle='rgba(120,85,50,.9)';rrect(x-8,y-27,16,4,2);cx.fill();for(let i=0;i<carry.length;i++)item(carry[i],x-3+(i%2)*6,y-30-Math.floor(i/2)*6,4)}}
+function wrapText(t,x,y,w){const words=t.split(' ');let line='',yy=y-6;for(const wd of words){const test=line?line+' '+wd:wd;if(cx.measureText(test).width>w&&line){cx.fillText(line,x,yy);line=wd;yy+=10}else line=test}cx.fillText(line,x,yy)}
+function ui(){$('coins').textContent=Math.floor(S.coins);const next=PADS.filter(p=>!has(p.id)&&p.need.every(has));$('goal').textContent=next.length?`Next: ${next[0].label} (${next[0].cost})`:'Everything unlocked: the best shop on the block!'}
+function size(){const r=$('screen').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,3);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d)}
+// ---------- controls: drag anywhere like a joystick ----------
+const scr=$('screen');let drag=null;
+scr.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,id:e.pointerId};try{scr.setPointerCapture(e.pointerId)}catch(x){}});
+scr.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;const r=scr.getBoundingClientRect(),k=W/r.width;let dx=(e.clientX-drag.x)*k,dy=(e.clientY-drag.y)*k;const d=Math.hypot(dx,dy);
+  if(d>40){drag.x+=(dx/d)*(d-40)/k;drag.y+=(dy/d)*(d-40)/k;dx=dx/d*40;dy=dy/d*40}move={x:dx/30,y:dy/30}});
+const end=e=>{if(drag&&e.pointerId===drag.id){drag=null;move={x:0,y:0}}};scr.addEventListener('pointerup',end);scr.addEventListener('pointercancel',end);
+const KM={arrowleft:'left',a:'left',arrowright:'right',d:'right',arrowup:'up',w:'up',arrowdown:'down',s:'down'};
+document.addEventListener('keydown',e=>{const m=KM[e.key.toLowerCase()];if(m&&!(e.target.closest&&e.target.closest('select,input'))){e.preventDefault();keys[m]=true}});
+document.addEventListener('keyup',e=>{const m=KM[e.key.toLowerCase()];if(m)keys[m]=false});
+$('reset').onclick=()=>{if(!confirm('Start a brand-new shop? Your coins and unlocks will be lost.'))return;store.set(SAVE,null);load()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save();cancelAnimationFrame(raf)}else{last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}});
+addEventListener('pagehide',save);addEventListener('resize',size);
+window.onAppBack=()=>false;
+const cv=$('cv'),cx=cv.getContext('2d');
+load();size();
+if(!S.total){$('msg').innerHTML='<div><b>Your own shop!</b><p>Pick ripe tomatoes in the garden, stock the shelf, then stand at the till to take the money.</p><button class="btn primary" id="go">Open the doors</button></div>';$('msg').hidden=false;$('go').onclick=()=>{$('msg').hidden=true}}
+last=performance.now();raf=requestAnimationFrame(loop);
+</script>
+</body>
+</html>

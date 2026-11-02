@@ -61,6 +61,8 @@ details summary{cursor:pointer;font-weight:700}
 details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
 .opt{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px;margin-top:10px}
 @media (prefers-reduced-motion:reduce){.s{transition:none}.status.think{animation:none}}
+/* wider buttons around the thin sticks, so they're easy to tap; the stick itself is drawn the same width */
+.s{width:clamp(24px,7vw,32px)}.s::before{left:40%;right:40%}.s::after{left:28%;right:28%}.sticks{gap:clamp(0px,1vw,6px)}
 </style>
 
 <div class="wrap">

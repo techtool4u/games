@@ -186,6 +186,9 @@ select.tbtn{padding:6px 8px}
 .toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:40;max-width:calc(100% - 32px);text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 .defs{position:absolute;width:0;height:0;overflow:hidden}
 @media (prefers-reduced-motion:reduce){.vspot,.espot,.flash,.dice.anim svg,.rcard.gain .art,.pchip.cur.bot .av,.bub{animation:none}}
+@media (max-width:420px){.topbtns{flex:1 1 0;min-width:0;flex-wrap:wrap;justify-content:flex-end;row-gap:6px}.topbtns .sndctl{margin-left:0}}
+@media (max-width:420px){.dock{grid-template-columns:minmax(0,1fr);grid-template-areas:"hand" "dice" "act"}.dicebox{justify-content:center}.hand{gap:6px}.rcard{width:42px;height:60px}.rcard .lab{font-size:8.5px}.rcard .cnt{min-width:20px;height:20px;font-size:12px}
+.actions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;overflow:visible}.act{min-width:0;padding:5px 2px}.act strong{font-size:11px}.act svg.bi{width:26px;height:21px}.cost{flex-wrap:wrap;justify-content:center}}
 </style>
 
 <svg class="defs" aria-hidden="true">
