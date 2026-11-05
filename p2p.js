@@ -9,6 +9,9 @@
  * Usage:
  *   P2P.open({game:'Memory Match', onOpen(link){...}, onClose(){...}})
  *   link.role is 'host' or 'guest'; link.send(obj) sends JSON; set link.onmessage = obj => ...; link.close().
+ * With quick:true the first screen offers one-code play: the host gets a 6-character game code and the friend
+ * types it in (a free public PeerJS server pairs the devices; peerjs.min.js is loaded on demand). The two-code way
+ * is still offered there. join:'CODE' skips straight to joining with that code. open() returns {close()}.
  * The page needs qrcode.js loaded first (for drawing codes). jsqr.js is loaded on demand for scanning.
  */
 (function(){
@@ -140,20 +143,49 @@
 .p2p video{width:100%;border-radius:12px;background:#000;max-height:46vh;object-fit:cover}
 .p2p .step{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#666)}
 .p2p .err{color:#c62b2b;font-weight:700}
-.p2p .ok{color:#1f8a4c;font-weight:700}`;
+.p2p .ok{color:#1f8a4c;font-weight:700}
+.p2p .bigcode{font:700 40px/1.1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.14em;text-align:center;padding:14px 8px;border-radius:14px;background:var(--bg,#fafafa);border:2px dashed var(--line,#ccc);user-select:all;-webkit-user-select:all}
+.p2p input.code{font:700 28px ui-monospace,Menlo,Consolas,monospace;text-align:center;letter-spacing:.2em;text-transform:uppercase;padding:10px;border-radius:12px;border:1px solid var(--line,#ccc);background:var(--bg,#fafafa);color:inherit;width:100%;box-sizing:border-box;min-height:56px}
+.p2p details{font-size:13px;color:var(--muted,#666)}.p2p details summary{cursor:pointer;padding:6px 0;font-weight:700}.p2p details p{margin:4px 0 8px}
+.p2p .wait::before{content:'';display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent,#2f6fd6);margin-right:8px;vertical-align:1px;animation:p2pb .8s ease-in-out infinite alternate}
+@keyframes p2pb{to{opacity:.15}}`;
   let styleAdded=false;
   const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   function qrSVG(text){if(typeof qrcode!=='function')return'';const q=qrcode(0,'L');q.addData(text);q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true})}
   let jsqrLoading=null;
   const loadJsQR=()=>jsqrLoading||(jsqrLoading=new Promise((res,rej)=>{if(window.jsQR)return res();const s=document.createElement('script');s.src='jsqr.js';s.onload=res;s.onerror=()=>rej(new Error('scanner unavailable'));document.head.appendChild(s)}));
 
+  /* ---------- one-code play ----------
+   * The host gets a short game code and the friend just types it in. A free public matchmaking server (PeerJS)
+   * introduces the two devices to each other using that code; after that the moves go straight between them.
+   * If a direct connection isn't possible (some strict networks), PeerJS's free relay carries them instead.
+   * The two-code way above still works without any server, and stays available from the first screen. */
+  const QABC='ABCDEFGHJKMNPQRSTUVWXYZ23456789';// no look-alikes: no I, L, O, 0 or 1
+  const newCode=()=>{const a=new Uint32Array(6);crypto.getRandomValues(a);return[...a].map(x=>QABC[x%QABC.length]).join('')};
+  const cleanCode=v=>String(v||'').toUpperCase().replace(/[\s-]+/g,'');
+  const goodCode=c=>c.length===6&&[...c].every(ch=>QABC.includes(ch));
+  const peerId=(game,code)=>'gameparlor-'+String(game).toLowerCase().replace(/[^a-z0-9]+/g,'')+'-'+code.toLowerCase();
+  const peerOpts=()=>Object.assign({debug:0},window.P2P_PEER_OPTIONS||{});
+  let pjLoading=null;
+  const loadPeerJS=()=>pjLoading||(pjLoading=new Promise((res,rej)=>{if(window.Peer)return res();const s=document.createElement('script');s.src='peerjs.min.js';s.onload=res;s.onerror=()=>{pjLoading=null;rej(new Error('peerjs.min.js is missing'))};document.head.appendChild(s)}));
+  function peerLink(role,peer,conn){
+    const link={role,peer,conn,via:'code',onmessage:null,onclose:null,open:false,
+      send(obj){if(conn.open)conn.send(obj)},
+      close(){link.open=false;try{conn.close()}catch(e){}try{peer.destroy()}catch(e){}}};
+    let closed=false,last=Date.now();
+    const lost=()=>{if(closed||!link.open)return;closed=true;link.open=false;try{peer.destroy()}catch(e){}if(link.onclose)link.onclose()};
+    conn.on('data',m=>{last=Date.now();if(m&&m.__ping)return;if(link.onmessage)link.onmessage(m)});
+    conn.on('close',lost);conn.on('error',lost);
+    const hb=setInterval(()=>{if(closed){clearInterval(hb);return}if(conn.open){try{conn.send({__ping:1})}catch(e){}if(Date.now()-last>20000)lost()}},4000);
+    return link}
+  const peerErr=e=>({'browser-incompatible':'This browser can\'t make direct connections.','network':'Couldn\'t reach the game-code server. Check the internet connection.','server-error':'The game-code server isn\'t answering right now. Try again in a minute, or use the two-code way.','socket-error':'Lost touch with the game-code server. Check the internet connection.','socket-closed':'Lost touch with the game-code server. Check the internet connection.','webrtc':'The connection between the two devices failed.'})[e&&e.type]||('Something went wrong'+(e&&e.message?': '+e.message:'.'));
   function open(opts){
     if(!styleAdded){const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);styleAdded=true}
     if(!window.RTCPeerConnection){alert('This browser can\'t make direct connections (WebRTC is missing).');return}
     const ov=document.createElement('div');ov.className='p2p-ov';ov.innerHTML='<div class="p2p" role="dialog" aria-modal="true"></div>';document.body.appendChild(ov);
-    const box=ov.firstChild;let link=null,stream=null,done=false,scanT=0;
+    const box=ov.firstChild;let link=null,stream=null,done=false,scanT=0,qpeer=null,qT=0;
     const stopScan=()=>{clearTimeout(scanT);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}};
-    const cancel=()=>{stopScan();if(link&&!done)link.close();ov.remove();window.onAppBack=prevBack;if(!done&&opts.onCancel)opts.onCancel()};
+    const cancel=()=>{stopScan();if(link&&!done)link.close();if(qpeer&&!done){try{qpeer.destroy()}catch(e){}}clearTimeout(qT);ov.remove();window.onAppBack=prevBack;if(!done&&opts.onCancel)opts.onCancel()};
     const prevBack=window.onAppBack;window.onAppBack=()=>{cancel();return true};
     const show=h=>{box.innerHTML=h;const c=box.querySelector('[data-cancel]');if(c)c.onclick=cancel};
     const codeBlock=(code,label)=>`<div class="qr" aria-label="${label} as a QR code">${qrSVG(code)}</div><textarea rows="3" readonly aria-label="${label}">${esc(pretty(code))}</textarea>
@@ -217,7 +249,54 @@
         link.pc.addEventListener('iceconnectionstatechange',()=>{if(link.pc.iceConnectionState==='failed')fail(failHelp(code,v))});
         try{await opened(link,10*60*1000);connected()}catch(e){fail('The host didn\'t connect in time. Start again with a new invite.')}};
       box.querySelector('[data-go]').onclick=go;const sc=box.querySelector('[data-scan]');if(sc)sc.onclick=()=>{sc.disabled=true;scanInto(ta,go)};ta.focus()}
-    start()}
+
+    function quickStart(){show(`<h2>Play ${esc(opts.game)} online</h2><p>Host a game to get a game code and send it to your friend. They tap <b>Join a game</b>, type the code, and you're playing.</p>
+      <div class="row"><button class="pri" data-host>Host a game</button><button data-join>Join a game</button></div>
+      <details><summary>Other way: swap two codes</summary><p>Connect the two devices by swapping an invite and a reply code, with no game-code server involved. Best on the same Wi-Fi.</p><div class="row"><button data-direct>Use two codes</button></div></details>
+      <div class="row"><button data-cancel>Cancel</button></div>`);
+      box.querySelector('[data-host]').onclick=quickHost;box.querySelector('[data-join]').onclick=()=>quickGuest('');box.querySelector('[data-direct]').onclick=start;box.querySelector('[data-host]').focus()}
+    const quickFail=(title,msg)=>{if(qpeer){try{qpeer.destroy()}catch(e){}qpeer=null}clearTimeout(qT);
+      show(`<h2>${esc(title)}</h2><p class="err">${esc(msg)}</p><div class="row"><button class="pri" data-again>Try again</button><button data-direct>Use two codes</button></div><div class="row"><button data-cancel>Cancel</button></div>`);
+      box.querySelector('[data-again]').onclick=quickStart;box.querySelector('[data-direct]').onclick=start};
+    async function quickHost(){show(`<h2>Hosting</h2><p class="wait">Getting a game code…</p><div class="row"><button data-cancel>Cancel</button></div>`);
+      try{await loadPeerJS()}catch(e){quickFail('Can\'t host',e.message);return}
+      let tries=0,paired=false;
+      const attempt=()=>{const code=newCode(),peer=new Peer(peerId(opts.game,code),peerOpts());qpeer=peer;
+        clearTimeout(qT);qT=setTimeout(()=>{if(!peer.open)quickFail('Can\'t host','Couldn\'t reach the game-code server. Check the internet connection, or use the two-code way.')},15000);
+        peer.on('open',()=>{clearTimeout(qT);if(done||qpeer!==peer)return;
+          const pretty=code.slice(0,3)+' '+code.slice(3),url=/^https?:$/.test(location.protocol)&&!/^(localhost|127\.|10\.|192\.168\.|\[?::1)/.test(location.hostname)?location.href.split('#')[0]+'#join='+code:'';
+          show(`<span class="step">Your game code</span><div class="bigcode" aria-label="Game code ${[...code].join(' ')}">${pretty}</div>
+            <p>Send this code to your friend. On their device they open ${esc(opts.game)}, choose <b>Online</b>, tap <b>Join a game</b> and type it in.</p>
+            <div class="row"><button data-copy>Copy code</button>${navigator.share?'<button data-share>Share</button>':''}</div>
+            <p class="wait" data-msg>Waiting for your friend to join…</p><div class="row"><button data-cancel>Cancel</button></div>`);
+          const cp=box.querySelector('[data-copy]'),sh=box.querySelector('[data-share]'),text=`Join my ${opts.game} game in Game Parlor. Code: ${code}`+(url?`\n${url}`:'');
+          cp.onclick=async()=>{try{await navigator.clipboard.writeText(code)}catch(e){const r=document.createRange();r.selectNodeContents(box.querySelector('.bigcode'));getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand('copy')}cp.textContent='Copied!';setTimeout(()=>cp.textContent='Copy code',1500)};
+          if(sh)sh.onclick=()=>navigator.share({title:`${opts.game} game code`,text}).catch(()=>{})});
+        peer.on('connection',c=>{if(paired||done){c.close();return}paired=true;const m=box.querySelector('[data-msg]');if(m)m.textContent='Your friend is joining…';
+          const t=setTimeout(()=>{if(!done){paired=false;try{c.close()}catch(e){}if(m)m.textContent='A friend tried to join but the connection failed. Waiting for them to try again…'}},20000);
+          c.on('open',()=>{clearTimeout(t);if(done)return;link=peerLink('host',peer,c);connected()})});
+        peer.on('disconnected',()=>{if(!done&&!peer.destroyed)try{peer.reconnect()}catch(e){}});
+        peer.on('error',e=>{if(done)return;if(e.type==='unavailable-id'&&tries++<4){peer.destroy();attempt();return}if(e.type==='peer-unavailable')return;quickFail('Can\'t host',peerErr(e))})};
+      attempt()}
+    async function quickGuest(pre){show(`<h2>Join a game</h2><p>Type the game code from your friend's screen.</p>
+      <input class="code" data-code maxlength="8" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="ABC 234" aria-label="Game code" value="${esc(pre)}">
+      <div class="row"><button class="pri" data-go>Join</button></div><p data-msg></p><div class="row"><button data-cancel>Cancel</button></div>`);
+      const inp=box.querySelector('[data-code]'),btn=box.querySelector('[data-go]'),msg=box.querySelector('[data-msg]');
+      const say=(t,cls)=>{msg.className=cls||'';msg.textContent=t};
+      const reset=t=>{if(qpeer){try{qpeer.destroy()}catch(e){}qpeer=null}clearTimeout(qT);btn.disabled=false;inp.disabled=false;say(t,'err')};
+      const go=async()=>{const code=cleanCode(inp.value);if(!goodCode(code)){say('A game code is 6 letters and numbers, like ABC 234.','err');inp.focus();return}
+        btn.disabled=true;inp.disabled=true;say('Connecting…','wait');
+        try{await loadPeerJS()}catch(e){reset(e.message);return}
+        const peer=new Peer(peerOpts());qpeer=peer;
+        qT=setTimeout(()=>{if(!done)reset(peer.open?'Couldn\'t connect to your friend\'s device. Check the code and try again; if it keeps failing, try the two-code way.':'Couldn\'t reach the game-code server. Check the internet connection.')},20000);
+        peer.on('open',()=>{if(done||qpeer!==peer)return;const c=peer.connect(peerId(opts.game,code),{serialization:'json',reliable:true});
+          c.on('open',()=>{clearTimeout(qT);if(done)return;link=peerLink('guest',peer,c);connected()})});
+        peer.on('error',e=>{if(done||qpeer!==peer)return;reset(e.type==='peer-unavailable'?'No game is waiting with that code. Check the code, and that your friend\'s screen still shows it.':peerErr(e))})};
+      btn.onclick=go;inp.onkeydown=e=>{if(e.key==='Enter')go()};inp.oninput=()=>{const p=inp.selectionStart;inp.value=inp.value.toUpperCase();try{inp.setSelectionRange(p,p)}catch(e){}};
+      if(pre&&goodCode(cleanCode(pre)))go();else inp.focus()}
+    if(opts.quick&&window.Promise){opts.join!=null?quickGuest(String(opts.join)):quickStart()}else start();
+    // lets the page close this window itself (for example when the player picks another way to connect)
+    return{close(){opts.onCancel=null;cancel()}}}
 
   window.P2P={open,_compact:compact,_expand:expand};
 })();

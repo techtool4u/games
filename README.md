@@ -128,6 +128,9 @@ Every page has two buttons next to the "← Game Parlor" link. The speaker turns
 
 The host's device runs the game and sends the table after every change; the guest's device sends its moves. Memory Match, Chess and Four in a Row have online play. In Chess and Four in a Row both devices run the rules and only moves are sent; the host's move list settles any disagreement, and a dropped game resumes after pairing again.
 
+Chess also offers **one-code play**, picked with the *Connect with a game code* option next to *Online: 2 devices*. The host gets a 6-character game code and sends it to a friend, who types it in (or opens a shared `chess.html#join=CODE` link). The free public PeerJS server (0.peerjs.com) uses the code to introduce the two devices, and the moves then go straight between them. If a direct connection isn't possible, PeerJS's free relay servers carry them. This depends on a free service run by someone else. *Connect with two codes* keeps the original server-free way.
+
 - `p2p.js` — the connection and the pairing dialog.
+- `peerjs.min.js` — PeerJS 1.5.4 (MIT license), loaded only for one-code play.
 - `qrcode.js` — QR code generator by Kazuhiko Arase (MIT license).
 - `jsqr.js` — QR code reader, jsQR by Cosmo Wolfe (Apache License 2.0, included in the file), loaded only when scanning.
