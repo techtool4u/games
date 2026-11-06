@@ -123,6 +123,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
     </div>
     <div class="controls">
       <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" aria-label="How to connect" hidden><option value="code">Connect with a game code</option><option value="direct">Connect with two codes</option></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
       <select id="first" aria-label="Who goes first"><option value="you">You go first</option><option value="cpu">Computer first</option><option value="alt">Take turns starting</option></select>
       <button class="btn primary" id="newgame">New game</button>
@@ -294,6 +295,7 @@ function render(){if(!S)return;
   $('n0').textContent=cfg.mode==='two'?'Red':'You';$('n1').textContent=cfg.mode==='cpu'?'Computer':net?'Friend':'Yellow';
   const youDot=cfg.mode==='cpu'?(S.cpu===1?'y':'r'):net?(S.me===2?'y':'r'):'r';document.querySelector('.score>div:first-child .dot').className='dot '+youDot;document.querySelector('.score>div:last-child .dot').className='dot '+(youDot==='r'?'y':'r');
   $('undo').disabled=S.busy||!S.hist.length||(cfg.mode==='cpu'&&!S.hist.some((c,i)=>(i%2===0?1:2)!==S.cpu));$('undo').hidden=net;
+  $('conn').hidden=!net||online();
   const nb=$('netbar');nb.hidden=!net;if(net){nb.className='netbar'+(online()?'':' off');
     nb.innerHTML=`<i class="ndot"></i><span>${online()?(NET.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}</span>${online()?'<button class="btn" id="leave">Leave</button>':'<button class="btn primary" id="reconnect">Connect</button>'}`;
     const lv=$('leave');if(lv)lv.onclick=leaveOnline;const rc=$('reconnect');if(rc)rc.onclick=goOnline}}
@@ -310,7 +312,7 @@ $('board').addEventListener('keydown',e=>{if(!myTurn())return;
 $('board').addEventListener('focus',()=>{kb=true;hover=cursor;render()});
 $('board').addEventListener('blur',()=>{kb=false;hover=-1;render()});
 document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true;else if((e.key==='u'||e.key==='U')&&!$('undo').disabled)undo()});
-function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('first').value=cfg.first;$('level').hidden=$('first').hidden=cfg.mode!=='cpu'}
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('first').value=cfg.first;$('level').hidden=$('first').hidden=cfg.mode!=='cpu';$('conn').hidden=cfg.mode!=='net'||!!(NET.link&&NET.link.open)}
 function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-four',cfg);sync();if(k==='mode')wins[1]=wins[2]=wins.d=0;if(restart){games=0;newGame()}else render()}
 $('mode').onchange=e=>setCfg('mode',e.target.value,true);
 $('level').onchange=e=>setCfg('level',e.target.value,false);
@@ -319,14 +321,15 @@ $('newgame').onclick=newGame;$('undo').onclick=undo;
 /* ---------- online play ---------- */
 // Both devices run the same rules and only send the column of each move. The host decides who is red
 // (alternating each game) and resends its move list if the two ever disagree.
-const NET={link:null,role:null,games:0};
+const NET={link:null,role:null,games:0,ui:null,join:window.P2P?P2P.takeJoin():null};
 const online=()=>cfg.mode==='net'&&NET.link&&NET.link.open;
 let toastT=0;function toast(t,ms=2600){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
 function goOnline(){if(!window.P2P){toast('Online play needs p2p.js and qrcode.js next to this page.',4000);cfg.mode='cpu';sync();newGame();return}
-  P2P.open({game:'Four in a Row',onOpen:link=>{NET.link=link;NET.role=link.role;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected. Connect again to carry on.',4000);NET.link=null;render()};
+  const join=NET.join;NET.join=null;
+  NET.ui=P2P.open({game:'Four in a Row',quick:P2P.connPref()!=='direct',join,onOpen:link=>{NET.ui=null;NET.link=link;NET.role=link.role;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected. Connect again to carry on.',4000);NET.link=null;render()};
       if(link.role==='host'){if(S&&S.net&&!S.over&&S.hist.length){sendSync();render();toast('Reconnected. The game carries on.')}else{NET.games=0;newGame();toast('Connected! You are red and go first.')}}
       else{toast('Connected! Waiting for the host…');render()}},
-    onCancel:()=>{if(!online()){cfg.mode='cpu';store.set('parlor-four',cfg);sync();newGame()}}})}
+    onCancel:()=>{NET.ui=null;if(!online()){cfg.mode='cpu';store.set('parlor-four',cfg);sync();newGame()}}})}
 function leaveOnline(){if(NET.link){NET.link.send({t:'bye'});NET.link.close()}NET.link=null;cfg.mode='cpu';store.set('parlor-four',cfg);sync();games=0;newGame()}
 function sendSync(){NET.link.send({t:'sync',host:S.me,moves:S.hist})}
 function fromHost(hostColor,moves){$('overlay').hidden=true;newGame({me:3-hostColor,moves});S.net=true}
@@ -337,8 +340,10 @@ function onNet(m){if(!m)return;
   if(NET.role==='host'){if(m.t==='again'){$('overlay').hidden=true;newGame()}else if(m.t==='resync')sendSync();return}
   if(m.t==='start'){fromHost(m.host,[]);toast(`New game: you are ${m.host===1?'yellow':'red'}.`)}
   else if(m.t==='sync')fromHost(m.host,m.moves)}
+if(window.P2P)$('conn').value=P2P.connPref();
+$('conn').onchange=e=>{P2P.setConnPref(e.target.value);if(cfg.mode==='net'&&!online()){if(NET.ui)NET.ui.close();NET.ui=null;goOnline()}};
 if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';// online play always starts by pairing
-if(!['you','cpu','alt'].includes(cfg.first))cfg.first='you';
+if(!['you','cpu','alt'].includes(cfg.first))cfg.first='you';if(NET.join)cfg.mode='net';
 build();sync();newGame();
 </script>
 </body>

@@ -72,13 +72,15 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
       <h1>Tic-Tac-Toe</h1>
     </div>
     <div class="controls">
-      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Unbeatable</option></select>
       <select id="first" aria-label="Who starts"><option value="alt">Take turns starting</option><option value="you">You always start</option><option value="cpu">Computer starts</option></select>
     </div>
   </header>
   <div class="score" aria-live="polite"><div id="s0"><b id="w0">0</b><small id="n0">You (X)</small></div><div><b id="wd">0</b><small>Draws</small></div><div id="s1"><b id="w1">0</b><small id="n1">Computer (O)</small></div></div>
   <div class="status" id="status" aria-live="polite"></div>
+  <div id="netbar" hidden></div>
   <div class="board"><div class="grid" id="grid" role="grid" aria-label="Board. Arrow keys move, Enter places."><svg class="lines" viewBox="0 0 300 300" preserveAspectRatio="none"><path d="M100 6 Q98 150 101 294 M200 4 Q203 150 199 296 M6 101 Q150 97 294 100 M4 200 Q150 204 296 199"/></svg></div></div>
   <div class="row"><button class="btn primary" id="again">New round</button></div>
   <div class="panel">
@@ -94,13 +96,17 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
   </div>
 </div>
 
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 <script>
 const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 const $=id=>document.getElementById(id);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const cfg=Object.assign({mode:'cpu',level:'medium',first:'alt'},store.get('parlor-ttt',{}));
 const wins={0:0,1:0,d:0};
-let S=null,round=0,kb=-1;
+let S=null,round=0,kb=-1,net=null;
+const online=()=>cfg.mode==='net'&&!!net&&net.online();
+const myGo=()=>cfg.mode!=='net'||(online()&&S.turn===S.me);
 
 const winner=b=>{for(const l of LINES)if(b[l[0]]&&b[l[0]]===b[l[1]]&&b[l[1]]===b[l[2]])return{p:b[l[0]],l};return b.every(Boolean)?{p:0}:null};
 // Perfect play: minimax, preferring quicker wins and slower losses.
@@ -114,13 +120,20 @@ function cpuMove(){const b=S.b.slice(),me=S.turn,them=me==='X'?'O':'X',empty=[..
   return picks[Math.floor(Math.random()*picks.length)]}
 
 const isCpu=()=>cfg.mode==='cpu'&&S.turn===S.cpu;
-function newRound(){round++;const cpuFirst=cfg.mode==='cpu'&&(cfg.first==='cpu'||(cfg.first==='alt'&&round%2===0));
-  // X always moves first; whoever starts plays X
-  S={b:Array(9).fill(0),turn:'X',cpu:cfg.mode==='cpu'?(cpuFirst?'X':'O'):null,over:null,busy:false,gen:(S?S.gen:0)+1};
-  build();render();next()}
+function newRound(from){
+  if(cfg.mode==='net'&&!from&&online()&&net.role==='guest'){net.send({t:'again'});net.note('Asked the host for a new round.');return}
+  round++;const cpuFirst=cfg.mode==='cpu'&&(cfg.first==='cpu'||(cfg.first==='alt'&&round%2===0));
+  // X always moves first; whoever starts plays X. Online, the host plays X in odd rounds and O in even ones.
+  S={b:Array(9).fill(0),turn:'X',cpu:cfg.mode==='cpu'?(cpuFirst?'X':'O'):null,over:null,busy:false,gen:(S?S.gen:0)+1,moves:[],
+    me:cfg.mode==='net'?(from?from.me:(round%2?'X':'O')):null,net:online()};
+  build();render();
+  if(cfg.mode==='net'){if(!online()&&!from)net.start();else if(net.role==='host'&&!from)net.send({t:'start',guest:S.me==='X'?'O':'X'});return}
+  next()}
 function next(){render();if(!S.over&&isCpu()){S.busy=true;render();const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;place(cpuMove())},520)}}
-function place(i){if(S.over||S.b[i])return;S.b[i]=S.turn;drawMark(i);const w=winner(S.b);sfx('place');
-  if(w){S.over=w;const key=!w.p?'d':cfg.mode==='cpu'?(w.p===S.cpu?1:0):(w.p==='X'?0:1);setTimeout(()=>sfx(!w.p?'draw':cfg.mode==='cpu'?(w.p===S.cpu?'lose':'win'):'end'),250);wins[key]++;if(w.l)strike(w.l);render();return}
+function place(i,remote){if(S.over||S.b[i])return;
+  if(cfg.mode==='net'&&!remote){if(!online()||S.turn!==S.me)return;net.send({t:'move',i,n:S.moves.length})}
+  S.moves.push(i);S.b[i]=S.turn;drawMark(i);const w=winner(S.b);sfx('place');
+  if(w){S.over=w;const key=!w.p?'d':cfg.mode==='cpu'?(w.p===S.cpu?1:0):cfg.mode==='net'?(w.p===S.me?0:1):(w.p==='X'?0:1);setTimeout(()=>sfx(!w.p?'draw':cfg.mode==='cpu'?(w.p===S.cpu?'lose':'win'):cfg.mode==='net'?(w.p===S.me?'win':'lose'):'end'),250);wins[key]++;if(w.l)strike(w.l);render();return}
   S.turn=S.turn==='X'?'O':'X';next()}
 
 /* ---------- drawing ---------- */
@@ -131,14 +144,14 @@ function drawMark(i){const c=$('grid').children[i+1],m=S.b[i];
   c.setAttribute('aria-label',`Square ${i+1}: ${m}`)}
 function strike(l){const pos=i=>[(i%3+.5)*100,(Math.floor(i/3)+.5)*100];const [a,b]=[pos(l[0]),pos(l[2])];const dx=(b[0]-a[0])*.18,dy=(b[1]-a[1])*.18;
   $('grid').insertAdjacentHTML('beforeend',`<svg class="strike" viewBox="0 0 300 300"><line x1="${a[0]-dx}" y1="${a[1]-dy}" x2="${b[0]+dx}" y2="${b[1]+dy}"/></svg>`)}
-function render(){const cells=[...$('grid').querySelectorAll('.cell')];const me=!S.over&&!S.busy&&!isCpu();
+function render(){const cells=[...$('grid').querySelectorAll('.cell')];const me=!S.over&&!S.busy&&!isCpu()&&myGo();
   cells.forEach((c,i)=>{c.disabled=!me||!!S.b[i];c.classList.toggle('kb',kb===i&&me)});
-  const you=cfg.mode==='cpu'?(S.cpu==='X'?'O':'X'):'X';
-  $('n0').textContent=cfg.mode==='cpu'?`You (${you})`:'X';$('n1').textContent=cfg.mode==='cpu'?`Computer (${S.cpu})`:'O';
+  const you=cfg.mode==='cpu'?(S.cpu==='X'?'O':'X'):'X',netMode=cfg.mode==='net',fr=S.me==='X'?'O':'X';
+  $('n0').textContent=cfg.mode==='cpu'?`You (${you})`:netMode?`You (${S.me})`:'X';$('n1').textContent=cfg.mode==='cpu'?`Computer (${S.cpu})`:netMode?`Friend (${fr})`:'O';
   $('w0').textContent=wins[0];$('w1').textContent=wins[1];$('wd').textContent=wins.d;
-  const turnIdx=cfg.mode==='cpu'?(S.turn===S.cpu?1:0):(S.turn==='X'?0:1);$('s0').classList.toggle('cur',!S.over&&turnIdx===0);$('s1').classList.toggle('cur',!S.over&&turnIdx===1);
-  const w=S.over;$('status').textContent=w?(!w.p?'A draw.':cfg.mode==='cpu'?(w.p===S.cpu?'The computer wins.':'You win!'):`${w.p} wins!`):isCpu()?'Computer is thinking…':cfg.mode==='cpu'?`Your move (${S.turn}).`:`${S.turn} to move.`;
-  $('level').hidden=$('first').hidden=cfg.mode!=='cpu'}
+  const turnIdx=cfg.mode==='cpu'?(S.turn===S.cpu?1:0):netMode?(S.turn===S.me?0:1):(S.turn==='X'?0:1);$('s0').classList.toggle('cur',!S.over&&turnIdx===0);$('s1').classList.toggle('cur',!S.over&&turnIdx===1);
+  const w=S.over;$('status').textContent=netMode?(!online()?'Not connected. Tap Connect to play a friend.':w?(!w.p?'A draw.':w.p===S.me?'You win!':'Your friend wins.'):S.turn===S.me?`Your move (${S.me}).`:`Your friend's move (${S.turn})…`):w?(!w.p?'A draw.':cfg.mode==='cpu'?(w.p===S.cpu?'The computer wins.':'You win!'):`${w.p} wins!`):isCpu()?'Computer is thinking…':cfg.mode==='cpu'?`Your move (${S.turn}).`:`${S.turn} to move.`;
+  $('level').hidden=$('first').hidden=cfg.mode!=='cpu';if(net)net.render()}
 
 /* ---------- input & settings ---------- */
 $('grid').addEventListener('click',e=>{const c=e.target.closest('.cell');if(!c||c.disabled)return;kb=-1;place(+c.dataset.i)});
@@ -146,12 +159,25 @@ document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;con
   if(mv){e.preventDefault();if(kb<0)kb=4;else{const n=kb+mv;if(n>=0&&n<9&&!(Math.abs(mv)===1&&Math.floor(n/3)!==Math.floor(kb/3)))kb=n}render();return}
   if((e.key==='Enter'||e.key===' ')&&kb>=0&&!S.over&&!S.busy&&!isCpu()){e.preventDefault();place(kb)}
   else if(e.key==='n'||e.key==='N'||(S.over&&e.key==='Enter'))newRound()});
-$('again').onclick=newRound;
+$('again').onclick=()=>newRound();
 function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('first').value=cfg.first}
 function setCfg(k,v){cfg[k]=v;store.set('parlor-ttt',cfg);sync();if(k!=='level'){wins[0]=wins[1]=wins.d=0;round=0}newRound()}
 $('mode').onchange=e=>setCfg('mode',e.target.value);$('level').onchange=e=>setCfg('level',e.target.value);$('first').onchange=e=>setCfg('first',e.target.value);
 window.onAppBack=()=>false;
-if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';if(!['alt','you','cpu'].includes(cfg.first))cfg.first='alt';
+/* ---------- online play ----------
+   Both devices keep the same board and send only moves. The host starts each round and settles any mix-up. */
+const resetScore=()=>{wins[0]=wins[1]=wins.d=0;round=0};
+const sendSync=()=>net.send({t:'sync',guest:S.me==='X'?'O':'X',round,moves:S.moves,score:[wins[1],wins[0],wins.d]});
+net=P2P.net({game:'Tic-Tac-Toe',bar:$('netbar'),conn:$('conn'),active:()=>cfg.mode==='net',
+  onOpen(role){if(role==='host'){if(S&&S.net&&!S.over&&S.moves.length){sendSync();net.note('Reconnected. The round carries on.')}else{resetScore();newRound();net.note('Connected! You play X first.')}}else{resetScore();render();net.note('Connected! Waiting for the host…')}},
+  onMessage(m){
+    if(m.t==='move'){if(!S.over&&m.n===S.moves.length&&S.turn!==S.me&&!S.b[m.i])place(m.i,true);else if(net.role==='host')sendSync();else net.send({t:'resync'});return}
+    if(net.role==='host'){if(m.t==='again')newRound();else if(m.t==='resync')sendSync();return}
+    if(m.t==='start')newRound({me:m.guest});
+    else if(m.t==='sync'){round=m.round-1;newRound({me:m.guest});m.moves.forEach(i=>place(i,true));if(m.score){wins[0]=m.score[0];wins[1]=m.score[1];wins.d=m.score[2];render()}}},
+  onLeave(){cfg.mode='cpu';store.set('parlor-ttt',cfg);sync();resetScore();newRound()},
+  onDrop(){render()}});
+if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(net.join)cfg.mode='net';if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';if(!['alt','you','cpu'].includes(cfg.first))cfg.first='alt';
 sync();newRound();
 </script>
 </body>

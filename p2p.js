@@ -148,7 +148,15 @@
 .p2p input.code{font:700 28px ui-monospace,Menlo,Consolas,monospace;text-align:center;letter-spacing:.2em;text-transform:uppercase;padding:10px;border-radius:12px;border:1px solid var(--line,#ccc);background:var(--bg,#fafafa);color:inherit;width:100%;box-sizing:border-box;min-height:56px}
 .p2p details{font-size:13px;color:var(--muted,#666)}.p2p details summary{cursor:pointer;padding:6px 0;font-weight:700}.p2p details p{margin:4px 0 8px}
 .p2p .wait::before{content:'';display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent,#2f6fd6);margin-right:8px;vertical-align:1px;animation:p2pb .8s ease-in-out infinite alternate}
-@keyframes p2pb{to{opacity:.15}}`;
+@keyframes p2pb{to{opacity:.15}}
+.p2p-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel,#fff);color:var(--fg,inherit);border:1px solid var(--line,#ddd);border-radius:14px;padding:8px 12px;font-size:14px;box-sizing:border-box}
+.p2p-bar>i{width:10px;height:10px;border-radius:50%;background:#2bb36a;flex:none}
+.p2p-bar.off>i{background:#c62b2b}
+.p2p-bar>span{flex:1;min-width:0;font-weight:700}
+.p2p-bar>button{font:inherit;font-weight:800;border-radius:999px;padding:5px 14px;min-height:36px;border:1px solid var(--line,#ddd);background:var(--chip,#f1f1f4);color:inherit;cursor:pointer}
+.p2p-bar>button.pri{background:var(--accent,#2f6fd6);color:var(--accent-ink,#fff);border-color:var(--accent,#2f6fd6)}
+.p2p-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg,#222);color:var(--bg,#fff);padding:10px 16px;border-radius:999px;font:700 14px var(--body,system-ui,sans-serif);z-index:4900;max-width:calc(100vw - 32px);box-sizing:border-box;text-align:center}
+`;
   let styleAdded=false;
   const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   function qrSVG(text){if(typeof qrcode!=='function')return'';const q=qrcode(0,'L');q.addData(text);q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true})}
@@ -298,5 +306,42 @@
     // lets the page close this window itself (for example when the player picks another way to connect)
     return{close(){opts.onCancel=null;cancel()}}}
 
-  window.P2P={open,_compact:compact,_expand:expand};
+  /* ---------- shared online plumbing for a game page ----------
+   * const net=P2P.net({game:'Checkers', bar:el, conn:selectEl, active:()=>cfg.mode==='net',
+   *   onOpen(role){...}, onMessage(m){...}, onLeave(){...switch back to an offline mode...}, onDrop(){...}})
+   * net.online(), net.role, net.send(obj), net.start() opens pairing, net.render() refreshes the bar and menu,
+   * net.join holds a code from a chess.html#join=CODE style link (the page should switch to online play when set),
+   * net.note(text) shows a short message. The connection choice (game code or two codes) is shared by every game. */
+  const PREF='parlor-p2p-conn';
+  const connPref=()=>{try{return localStorage.getItem(PREF)==='direct'?'direct':'code'}catch(e){return'code'}};
+  const setConnPref=v=>{try{localStorage.setItem(PREF,v==='direct'?'direct':'code')}catch(e){}};
+  function takeJoin(){const m=location.hash.match(/join=([A-Za-z0-9 -]{6,9})/);if(!m)return null;try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}return m[1]}
+  function addStyle(){if(!styleAdded){const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);styleAdded=true}}
+  let toastEl=null,toastT=0;
+  function note(t,ms=3200){addStyle();if(!toastEl){toastEl=document.createElement('div');toastEl.className='p2p-toast';toastEl.setAttribute('role','status');document.body.appendChild(toastEl)}
+    toastEl.textContent=t;toastEl.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>toastEl.hidden=true,ms)}
+  function net(o){addStyle();
+    const N={link:null,role:null,ui:null,join:takeJoin(),note,
+      online(){return!!(N.link&&N.link.open)},
+      send(m){if(N.online())N.link.send(m)},
+      start(){if(N.ui||N.online())return;if(!window.RTCPeerConnection){note('This browser can\'t play online.');if(o.onLeave)o.onLeave();return}
+        const join=N.join;N.join=null;
+        N.ui=open({game:o.game,quick:connPref()!=='direct',join,
+          onOpen(link){N.ui=null;N.link=link;N.role=link.role;
+            link.onmessage=m=>{if(!m)return;if(m.t==='__bye'){note('Your friend left the game.');drop();return}o.onMessage(m)};
+            link.onclose=()=>{note('Your friend disconnected. Tap Connect to carry on.',4000);drop()};
+            N.render();o.onOpen(link.role)},
+          onCancel(){N.ui=null;if(!N.online()&&o.onLeave)o.onLeave()}})},
+      leave(){if(N.link){N.link.send({t:'__bye'});N.link.close()}N.link=null;N.render()},
+      render(){const on=o.active(),live=N.online();
+        if(o.conn)o.conn.hidden=!on||live;
+        if(!o.bar)return;o.bar.hidden=!on;if(!on)return;o.bar.className='p2p-bar'+(live?'':' off');
+        o.bar.innerHTML=`<i></i><span>${live?(N.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}</span>`+(live?'<button data-leave>Leave</button>':'<button class="pri" data-connect>Connect</button>');
+        const l=o.bar.querySelector('[data-leave]'),c=o.bar.querySelector('[data-connect]');
+        if(l)l.onclick=()=>{N.leave();if(o.onLeave)o.onLeave()};if(c)c.onclick=()=>N.start()}};
+    const drop=()=>{if(N.link)N.link.close();N.link=null;N.render();if(o.onDrop)o.onDrop()};
+    if(o.conn){o.conn.innerHTML='<option value="code">Connect with a game code</option><option value="direct">Connect with two codes</option>';o.conn.value=connPref();o.conn.setAttribute('aria-label','How to connect');
+      o.conn.onchange=()=>{setConnPref(o.conn.value);if(o.active()&&!N.online()){if(N.ui){N.ui.close();N.ui=null}N.start()}}}
+    return N}
+  window.P2P={net,connPref,setConnPref,takeJoin,note,open,_compact:compact,_expand:expand};
 })();

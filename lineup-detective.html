@@ -142,13 +142,16 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
       <p class="sub">Ask yes-or-no questions, flip down the suspects who don't fit, and name your rival's person first.</p>
     </div>
     <div class="controls">
-      <label for="diff" class="label" style="margin:0">Rival</label>
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
+      <label for="diff" class="label" style="margin:0" id="difflbl">Rival</label>
       <select id="diff"><option value="easy">Easygoing</option><option value="sharp" selected>Sharp</option></select>
       <button class="btn primary" id="newgame">New game</button>
       <span data-sound></span>
     </div>
   </header>
 
+  <div id="netbar" hidden></div>
   <div class="game">
     <section class="boardwrap" aria-label="Your board">
       <div class="status">
@@ -188,6 +191,8 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
 </div>
 <div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
 
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 <script>
 // name, hairColor, hairStyle, eyes, glasses, hat, beard, mustache, earrings, skin
 const RAW = [
@@ -256,12 +261,17 @@ function face(c){
 }
 
 const $=id=>document.getElementById(id);
-let S;
+let S,net=null,games=0,mode='cpu';
+const nm=()=>mode==='net',online=()=>nm()&&!!net&&net.online(),RIVAL=()=>nm()?'Friend':'Rival';
 function rand(n){return Math.floor(Math.random()*n)}
-function newGame(){
+function newGame(from){
+  if(nm()&&!from&&online()&&net.role==='guest'){net.send({t:'again'});net.note('Asked the host for a new game.');return}
   const you=rand(24); let cpu; do{cpu=rand(24)}while(cpu===you);
-  S={you,cpu,mine:Array(24).fill(true),theirs:Array(24).fill(true),asked:new Set(),cpuAsked:new Set(),phase:'you',accuse:false,log:[],cpuQ:0};
+  // online, each device picks its own secret suspect; the friend's stays unknown until the case is closed
+  const first=nm()?(from?from.first:games++%2===0):true;
+  S={you,cpu:nm()?null:cpu,mine:Array(24).fill(true),theirs:Array(24).fill(true),asked:new Set(),cpuAsked:new Set(),phase:first?'you':'cpu',accuse:false,log:[],cpuQ:0};
   $('overlay').hidden=true; renderBoard(); renderSecret(); renderQuestions(); renderAll();
+  if(nm()){if(!online()&&!from)net.start();else if(net.role==='host'&&!from)net.send({t:'start',guestFirst:!first})}
 }
 function renderBoard(){
   $('board').innerHTML=people.map(p=>`<button class="tile" id="t${p.i}" data-i="${p.i}" aria-label="${p.name}"><span class="card"><span class="face front">${face(p)}<span class="nm">${p.name}</span></span><span class="face back"></span></span></button>`).join('');
@@ -277,14 +287,14 @@ function renderAll(){
   const up=S.mine.filter(Boolean).length, rup=S.theirs.filter(Boolean).length;
   $('standing').textContent=`${up} standing`;
   $('rivalCount').textContent=`${rup} standing`; $('rivalQs').textContent=`${S.cpuQ} question${S.cpuQ===1?'':'s'}`;
-  const yt=S.phase==='you';
+  const yt=S.phase==='you'&&(!nm()||online());if(net)net.render();$('diff').hidden=$('difflbl').hidden=nm();
   $('turn').classList.toggle('cpu',S.phase==='cpu');
-  $('turnText').textContent=S.phase==='over'?'Case closed':yt?(S.accuse?'Pick your suspect':'Your turn'):'Rival is thinking…';
+  $('turnText').textContent=S.phase==='over'?'Case closed':nm()&&!online()?'Not connected':S.phase==='asking'?'Waiting for the answer…':yt?(S.accuse?'Pick your suspect':'Your turn'):nm()?"Friend's turn":'Rival is thinking…';
   document.querySelectorAll('.chip').forEach(b=>{b.disabled=!yt||S.accuse;b.classList.toggle('asked',S.asked.has(b.dataset.q))});
   $('accuse').disabled=!yt; $('accuse').classList.toggle('on',S.accuse);
   $('accuse').textContent=S.accuse?'Cancel accusation':'Make an accusation';
   $('board').classList.toggle('accuse',S.accuse);
-  $('hint').textContent=S.accuse?'Tap the face you think your rival is hiding. A wrong accusation loses the game.':
+  $('hint').textContent=nm()&&!online()&&S.phase!=='over'?'Tap Connect to play a friend on another device.':nm()&&S.phase==='cpu'?'Your friend is picking a question. Your device answers it for you, truthfully.':S.accuse?'Tap the face you think your rival is hiding. A wrong accusation loses the game.':
     up===1&&yt?'Only one suspect left. Make your accusation!':`Pick a question ${getComputedStyle($('qpanel')).position==='fixed'?'below':'on the right'}. Suspects that don't match flip down automatically. Tap a card to flip it by hand.`;
   $('log').innerHTML=S.log.map(l=>`<li><span class="who">${l.who}</span><span>${l.text}</span><span class="ans ${l.a?'y':'n'}">${l.a?'Yes':'No'}</span></li>`).join('');
   $('logEmpty').hidden=S.log.length>0; $('log').scrollTop=1e5;
@@ -292,6 +302,7 @@ function renderAll(){
 }
 function ask(id){
   if(S.phase!=='you'||S.accuse) return;
+  if(nm()){if(!online())return;S.phase='asking';net.send({t:'ask',id});sfx('tap');renderAll();return}
   const q=QS.find(x=>x.id===id), a=q.t(people[S.cpu]);
   S.asked.add(id); S.log.push({who:'You',text:q.q,a});sfx('tap');
   if($('auto').checked) people.forEach(p=>{if(q.t(p)!==a) S.mine[p.i]=false});
@@ -318,24 +329,48 @@ function cpuTurn(){
 }
 function accuse(i){
   const p=people[i];
+  if(nm()){if(!online())return;S.phase='asking';S.accuse=false;S.guess=i;net.send({t:'accuse',i,mine:S.you});renderAll();return}
   if(i===S.cpu) end('win',`You named ${p.name}. Case closed.`); else end('lose',`It wasn't ${p.name}. Your rival was hiding ${people[S.cpu].name}.`);
 }
 function end(res,msg){
   S.phase='over'; S.accuse=false; renderAll();
   const a=people[S.you], b=people[S.cpu];
-  $('modal').innerHTML=`<h2>${res==='win'?'You cracked it':'Rival wins'}</h2><p style="margin:0">${msg}</p>
-   <div class="reveal"><div><div class="pic">${face(a)}</div><small>Yours: ${a.name}</small></div><div><div class="pic">${face(b)}</div><small>Rival's: ${b.name}</small></div></div>
-   <p style="margin:0;color:var(--muted);font-size:13.5px">You asked ${S.asked.size}, the rival asked ${S.cpuQ}.</p>
+  $('modal').innerHTML=`<h2>${res==='win'?'You cracked it':nm()?'Your friend wins':'Rival wins'}</h2><p style="margin:0">${msg}</p>
+   <div class="reveal"><div><div class="pic">${face(a)}</div><small>Yours: ${a.name}</small></div><div><div class="pic">${face(b)}</div><small>${RIVAL()}'s: ${b.name}</small></div></div>
+   <p style="margin:0;color:var(--muted);font-size:13.5px">You asked ${S.asked.size}, ${nm()?'your friend':'the rival'} asked ${S.cpuQ}.</p>
    <div style="display:flex;gap:8px;justify-content:center"><button class="btn" id="close">View board</button><button class="btn primary" id="again">Play again</button></div>`;
   $('overlay').hidden=false;
-  $('again').onclick=newGame; $('close').onclick=()=>{$('overlay').hidden=true};
+  $('again').onclick=()=>newGame(); $('close').onclick=()=>{$('overlay').hidden=true};
 }
 $('board').addEventListener('click',e=>{const t=e.target.closest('.tile');if(!t||S.phase==='over')return;const i=+t.dataset.i;
   if(S.accuse){ if(S.mine[i]&&S.phase==='you') accuse(i); return;}
   sfx('flip');S.mine[i]=!S.mine[i]; renderAll();});
 $('questions').addEventListener('click',e=>{const b=e.target.closest('.chip'); if(b&&!b.disabled) ask(b.dataset.q)});
 $('accuse').onclick=()=>{S.accuse=!S.accuse;renderAll()};
-$('newgame').onclick=newGame;
+$('newgame').onclick=()=>newGame();
+/* ---------- online play ----------
+   Each device keeps its own secret suspect and answers the friend's questions about it automatically. */
+function friendAsks(id){const q=QS.find(x=>x.id===id);if(!q||S.phase!=='cpu')return;const a=q.t(people[S.you]);
+  S.cpuAsked.add(id);S.cpuQ++;S.log.push({who:'Friend',text:q.q,a});people.forEach(p=>{if(S.theirs[p.i]&&q.t(p)!==a)S.theirs[p.i]=false});
+  net.send({t:'ans',id,a});S.phase='you';sfx('tap');renderAll()}
+function gotAnswer(id,a){const q=QS.find(x=>x.id===id);if(!q||S.phase!=='asking')return;
+  S.asked.add(id);S.log.push({who:'You',text:q.q,a});if($('auto').checked)people.forEach(p=>{if(q.t(p)!==a)S.mine[p.i]=false});S.phase='cpu';renderAll()}
+function setMode(v){mode=v;$('mode').value=v;games=0;newGame()}
+$('mode').onchange=e=>setMode(e.target.value);
+net=P2P.net({game:'Lineup Detective',bar:$('netbar'),conn:$('conn'),active:nm,
+  onOpen(role){if(role==='host'){games=0;newGame();net.note('Connected! A new case begins.')}else{renderAll();net.note('Connected! Waiting for the host…')}},
+  onMessage(m){
+    if(m.t==='ask'){friendAsks(m.id);return}
+    if(m.t==='ans'){gotAnswer(m.id,!!m.a);return}
+    if(m.t==='accuse'&&S.phase!=='over'&&people[m.i]&&people[m.mine]){const right=m.i===S.you;S.cpu=m.mine;net.send({t:'verdict',right,mine:S.you});
+      end(right?'lose':'win',right?`Your friend named ${people[S.you].name}.`:`Your friend wrongly accused ${people[m.i].name}.`);return}
+    if(m.t==='verdict'&&S.phase==='asking'&&people[m.mine]){S.cpu=m.mine;const p=people[S.guess];
+      end(m.right?'win':'lose',m.right?`You named ${p.name}. Case closed.`:`It wasn't ${p.name}. Your friend was hiding ${people[m.mine].name}.`);return}
+    if(net.role==='host'){if(m.t==='again')newGame();return}
+    if(m.t==='start'){newGame({first:m.guestFirst});net.note(m.guestFirst?'New case: you ask first.':'New case: your friend asks first.')}},
+  onLeave(){setMode('cpu')},
+  onDrop(){renderAll()}});
+if(net.join)mode='net';$('mode').value=mode;
 new ResizeObserver(()=>{const q=$('qpanel');document.documentElement.style.setProperty('--qbar',(getComputedStyle(q).position==='fixed'?q.offsetHeight+16:0)+'px');if(S)renderAll()}).observe($('qpanel'));
 newGame();
 </script>

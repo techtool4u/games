@@ -121,7 +121,8 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
       <p class="sub">Move diagonally, jump to capture, and crown your pieces on the far row. Take every piece or leave your rival with no move.</p>
     </div>
     <div class="controls">
-      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
       <select id="side" aria-label="Your color"><option value="1">Play black (moves first)</option><option value="-1">Play red</option></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
       <label class="check"><input type="checkbox" id="forced"> Jumps are forced</label>
@@ -129,6 +130,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
     </div>
   </header>
 
+  <div id="netbar" hidden></div>
   <div class="game">
     <section class="table" aria-label="Board">
       <div class="frame"><div class="board" id="board"><div class="pieces" id="pieces"></div></div></div>
@@ -173,6 +175,8 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
 </div>
 <div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
 
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 <script>
 // board: 64 squares, row 0 at Black's side. 1/2 = black man/king, -1/-2 = red man/king. Black (1) moves down and goes first.
 const BLACK=1,RED=-1;
@@ -187,7 +191,8 @@ const num=i=>(i>>3)*4+((i&7)>>1)+1;
 const colorName=s=>s===BLACK?'Black':'Red';
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const cfg=Object.assign({mode:'cpu',side:BLACK,level:'medium',forced:true},store.get('parlor-checkers',{}));
-let S,flip=false,uid=0;
+let S,flip=false,uid=0,net=null,games=0;
+const online=()=>cfg.mode==='net'&&!!net&&net.online();
 
 /* ---------- rules ---------- */
 function jumpDFS(b,from,v,dirs,path,caps,out){
@@ -242,13 +247,16 @@ function chooseMove(b,side){
 
 /* ---------- game flow ---------- */
 function isCpu(side){return cfg.mode==='cpu'&&side!==cfg.side}
-function newGame(){
+function newGame(from){
+  if(cfg.mode==='net'&&!from&&online()&&net.role==='guest'){net.send({t:'again'});net.note('Asked the host for a new game.');return}
   $('overlay').hidden=true;
   const b=Array(64).fill(0),ids=Array(64).fill(null);
   for(let i=0;i<64;i++){if(!dark(i))continue;const r=i>>3;if(r<3){b[i]=BLACK;ids[i]=++uid}else if(r>4){b[i]=RED;ids[i]=++uid}}
-  S={b,ids,turn:BLACK,quiet:0,log:[],hist:[],sel:-1,chain:null,last:null,over:null,busy:false,gen:(S?S.gen:0)+1,legal:[]};
-  flip=cfg.mode==='cpu'?cfg.side===BLACK:false;
+  S={b,ids,turn:BLACK,quiet:0,log:[],hist:[],paths:[],sel:-1,chain:null,last:null,over:null,busy:false,gen:(S?S.gen:0)+1,legal:[],
+    me:cfg.mode==='net'?(from?from.me:(games++%2?RED:BLACK)):0,net:online()};
+  flip=cfg.mode==='cpu'?cfg.side===BLACK:cfg.mode==='net'?S.me===BLACK:false;
   $('pieces').innerHTML='';layout();startTurn();
+  if(cfg.mode==='net'){if(!online()&&!from)net.start();else if(net.role==='host'&&!from)net.send({t:'start',guest:-S.me,forced:cfg.forced})}
 }
 function startTurn(){
   S.legal=legalMoves(S.b,S.turn,cfg.forced);S.sel=-1;S.chain=null;
@@ -271,6 +279,7 @@ function playMove(m,g){
   step();
 }
 function commit(m){
+  if(cfg.mode==='net'&&!S.remote&&S.turn===S.me)net.send({t:'move',path:m.path,n:S.paths.length});S.remote=false;S.paths.push(m.path);
   const from=m.path[0],to=m.path[m.path.length-1],v=S.b[to];
   const crowned=Math.abs(v)===1&&(to>>3)===(v>0?7:0);if(crowned)S.b[to]=v*2;if(crowned)setTimeout(()=>sfx('good'),120);
   S.quiet=m.caps.length||Math.abs(v)===1?0:S.quiet+1;
@@ -282,10 +291,11 @@ function finish(winner,why){
   let title;
   if(winner===0)title='Draw';
   else if(cfg.mode==='cpu')title=winner===cfg.side?'You win!':'Computer wins';
+  else if(cfg.mode==='net')title=winner===S.me?'You win!':'Your friend wins';
   else title=`${colorName(winner)} wins`;
   $('modal').innerHTML=`<h2>${title}</h2><p>${why}</p><p>${S.log.length} moves played.</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
   $('overlay').hidden=false;$('magain').focus();
-  $('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame;
+  $('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=()=>newGame();
 }
 function undo(){
   if(!S.hist.length)return;
@@ -300,7 +310,7 @@ function undo(){
 const prefix=(m,p)=>p.every((x,i)=>m.path[i]===x);
 function targets(){const p=S.chain||(S.sel>=0?[S.sel]:null);if(!p)return[];
   return [...new Set(S.legal.filter(m=>m.path.length>p.length&&prefix(m,p)).map(m=>m.path[p.length]))]}
-function humanTurn(){return !S.over&&!S.busy&&!isCpu(S.turn)}
+function humanTurn(){return !S.over&&!S.busy&&!isCpu(S.turn)&&(cfg.mode!=='net'||(online()&&S.turn===S.me))}
 function tap(i){
   if(!humanTurn()||!dark(i))return;
   if(targets().includes(i)){
@@ -345,11 +355,14 @@ function render(){
   const t=S.turn,cpu=isCpu(t);
   const dc=S.over?S.over.winner:t;$('tdisc').className='disc '+(dc===BLACK?'b':dc===RED?'r':'');
   $('turn').classList.toggle('think',cpu&&!S.over);
-  $('turnText').textContent=S.over?(S.over.winner===0?'Draw':cfg.mode==='cpu'?(S.over.winner===cfg.side?'You win':'Computer wins'):`${colorName(S.over.winner)} wins`)
-    :cpu?'Computer is thinking…':cfg.mode==='cpu'?'Your turn':`${colorName(t)} to move`;
+  const nm=cfg.mode==='net';
+  $('turnText').textContent=S.over?(S.over.winner===0?'Draw':cfg.mode==='cpu'?(S.over.winner===cfg.side?'You win':'Computer wins'):nm?(S.over.winner===S.me?'You win':'Your friend wins'):`${colorName(S.over.winner)} wins`)
+    :cpu?'Computer is thinking…':cfg.mode==='cpu'?'Your turn':nm?(!online()?'Not connected':t===S.me?'Your turn':"Friend's turn"):`${colorName(t)} to move`;
   const h=$('hint');let txt,must=false;
   if(S.over)txt=S.over.why;
   else if(cpu)txt=`The computer plays ${colorName(t).toLowerCase()} on ${cfg.level}.`;
+  else if(nm&&!online())txt='Tap Connect to play a friend on another device.';
+  else if(nm&&t!==S.me)txt=`You play ${colorName(S.me).toLowerCase()}. Waiting for your friend to move…`;
   else if(S.chain){txt='Keep jumping with the same piece.';must=true}
   else if(cfg.forced&&S.legal.length&&S.legal[0].caps.length){txt='You have a jump, and jumps are forced. Take it.';must=true}
   else if(S.sel>=0)txt='Tap a highlighted square to move there, or another piece to switch.';
@@ -358,29 +371,44 @@ function render(){
   // score
   [[BLACK,'B'],[RED,'R']].forEach(([s,k])=>{const own=S.b.filter(v=>v*s>0);$('cnt'+k).textContent=own.length;
     const kings=own.filter(v=>Math.abs(v)===2).length;$('king'+k).textContent=`${kings} king${kings===1?'':'s'}`;
-    $('name'+k).textContent=cfg.mode==='cpu'?(s===cfg.side?`You · ${colorName(s)}`:`Computer · ${colorName(s)}`):colorName(s)});
+    $('name'+k).textContent=cfg.mode==='cpu'?(s===cfg.side?`You · ${colorName(s)}`:`Computer · ${colorName(s)}`):nm?(s===S.me?`You · ${colorName(s)}`:`Friend · ${colorName(s)}`):colorName(s)});
   // move list
   let ml='';for(let i=0;i<S.log.length;i+=2)ml+=`<li class="no">${i/2+1}.</li><li>${S.log[i]}</li><li>${S.log[i+1]||''}</li>`;
   $('moves').innerHTML=ml;$('movesEmpty').hidden=S.log.length>0;$('moves').scrollTop=1e5;
+  $('undo').hidden=nm;if(net)net.render();
   $('undo').disabled=!S.hist.length||S.busy||!!S.chain||(cfg.mode==='cpu'&&!S.hist.some(x=>!isCpu(x.turn)));
 }
 
 /* ---------- settings & events ---------- */
 function syncControls(){$('mode').value=cfg.mode;$('side').value=String(cfg.side);$('level').value=cfg.level;$('forced').checked=cfg.forced;
-  $('side').hidden=$('level').hidden=cfg.mode!=='cpu'}
+  $('side').hidden=$('level').hidden=cfg.mode!=='cpu';$('forced').disabled=cfg.mode==='net'&&online()&&net.role==='guest'}
 function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-checkers',cfg);syncControls();if(restart)newGame();else render()}
 $('mode').onchange=e=>setCfg('mode',e.target.value,true);
 $('side').onchange=e=>setCfg('side',+e.target.value,true);
 $('level').onchange=e=>setCfg('level',e.target.value,false);
 $('forced').onchange=e=>setCfg('forced',e.target.checked,true);
-$('newgame').onclick=newGame;
+$('newgame').onclick=()=>newGame();
 $('undo').onclick=undo;
 $('flip').onclick=()=>{flip=!flip;layout()};
 $('board').addEventListener('click',e=>{const sq=e.target.closest('.sq.d');if(sq)tap(+sq.dataset.i)});
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(!$('overlay').hidden)$('overlay').hidden=true;else if(humanTurn()&&!S.chain){S.sel=-1;render()}}
   if((e.key==='z'||e.key==='u')&&!e.target.closest('input,select')&&!$('undo').disabled)undo()});
-if(![BLACK,RED].includes(cfg.side))cfg.side=BLACK;if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';
+/* ---------- online play ----------
+   Both devices run the same rules and send only finished moves (the whole jump path). The host picks colors,
+   alternating each game, sets the forced-jump rule, and settles any mix-up by sending the full move list. */
+function replay(paths){for(const p of paths){const m=S.legal.find(x=>x.path.join()===p.join());if(!m)return false;for(let k=1;k<m.path.length;k++)hop(m.path[k-1],m.path[k]);S.remote=true;commit(m)}return true}
+const sendSync=()=>net.send({t:'sync',guest:-S.me,forced:cfg.forced,paths:S.paths,games});
+net=P2P.net({game:'Checkers',bar:$('netbar'),conn:$('conn'),active:()=>cfg.mode==='net',
+  onOpen(role){syncControls();if(role==='host'){if(S&&S.net&&!S.over&&S.paths.length){sendSync();net.note('Reconnected. The game carries on.')}else{games=0;newGame();net.note('Connected! You play black and move first.')}}else{render();net.note('Connected! Waiting for the host…')}},
+  onMessage(m){
+    if(m.t==='move'){const mv=!S.over&&!S.busy&&m.n===S.paths.length&&S.turn!==S.me&&S.legal.find(x=>x.path.join()===m.path.join());
+      if(!mv){if(net.role==='host')sendSync();else net.send({t:'resync'});return}S.remote=true;S.busy=true;render();playMove(mv,S.gen);return}
+    if(net.role==='host'){if(m.t==='again')newGame();else if(m.t==='resync')sendSync();return}
+    if(m.t==='start'||m.t==='sync'){cfg.forced=m.forced;syncControls();newGame({me:m.guest});if(m.paths)replay(m.paths);if(m.t==='start')net.note(`New game: you play ${colorName(m.guest).toLowerCase()}.`)}},
+  onLeave(){cfg.mode='cpu';store.set('parlor-checkers',cfg);syncControls();newGame()},
+  onDrop(){syncControls();render()}});
+if(![BLACK,RED].includes(cfg.side))cfg.side=BLACK;if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(net.join)cfg.mode='net';
 syncControls();newGame();
 </script>
 </body>
