@@ -139,6 +139,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
       <div class="grid" id="mine" role="grid" aria-label="Your chart"></div>
     </section>
     <aside class="side">
+      <div id="barSlot" style="display:contents"></div>
       <div class="panel" aria-live="polite">
         <div class="turn" id="turn">Place your fleet</div>
         <p class="hint" id="hint"></p>
@@ -330,6 +331,10 @@ $('level').onchange=e=>setCfg('level',e.target.value,false);
 $('bonus').onchange=e=>{setCfg('bonus',e.target.checked,false);if(online()&&net.role==='host')net.send({t:'bonus',v:cfg.bonus})};
 $('newgame').onclick=()=>{if(started()&&!confirm('Abandon this battle and start a new one?'))return;newGame()};
 /* ---------- online play ---------- */
+// With the phone held sideways the charts fill the height, so the connection bar moves into the side column.
+const sideways=matchMedia('(max-height:520px) and (orientation:landscape)');
+function placeBar(){const bar=$('netbar');if(sideways.matches)$('barSlot').appendChild(bar);else document.querySelector('.game').before(bar)}
+(sideways.addEventListener?sideways.addEventListener('change',placeBar):sideways.addListener(placeBar));placeBar();
 net=P2P.net({game:'Fleet Hunt',bar:$('netbar'),conn:$('conn'),active:()=>cfg.mode==='net',
   onOpen(role){sync();if(role==='host'){games=0;newGame();toast('Connected! Place your fleet, then press Ready.',2600)}else{render();toast('Connected! Waiting for the host…',2600)}},
   onMessage(m){

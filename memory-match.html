@@ -61,6 +61,10 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
 .netbar.off .dot{background:#c62b2b}
 .netbar span{flex:1}
 .netbar .btn{min-height:34px;padding:5px 12px}
+.netbar select{flex:0 1 210px;min-width:0;min-height:34px;padding-block:4px}
+.netbar.off span{flex:0 0 auto}
+.netbar .btn{margin-left:auto}
+@media (max-width:440px){.netbar select{order:9;flex-basis:100%}.netbar.off span{flex:1 1 auto}}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:30;max-width:calc(100vw - 32px);text-align:center}
 details summary{cursor:pointer;font-weight:800}
 details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
@@ -81,6 +85,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
     </div>
     <div class="controls">
       <select id="players" aria-label="Players"><option value="s">Solo</option><option value="cpu">You vs computer</option><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" aria-label="How to connect" hidden><option value="code">Use a game code</option><option value="direct">Use two codes</option></select>
       <select id="level" aria-label="Computer memory"><option value="easy">Forgetful</option><option value="medium">Sharp</option><option value="hard">Perfect memory</option></select>
       <select id="size" aria-label="Board size"><option value="12">12 cards</option><option value="16">16 cards</option><option value="24">24 cards</option><option value="36">36 cards</option></select>
       <select id="theme" aria-label="Pictures"><option value="animals">Animals</option><option value="food">Food</option><option value="sea">Sea life</option><option value="things">Things</option></select>
@@ -115,18 +120,19 @@ const COLORS=['--p0','--p1','--p2','--p3'];
 const LAYOUT={12:[4,3],16:[4,4],24:[6,4],36:[6,6]};
 const RECALL={easy:.45,medium:.8,hard:1};
 const $=id=>document.getElementById(id);
+const CONN=document.getElementById('conn');// the "how to connect" menu; it sits in the connection bar while not connected
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const cfg=Object.assign({players:'s',level:'medium',size:16,theme:'animals'},store.get('parlor-memory',{}));
 const best=store.get('parlor-memory-best',{});
 let G=null,kb=-1,timer=0,toastT=0;
 // Online play: the host's device runs the game and sends the table to the guest after every change; the guest only sends taps.
-const NET={link:null,role:null,games:0};
+const NET={link:null,role:null,games:0,ui:null,join:window.P2P?P2P.takeJoin():null};
 const online=()=>cfg.players==='net'&&NET.link&&NET.link.open;
 const mySeat=()=>NET.role==='guest'?1:0;
 
 function setup(){const m=cfg.players;if(m==='net')return NET.role==='guest'?[{name:'Friend'},{name:'You'}]:[{name:'You'},{name:'Friend'}];if(m==='s')return[{name:'You'}];if(m==='cpu')return[{name:'You'},{name:'Computer',cpu:true}];return[...Array(+m)].map((_,i)=>({name:`Player ${i+1}`}))}
 // Spreading the emoji string splits it by code point, so each picture stays whole.
-function newGame(){if(cfg.players==='net'&&!online()){$('overlay').hidden=true;goOnline();return}if(online()&&NET.role==='guest'){NET.link.send({t:'again'});return}
+function newGame(){if(cfg.players==='net'&&!online()){$('overlay').hidden=true;try{render()}catch(e){}goOnline();return}if(online()&&NET.role==='guest'){NET.link.send({t:'again'});return}
   $('overlay').hidden=true;clearInterval(timer);const n=+cfg.size,pics=[...THEMES[cfg.theme]].slice(0,n/2);
   const deck=[...pics,...pics].map((p,i)=>({p,id:i}));for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}
   G={cards:deck.map(c=>({p:c.p,up:false,done:false,owner:-1})),players:setup(),turn:0,picks:[],busy:false,turns:0,elapsed:0,started:false,seen:new Map(),over:false,gen:(G?G.gen:0)+1};
@@ -167,24 +173,26 @@ function render(){const els=$('board').children;G.cards.forEach((c,i)=>{const e=
   const b=best[cfg.size];$('best').innerHTML=G.players.length===1&&b?`Best <b>${b.turns}</b> turns`:'';
   $('level').hidden=cfg.players!=='cpu';
   const nb=$('netbar');nb.hidden=cfg.players!=='net';if(cfg.players==='net'){nb.className='netbar'+(online()?'':' off');
-    nb.innerHTML=`<i class="dot"></i><span>${online()?(NET.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}${online()&&!G.over?` · ${G.turn===mySeat()?'your turn':"friend's turn"}`:''}</span>${online()?'<button class="btn" id="leave">Leave</button>':'<button class="btn primary" id="reconnect">Connect</button>'}`;
-    const lv=$('leave');if(lv)lv.onclick=leaveOnline;const rc=$('reconnect');if(rc)rc.onclick=goOnline}
+    if(CONN.parentNode===nb)nb.removeChild(CONN);nb.innerHTML=`<i class="dot"></i><span>${online()?(NET.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}${online()&&!G.over?` · ${G.turn===mySeat()?'your turn':"friend's turn"}`:''}</span>${online()?'<button class="btn" id="leave">Leave</button>':'<button class="btn primary" id="reconnect">Connect</button>'}`;
+    nb.insertBefore(CONN,nb.lastElementChild);CONN.hidden=online();const lv=$('leave');if(lv)lv.onclick=leaveOnline;const rc=$('reconnect');if(rc)rc.onclick=goOnline}
   for(const id of['size','theme'])$(id).disabled=online()&&NET.role==='guest';
+  CONN.hidden=cfg.players!=='net'||online();
   if(online()&&NET.role==='host')sendState()}
 function sendState(){NET.link.send({t:'state',cards:G.cards.map(c=>[c.up?1:0,c.done?1:0,c.owner]),turn:G.turn,pairs:G.players.map(p=>p.pairs),turns:G.turns,elapsed:G.elapsed,over:G.over})}
 /* ---------- online play ---------- */
 function toast(t,ms=2600){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
-function goOnline(){if(!window.P2P){toast('Online play needs p2p.js and qrcode.js next to this page.',4000);cfg.players='s';sync();newGame();return}P2P.open({game:'Memory Match',onOpen:link=>{NET.link=link;NET.role=link.role;NET.games=0;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected.');NET.link=null;render()};
+function goOnline(){if(!window.P2P){toast('Online play needs p2p.js and qrcode.js next to this page.',4000);cfg.players='s';sync();newGame();return}const join=NET.join;NET.join=null;
+  NET.ui=P2P.open({game:'Memory Match',quick:P2P.connPref()!=='direct',join,onOpen:link=>{NET.ui=null;NET.link=link;NET.role=link.role;NET.games=0;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected.');NET.link=null;render()};
     toast(link.role==='host'?'Connected! You go first.':'Connected! Waiting for the host to deal…');if(link.role==='host')newGame();else render()},
-  onCancel:()=>{if(!online()){cfg.players='s';store.set('parlor-memory',cfg);sync();newGame()}}})}
+  onCancel:()=>{NET.ui=null;if(!online()){cfg.players='s';store.set('parlor-memory',cfg);sync();newGame()}}})}
 function leaveOnline(){if(NET.link){NET.link.send({t:'bye'});NET.link.close()}NET.link=null;cfg.players='s';store.set('parlor-memory',cfg);sync();newGame()}
-function onNet(m){if(!m)return;
+function onNet(m){if(!m||cfg.players!=='net')return;// a late message after leaving online play is ignored
   if(NET.role==='host'){if(m.t==='flip'&&G.turn===1&&!G.over)flip(m.i);else if(m.t==='again'){newGame()}else if(m.t==='hello')sendState();else if(m.t==='bye'){toast('Your friend left the game.');NET.link.close();NET.link=null;render()}return}
   // guest: mirror what the host sends
   if(m.t==='start'){$('overlay').hidden=true;clearInterval(timer);cfg.size=m.size;cfg.theme=m.theme;sync();
     G={cards:m.pics.map(p=>({p,up:false,done:false,owner:-1})),players:setup(),turn:0,picks:[],busy:false,turns:0,elapsed:0,started:true,seen:new Map(),over:false,gen:(G?G.gen:0)+1};
     G.players.forEach(p=>p.pairs=0);const [c,r]=LAYOUT[m.size];$('board').style.setProperty('--cols',c);$('board').style.setProperty('--rows',r);build();render();return}
-  if(m.t==='state'&&G&&G.cards.length===m.cards.length){m.cards.forEach(([u,d,o],i)=>{const c=G.cards[i];c.up=!!u;c.done=!!d;c.owner=o});G.turn=m.turn;m.pairs.forEach((v,i)=>G.players[i].pairs=v);G.turns=m.turns;G.elapsed=m.elapsed;
+  if(m.t==='state'&&G&&G.cards.length===m.cards.length&&G.players.length===m.pairs.length){m.cards.forEach(([u,d,o],i)=>{const c=G.cards[i];c.up=!!u;c.done=!!d;c.owner=o});G.turn=m.turn;m.pairs.forEach((v,i)=>G.players[i].pairs=v);G.turns=m.turns;G.elapsed=m.elapsed;
     const wasOver=G.over;G.over=m.over;render();if(m.over&&!wasOver){G.over=false;finish()}return}
   if(m.t==='bye'){toast('The host left the game.');NET.link.close();NET.link=null;render()}}
 
@@ -195,7 +203,7 @@ document.addEventListener('keydown',e=>{if(e.target.closest('select')||!$('overl
   if(mv){e.preventDefault();if(kb<0)kb=0;else{const k=kb+mv;if(k>=0&&k<n)kb=k}render();return}
   if((e.key==='Enter'||e.key===' ')&&kb>=0&&!cur().cpu){e.preventDefault();tap(kb)}});
 window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
-function sync(){$('players').value=cfg.players;$('level').value=cfg.level;$('size').value=cfg.size;$('theme').value=cfg.theme}
+function sync(){CONN.hidden=cfg.players!=='net'||!!(NET.link&&NET.link.open);$('players').value=cfg.players;$('level').value=cfg.level;$('size').value=cfg.size;$('theme').value=cfg.theme}
 const started=()=>G&&G.started&&!G.over;
 function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-memory',cfg);sync();if(restart)newGame();else render()}
 $('players').onchange=e=>setCfg('players',e.target.value,true);
@@ -204,8 +212,10 @@ $('size').onchange=e=>setCfg('size',+e.target.value,true);
 $('theme').onchange=e=>setCfg('theme',e.target.value,true);
 $('newgame').onclick=newGame;
 if(!['s','cpu','2','3','4'].includes(cfg.players))cfg.players='s';
+if(window.P2P)CONN.value=P2P.connPref();
+CONN.onchange=e=>{P2P.setConnPref(e.target.value);if(cfg.players==='net'&&!online()){if(NET.ui)NET.ui.close();NET.ui=null;goOnline()}};
 if(cfg.players==='net')cfg.players='s';// online play always starts by pairing, never straight from a saved setting
-if(!LAYOUT[cfg.size])cfg.size=16;if(!THEMES[cfg.theme])cfg.theme='animals';if(!RECALL[cfg.level])cfg.level='medium';
+if(!LAYOUT[cfg.size])cfg.size=16;if(!THEMES[cfg.theme])cfg.theme='animals';if(!RECALL[cfg.level])cfg.level='medium';if(NET.join)cfg.players='net';
 sync();newGame();
 </script>
 </body>

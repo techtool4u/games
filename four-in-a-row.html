@@ -97,6 +97,10 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
 .netbar.off .ndot{background:#c62b2b}
 .netbar span{flex:1;min-width:0}
 .netbar .btn{min-height:34px;padding:5px 12px}
+.netbar select{flex:0 1 210px;min-width:0;min-height:34px;padding-block:4px}
+.netbar.off span{flex:0 0 auto}
+.netbar .btn{margin-left:auto}
+@media (max-width:440px){.netbar select{order:9;flex-basis:100%}.netbar.off span{flex:1 1 auto}}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:30;max-width:calc(100vw - 32px);text-align:center}
 .modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
 .modal h2{font-family:var(--display);font-weight:400;font-size:34px;margin:0}
@@ -123,7 +127,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
     </div>
     <div class="controls">
       <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
-      <select id="conn" aria-label="How to connect" hidden><option value="code">Connect with a game code</option><option value="direct">Connect with two codes</option></select>
+      <select id="conn" aria-label="How to connect" hidden><option value="code">Use a game code</option><option value="direct">Use two codes</option></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
       <select id="first" aria-label="Who goes first"><option value="you">You go first</option><option value="cpu">Computer first</option><option value="alt">Take turns starting</option></select>
       <button class="btn primary" id="newgame">New game</button>
@@ -185,6 +189,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
 const W=7,H=6,ORDER=[3,2,4,1,5,0,6];
 const LEVELS={easy:{depth:2,random:.3,blunder:.5},medium:{depth:5,random:.05,blunder:0},hard:{depth:42,ms:900,random:0,blunder:0}};
 const $=id=>document.getElementById(id);
+const CONN=document.getElementById('conn');// the "how to connect" menu; it sits in the connection bar while not connected
 const rand=n=>Math.floor(Math.random()*n);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const cfg=Object.assign({mode:'cpu',level:'medium',first:'you'},store.get('parlor-four',{}));
@@ -241,7 +246,7 @@ const nameOf=p=>cfg.mode==='cpu'?(p===S.cpu?'Computer':'You'):cfg.mode==='net'?(
 // Whether a person at this device may drop a disc now.
 const myTurn=()=>S&&!S.over&&!S.busy&&!isCpu(S.turn)&&(cfg.mode!=='net'||(online()&&S.turn===S.me));
 function newGame(from){if(!from||!Array.isArray(from.moves))from=null;// buttons pass a click event here
-  if(cfg.mode==='net'&&!online()&&!from){$('overlay').hidden=true;goOnline();return}
+  if(cfg.mode==='net'&&!online()&&!from){$('overlay').hidden=true;try{render()}catch(e){}goOnline();return}
   if(online()&&NET.role==='guest'&&!from){NET.link.send({t:'again'});toast('Asked the host for a new game.');return}
   $('overlay').hidden=true;games++;
   const cpuFirst=cfg.first==='cpu'||(cfg.first==='alt'&&games%2===0);
@@ -295,10 +300,10 @@ function render(){if(!S)return;
   $('n0').textContent=cfg.mode==='two'?'Red':'You';$('n1').textContent=cfg.mode==='cpu'?'Computer':net?'Friend':'Yellow';
   const youDot=cfg.mode==='cpu'?(S.cpu===1?'y':'r'):net?(S.me===2?'y':'r'):'r';document.querySelector('.score>div:first-child .dot').className='dot '+youDot;document.querySelector('.score>div:last-child .dot').className='dot '+(youDot==='r'?'y':'r');
   $('undo').disabled=S.busy||!S.hist.length||(cfg.mode==='cpu'&&!S.hist.some((c,i)=>(i%2===0?1:2)!==S.cpu));$('undo').hidden=net;
-  $('conn').hidden=!net||online();
+  CONN.hidden=!net||online();
   const nb=$('netbar');nb.hidden=!net;if(net){nb.className='netbar'+(online()?'':' off');
-    nb.innerHTML=`<i class="ndot"></i><span>${online()?(NET.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}</span>${online()?'<button class="btn" id="leave">Leave</button>':'<button class="btn primary" id="reconnect">Connect</button>'}`;
-    const lv=$('leave');if(lv)lv.onclick=leaveOnline;const rc=$('reconnect');if(rc)rc.onclick=goOnline}}
+    if(CONN.parentNode===nb)nb.removeChild(CONN);nb.innerHTML=`<i class="ndot"></i><span>${online()?(NET.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}</span>${online()?'<button class="btn" id="leave">Leave</button>':'<button class="btn primary" id="reconnect">Connect</button>'}`;
+    nb.insertBefore(CONN,nb.lastElementChild);CONN.hidden=online();const lv=$('leave');if(lv)lv.onclick=leaveOnline;const rc=$('reconnect');if(rc)rc.onclick=goOnline}}
 
 /* ---------- input & settings ---------- */
 let hover=-1,kb=false;
@@ -312,7 +317,7 @@ $('board').addEventListener('keydown',e=>{if(!myTurn())return;
 $('board').addEventListener('focus',()=>{kb=true;hover=cursor;render()});
 $('board').addEventListener('blur',()=>{kb=false;hover=-1;render()});
 document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true;else if((e.key==='u'||e.key==='U')&&!$('undo').disabled)undo()});
-function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('first').value=cfg.first;$('level').hidden=$('first').hidden=cfg.mode!=='cpu';$('conn').hidden=cfg.mode!=='net'||!!(NET.link&&NET.link.open)}
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('first').value=cfg.first;$('level').hidden=$('first').hidden=cfg.mode!=='cpu';CONN.hidden=cfg.mode!=='net'||!!(NET.link&&NET.link.open)}
 function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-four',cfg);sync();if(k==='mode')wins[1]=wins[2]=wins.d=0;if(restart){games=0;newGame()}else render()}
 $('mode').onchange=e=>setCfg('mode',e.target.value,true);
 $('level').onchange=e=>setCfg('level',e.target.value,false);
@@ -340,8 +345,8 @@ function onNet(m){if(!m)return;
   if(NET.role==='host'){if(m.t==='again'){$('overlay').hidden=true;newGame()}else if(m.t==='resync')sendSync();return}
   if(m.t==='start'){fromHost(m.host,[]);toast(`New game: you are ${m.host===1?'yellow':'red'}.`)}
   else if(m.t==='sync')fromHost(m.host,m.moves)}
-if(window.P2P)$('conn').value=P2P.connPref();
-$('conn').onchange=e=>{P2P.setConnPref(e.target.value);if(cfg.mode==='net'&&!online()){if(NET.ui)NET.ui.close();NET.ui=null;goOnline()}};
+if(window.P2P)CONN.value=P2P.connPref();
+CONN.onchange=e=>{P2P.setConnPref(e.target.value);if(cfg.mode==='net'&&!online()){if(NET.ui)NET.ui.close();NET.ui=null;goOnline()}};
 if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';// online play always starts by pairing
 if(!['you','cpu','alt'].includes(cfg.first))cfg.first='you';if(NET.join)cfg.mode='net';
 build();sync();newGame();
