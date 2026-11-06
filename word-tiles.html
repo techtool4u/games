@@ -46,7 +46,7 @@ select{border:1px solid var(--line);background:var(--panel);padding:7px 10px;bor
 @media (max-width:900px){.game{grid-template-columns:minmax(0,1fr)}}
 .play{display:flex;flex-direction:column;gap:10px;align-items:center}
 .boardwrap{width:min(100%,640px,calc(100dvh - 230px));min-width:min(100%,300px)}
-.board{display:grid;grid-template-columns:repeat(15,1fr);gap:2px;background:var(--line);padding:2px;border-radius:8px;aspect-ratio:1;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.board{display:grid;grid-template-columns:repeat(15,minmax(0,1fr));grid-template-rows:repeat(15,minmax(0,1fr));gap:2px;background:var(--line);padding:2px;border-radius:8px;aspect-ratio:1;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .sq{position:relative;background:var(--sq);border-radius:3px;display:grid;place-items:center;font-size:clamp(6px,1.2vw,10px);font-weight:800;color:rgba(0,0,0,.55);cursor:pointer;overflow:hidden;min-width:0}
 .sq.TW{background:var(--tw);color:#fff}.sq.DW,.sq.ST{background:var(--dw);color:#5a1f16}.sq.TL{background:var(--tl);color:#fff}.sq.DL{background:var(--dl);color:#173a52}
 .sq.ST::after{content:"★";font-size:1.9em;color:#fff}
