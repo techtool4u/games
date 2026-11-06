@@ -132,6 +132,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
     </div>
     <div class="controls">
       <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" aria-label="How to connect"><option value="code">Connect with a game code</option><option value="direct">Connect with two codes</option></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option><option value="expert">Expert</option></select>
       <select id="color" aria-label="Your pieces"><option value="w">Play white</option><option value="b">Play black</option><option value="r">Random color</option></select>
       <button class="btn primary" id="newgame">New game</button>
@@ -369,7 +370,7 @@ const E=chessEngine();
 const $=id=>document.getElementById(id);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 const LEVELS={easy:{depth:1,noise:140,random:.22,book:false,label:'Easy'},medium:{depth:3,noise:35,random:0,book:true,label:'Medium'},hard:{depth:6,ms:1000,book:true,label:'Hard'},expert:{depth:64,ms:3000,book:true,label:'Expert'}};
-const cfg=Object.assign({mode:'cpu',level:'medium',color:'w'},store.get('parlor-chess',{}));
+const cfg=Object.assign({mode:'cpu',level:'medium',color:'w',conn:'code'},store.get('parlor-chess',{}));
 let G=null,flip=false,sel=-1,cursor=-1,kb=false,reqId=0,pending=false,hintMove=null;
 
 /* ---------- piece art ---------- */
@@ -518,26 +519,30 @@ function doFlip(){flip=!flip;buildSquares();syncPieces();render()}
 $('undo').onclick=undo;$('flip').onclick=doFlip;
 $('hint').onclick=()=>{if(!canMove())return;ask({depth:64,ms:1200,book:true},'hint')};
 $('newgame').onclick=()=>newGame();
-function syncCtl(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('color').value=cfg.color;$('level').hidden=$('color').hidden=cfg.mode!=='cpu'}
+function syncCtl(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('color').value=cfg.color;$('level').hidden=$('color').hidden=cfg.mode!=='cpu';$('conn').value=cfg.conn;$('conn').hidden=cfg.mode!=='net'||!!(NET.link&&NET.link.open)}
 function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-chess',cfg);syncCtl();if(restart)newGame();else{render();maybeCpu()}}
 $('mode').onchange=e=>setCfg('mode',e.target.value,true);
 $('level').onchange=e=>setCfg('level',e.target.value,false);
 $('color').onchange=e=>setCfg('color',e.target.value,true);
+$('conn').onchange=e=>{cfg.conn=e.target.value;store.set('parlor-chess',cfg);if(cfg.mode==='net'&&!online()){if(NET.ui)NET.ui.close();NET.ui=null;goOnline()}};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('overlay').hidden&&!$('modal').querySelector('.promo'))$('overlay').hidden=true});
 if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';// online play always starts by pairing, never straight from a saved setting
-if(!['w','b','r'].includes(cfg.color))cfg.color='w';
+if(!['w','b','r'].includes(cfg.color))cfg.color='w';if(!['code','direct'].includes(cfg.conn))cfg.conn='code';
+// a shared link such as chess.html#join=ABC234 opens straight onto joining that game
+const joinCode=(location.hash.match(/join=([A-Za-z0-9 -]{6,9})/)||[])[1]||null;if(joinCode){cfg.mode='net';cfg.conn='code';history.replaceState(null,'',location.pathname+location.search)}
 /* ---------- online play ---------- */
 // Both devices run the same rules, so only moves travel: each side checks every move it receives.
 // The host chooses colors (alternating each game) and is the referee if the two move lists ever disagree.
-const NET={link:null,role:null,games:0};
+const NET={link:null,role:null,games:0,ui:null};
 const online=()=>cfg.mode==='net'&&NET.link&&NET.link.open;
 let toastT=0;function toast(t,ms=2600){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
 function goOnline(){if(!window.P2P){toast('Online play needs p2p.js and qrcode.js next to this page.',4000);cfg.mode='cpu';syncCtl();newGame();return}
-  P2P.open({game:'Chess',onOpen:link=>{NET.link=link;NET.role=link.role;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected. The game is paused: connect again to carry on.',4000);NET.link=null;render()};
+  const join=NET.join;NET.join=null;
+  NET.ui=P2P.open({game:'Chess',quick:cfg.conn!=='direct',join:join,onOpen:link=>{NET.ui=null;NET.link=link;syncCtl();NET.role=link.role;link.onmessage=onNet;link.onclose=()=>{toast('Your friend disconnected. The game is paused: connect again to carry on.',4000);NET.link=null;syncCtl();render()};
       if(link.role==='host'){// a game already under way carries on after reconnecting
         if(G&&G.net&&!G.over){sendSync();render();toast('Reconnected. The game carries on.')}else{NET.games=0;newGame();toast('Connected! You play white.')}}
       else{toast('Connected! Waiting for the host…');render()}},
-    onCancel:()=>{if(!online()){cfg.mode='cpu';store.set('parlor-chess',cfg);syncCtl();newGame()}}})}
+    onCancel:()=>{NET.ui=null;if(!online()){cfg.mode='cpu';store.set('parlor-chess',cfg);syncCtl();newGame()}}})}
 function leaveOnline(){if(NET.link){NET.link.send({t:'bye'});NET.link.close()}NET.link=null;cfg.mode='cpu';store.set('parlor-chess',cfg);syncCtl();newGame()}
 function sendSync(){NET.link.send({t:'sync',host:G.human,moves:G.moves,over:G.over})}
 // Start (or rebuild) the board from a move list sent by the host.
@@ -546,12 +551,13 @@ function onNet(m){if(!m)return;
   if(m.t==='move'){if(G.over)return;const mv=E.fromUci(m.u),ok=mv&&m.n===G.moves.length&&colorOf(E.side)!==G.human&&E.legal().includes(mv);
     if(!ok){if(NET.role==='host')sendSync();else NET.link.send({t:'resync'});return}play(mv,true,true);return}
   if(m.t==='resign'){if(G.over)return;G.over={result:G.human==='w'?1:-1,why:'Your friend resigned'};render();setTimeout(showEnd,300);return}
-  if(m.t==='bye'){toast('Your friend left the game.',3500);NET.link.close();NET.link=null;render();return}
+  if(m.t==='bye'){toast('Your friend left the game.',3500);NET.link.close();NET.link=null;syncCtl();render();return}
   if(NET.role==='host'){if(m.t==='again'){$('overlay').hidden=true;newGame();G.net=true}else if(m.t==='resync')sendSync();return}
   if(m.t==='start'){loadFromHost(m.host,[],null);toast(`New game: you play ${m.host==='w'?'black':'white'}.`)}
   else if(m.t==='sync')loadFromHost(m.host,m.moves,m.over)}
 $('resign').onclick=()=>{if(!online()||G.over)return;if(!confirm('Resign this game?'))return;NET.link.send({t:'resign'});G.over={result:G.human==='w'?-1:1,why:'You resigned'};render();setTimeout(showEnd,300)};
 syncCtl();
+if(joinCode)NET.join=joinCode;
 const saved=store.get('parlor-chess-game',null);
 if(saved&&Array.isArray(saved.moves)&&saved.mode===cfg.mode){newGame(saved)}else newGame();
 </script>
