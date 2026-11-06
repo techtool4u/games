@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Billiards 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* A three.js table seen from behind the cue ball, or from above. Layout: header with opponent, strength and new game; the connection bar for online play; a status line; the two players with their groups; the table (standing upright on a phone held upright, lying flat otherwise); the power bar with fine-aim buttons; rules below. Held sideways on a phone, the table sits on the left and everything else scrolls on the right. */
+:root{
+  --bg:#eef1ec; --fg:#1d2420; --muted:#66716a; --panel:#ffffff; --line:#d8ded8; --chip:#e7ece7; --accent:#1f7a4d; --accent-ink:#ffffff;
+  --display:"Bungee", "Arial Black", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#101512; --fg:#e7eee9; --muted:#9fb0a5; --panel:#18201b; --line:#2b362f; --chip:#202a23; --accent:#45c486; --accent-ink:#06140c; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#101512; --fg:#e7eee9; --muted:#9fb0a5; --panel:#18201b; --line:#2b362f; --chip:#202a23; --accent:#45c486; --accent-ink:#06140c; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1000px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.status{min-height:42px;font-size:14.5px;color:var(--muted)}
+.status b{color:var(--fg);margin-right:4px}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pl{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pl.cur{border-color:var(--accent)}
+.pl b{font-size:15px}.pl small{color:var(--muted);font-weight:700;font-size:12px}
+.bbs{display:flex;gap:2px;flex-wrap:wrap;min-height:18px}
+.bb{width:17px;height:17px;border-radius:50%;background:var(--c);font:800 8.5px/17px var(--body);text-align:center;font-style:normal;position:relative;overflow:hidden;box-shadow:inset 0 -2px 3px rgba(0,0,0,.3);isolation:isolate}
+.bb[data-s="1"]{background:linear-gradient(#fff 0 22%,var(--c) 22% 78%,#fff 78%)}
+.bb::before{content:"";position:absolute;inset:3.5px;border-radius:50%;background:#fff}
+.bb span{position:relative;color:#111}
+.bb.gone{opacity:.2}
+.table{position:relative;width:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.table canvas{display:block;width:100%;height:100%;cursor:grab;border-radius:14px;background:#0f1411}
+.viewbtn{position:absolute;right:8px;top:8px;border:0;border-radius:999px;padding:7px 12px;font:800 13px var(--body);background:rgba(15,20,17,.72);color:#fff;cursor:pointer;min-height:34px}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;color:#fff;margin:0}.nogl a{color:#8fe3b5}
+.shootbar{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
+.nudge{width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--panel);font:800 18px var(--body);cursor:pointer;touch-action:manipulation}
+.power{--p:0;position:relative;height:48px;border-radius:24px;background:var(--chip);border:1px solid var(--line);overflow:hidden;touch-action:none;cursor:ew-resize}
+.power::before{content:"";position:absolute;inset:0;width:calc(var(--p)*100%);background:linear-gradient(90deg,#3fbf6f,#f2c230 60%,#e0453a)}
+.power span{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:13px;white-space:nowrap;color:var(--fg);pointer-events:none;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+@media (max-width:520px){header{align-items:center}h1{font-size:30px}.controls select{min-height:36px;padding:6px 8px}.controls .btn{min-height:36px;padding:6px 12px}.pl{padding:4px 8px}.status{min-height:36px;font-size:13.5px}.wrap{gap:8px;padding-top:10px}}
+@media (max-width:400px){.controls{gap:4px}.controls select,.controls .btn{font-size:13.5px}.controls select{padding:6px 6px}.pl{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:baseline}.pl .bbs{grid-column:1/-1;min-height:0}.bbs:empty{display:none}}
+body:not(.my-turn) .shootbar{opacity:.45;pointer-events:none}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:none;display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,320px);column-gap:14px;padding-block:6px;align-items:start}
+  .wrap>*{grid-column:2}.wrap>.table{grid-column:1;grid-row:1/span 8}h1{font-size:24px}.wrap>.panel{max-height:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Billiards 3D</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div id="netbar" hidden></div>
+  <div class="players" id="players"></div>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="table" id="table"><canvas id="cv" aria-label="3D pool table. Drag sideways to turn your aim; drag the power bar and let go to shoot."></canvas><button class="viewbtn" id="view">Top view</button><p class="nogl" id="nogl" hidden>This device can't show 3D graphics. <a href="billiards.html">Play the 2D table instead.</a></p></div>
+  <div class="shootbar">
+    <button class="nudge" id="left" aria-label="Turn the aim a little left">◀</button>
+    <div class="power" id="power" role="slider" aria-label="Shot power: drag right, then let go to shoot" tabindex="0"><span>Drag right, let go to shoot</span></div>
+    <button class="nudge" id="right" aria-label="Turn the aim a little right">▶</button>
+  </div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>8-ball pool. Break the rack, then one player takes the solids (1–7) and the other the stripes (9–15), decided by the first ball potted after the break.</li>
+        <li><b>Aim</b> by dragging sideways on the table: the camera turns with your cue. The dotted line and ghost ball show where the cue ball will hit. ◀ ▶ fine-tune the aim. <b>Top view</b> looks straight down; there, the cue points where your finger is.</li>
+        <li><b>Shoot</b> by dragging the power bar to the right and letting go. Slide back to the left before letting go to cancel.</li>
+        <li>Pot one of your balls and you shoot again. Clear your group, then pot the 8 to win.</li>
+        <li>Fouls (the cue ball going in, hitting the other group or the 8 first, hitting nothing, or no ball reaching a cushion) give your opponent ball in hand: they can place the cue ball anywhere. After the break it goes behind the line.</li>
+        <li>Pot the 8 before your group is cleared, or on a foul, and you lose.</li>
+        <li>Online: one player hosts, the other joins with the game code. 2D and 3D tables can play each other.</li>
+        <li>When you have ball in hand, drag the cue ball (in Top view it's easiest) to place it.</li>
+        <li>Keyboard: arrows aim (Shift for bigger steps), hold Space to build power and let go to shoot.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
+<script src="three.min.js"></script>
+<script src="billiards-core.js"></script>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const P=Pool,cv=$('cv');let G=null,topView=false,ren=null;
+// table units -> world: x along the length, z across, y up; the table is centered on the origin
+const wx=x=>x-P.L/2,wz=y=>y-P.W/2;
+let shades=[],renderer,scene,camera,balls=[],cueStick,aimLine,ghostRing,dirLine,kitchenMesh,last=[],camPos=new THREE.Vector3(),camLook=new THREE.Vector3(),camReady=false;
+function ballTexture(n){const c=document.createElement('canvas');c.width=512;c.height=256;const g=c.getContext('2d'),col=P.COLORS[n];
+  g.fillStyle=n>8?'#f6f2e6':col;g.fillRect(0,0,512,256);if(n>8){g.fillStyle=col;g.fillRect(0,64,512,128)}
+  if(n>0)for(const u of [128,384]){g.fillStyle='#f8f5ec';g.beginPath();g.ellipse(u,128,46,58,0,0,7);g.fill();g.fillStyle='#151515';g.font=`800 ${n>9?54:64}px Nunito,Arial,sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(n,u,132)}
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;t.encoding=THREE.sRGBEncoding;return t}
+function feltTexture(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');g.fillStyle='#1f7a4c';g.fillRect(0,0,256,256);
+  for(let i=0;i<5000;i++){g.fillStyle=`rgba(${Math.random()<.5?'0,0,0':'255,255,255'},${Math.random()*.05})`;g.fillRect(Math.random()*256,Math.random()*256,1,1)}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(8,4);t.encoding=THREE.sRGBEncoding;return t}
+function woodTexture(){const c=document.createElement('canvas');c.width=512;c.height=64;const g=c.getContext('2d');const gr=g.createLinearGradient(0,0,0,64);gr.addColorStop(0,'#6e4020');gr.addColorStop(.5,'#5a3216');gr.addColorStop(1,'#6e4020');g.fillStyle=gr;g.fillRect(0,0,512,64);
+  for(let i=0;i<40;i++){g.strokeStyle=`rgba(30,12,2,${.08+Math.random()*.12})`;g.lineWidth=1+Math.random()*2;g.beginPath();const y=Math.random()*64;g.moveTo(0,y);for(let x=0;x<=512;x+=32)g.lineTo(x,y+Math.sin(x/40+i)*3);g.stroke()}
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t}
+function build(){
+  renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputEncoding=THREE.sRGBEncoding;
+  scene=new THREE.Scene();scene.background=new THREE.Color('#121815');scene.fog=new THREE.Fog('#121815',260,520);
+  camera=new THREE.PerspectiveCamera(42,1,1,1000);
+  scene.add(new THREE.HemisphereLight('#fff6e8','#2a1a10',0.55));
+  for(const x of [-55,55]){const l=new THREE.SpotLight('#fff3da',0.75,0,Math.PI/3.2,0.55,1);l.position.set(x,120,0);l.target.position.set(x*0.6,0,0);l.castShadow=true;l.shadow.mapSize.set(1024,1024);l.shadow.bias=-0.0004;l.shadow.camera.near=60;l.shadow.camera.far=200;scene.add(l,l.target)}
+  // lamp shades, just for looks
+  for(const x of [-55,55]){const shade=new THREE.Mesh(new THREE.ConeGeometry(16,9,24,1,true),new THREE.MeshStandardMaterial({color:'#1f5f3c',side:THREE.DoubleSide,roughness:.6}));shade.position.set(x,124,0);scene.add(shade);shades.push(shade)}
+  // floor
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:'#2a211b',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-62;floor.receiveShadow=true;scene.add(floor);
+  // felt
+  const felt=new THREE.Mesh(new THREE.PlaneGeometry(P.L+5.2,P.W+5.2),new THREE.MeshStandardMaterial({map:feltTexture(),roughness:.95}));felt.rotation.x=-Math.PI/2;felt.receiveShadow=true;scene.add(felt);
+  const head=new THREE.Mesh(new THREE.PlaneGeometry(.35,P.W),new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.12}));head.rotation.x=-Math.PI/2;head.position.set(wx(P.HEAD),.02,0);scene.add(head);
+  kitchenMesh=new THREE.Mesh(new THREE.PlaneGeometry(P.HEAD,P.W),new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.05}));kitchenMesh.rotation.x=-Math.PI/2;kitchenMesh.position.set(wx(P.HEAD/2),.03,0);scene.add(kitchenMesh);
+  // cushions: a wedge along each rail between the pocket mouths
+  const cushMat=new THREE.MeshStandardMaterial({color:'#185c39',roughness:.85,side:THREE.DoubleSide});
+  // built straight from the same corner points the physics uses: nose on the cushion line, back angled toward the pockets
+  const CH=R3*1.35;
+  for(const [x1,y1,x2,y2] of P.RAILS){const d=2.6,j=1.4;let pts;
+    if(y1===y2){const o=y1===0?-d:d;pts=[[x1,y1],[x2,y1],[x2+j,y1+o],[x1-j,y1+o]]}else{const o=x1===0?-d:d;pts=[[x1,y1],[x1,y2],[x1+o,y2+j],[x1+o,y1-j]]}
+    const sh=new THREE.Shape(pts.map(([x,y])=>new THREE.Vector2(wx(x),wz(y))));const geo=new THREE.ExtrudeGeometry(sh,{depth:CH,bevelEnabled:false});
+    geo.rotateX(Math.PI/2);geo.translate(0,CH,0);const m=new THREE.Mesh(geo,cushMat);m.castShadow=m.receiveShadow=true;scene.add(m)}
+  // wooden frame
+  const woodMat=new THREE.MeshStandardMaterial({map:woodTexture(),roughness:.55,metalness:.05}),F=9,H=R3*1.6;
+  const add=(w,d,x,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,H+6,d),woodMat);m.position.set(x,H/2-3,z);m.castShadow=m.receiveShadow=true;scene.add(m)};
+  add(P.L+F*2,F-2.6,0,-(P.W/2+2.6+(F-2.6)/2));add(P.L+F*2,F-2.6,0,P.W/2+2.6+(F-2.6)/2);add(F-2.6,P.W+5.2,-(P.L/2+2.6+(F-2.6)/2),0);add(F-2.6,P.W+5.2,P.L/2+2.6+(F-2.6)/2,0);
+  const base=new THREE.Mesh(new THREE.BoxGeometry(P.L+F*2-4,56,P.W+F*2-4),new THREE.MeshStandardMaterial({color:'#3e2412',roughness:.7}));base.position.y=-31;base.castShadow=true;scene.add(base);
+  // diamonds
+  const dm=new THREE.MeshStandardMaterial({color:'#f3e6c8',roughness:.3});
+  for(let i=1;i<8;i++)if(i!==4)for(const z of [-1,1]){const d=new THREE.Mesh(new THREE.SphereGeometry(.55,8,6),dm);d.scale.y=.3;d.position.set(wx(P.L*i/8),H+.1,z*(P.W/2+5.8));scene.add(d)}
+  for(let i=1;i<4;i++)for(const x of [-1,1]){const d=new THREE.Mesh(new THREE.SphereGeometry(.55,8,6),dm);d.scale.y=.3;d.position.set(x*(P.L/2+5.8),H+.1,wz(P.W*i/4));scene.add(d)}
+  // pockets: dark holes cut into the frame with a leather lip
+  const hole=new THREE.MeshBasicMaterial({color:'#050505'}),lip=new THREE.MeshStandardMaterial({color:'#2b1a10',roughness:.5});
+  for(const pk of P.POCKETS){const h=new THREE.Mesh(new THREE.CircleGeometry(pk.r+.4,32),hole);h.rotation.x=-Math.PI/2;h.position.set(wx(pk.x),.05,wz(pk.y));scene.add(h);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(pk.r+.3,.45,8,32),lip);ring.rotation.x=-Math.PI/2;ring.position.set(wx(pk.x),H-.3,wz(pk.y));scene.add(ring);
+    const cyl=new THREE.Mesh(new THREE.CylinderGeometry(pk.r+.4,pk.r+.4,H+.4,24,1,true),hole);cyl.position.set(wx(pk.x),H/2,wz(pk.y));scene.add(cyl)}
+  // balls
+  const geo=new THREE.SphereGeometry(P.R,40,28);
+  for(let n=0;n<16;n++){const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({map:ballTexture(n),roughness:.18,metalness:.02}));m.castShadow=true;m.rotation.set(Math.random()*6,Math.random()*6,Math.random()*6);scene.add(m);balls.push(m)}
+  // cue stick: a tapered shaft with a tip and a dark butt
+  cueStick=new THREE.Group();const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.42,1.05,92,16),new THREE.MeshStandardMaterial({color:'#d8b27a',roughness:.4}));shaft.rotation.z=Math.PI/2;shaft.position.x=-46;cueStick.add(shaft);
+  const butt=new THREE.Mesh(new THREE.CylinderGeometry(1.0,1.12,26,16),new THREE.MeshStandardMaterial({color:'#2b1a10',roughness:.35}));butt.rotation.z=Math.PI/2;butt.position.x=-79;cueStick.add(butt);
+  const tip=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.9,12),new THREE.MeshStandardMaterial({color:'#2a6fb0',roughness:.8}));tip.rotation.z=Math.PI/2;tip.position.x=.45;cueStick.add(tip);
+  cueStick.traverse(o=>{if(o.isMesh)o.castShadow=true});scene.add(cueStick);
+  // aim guide
+  aimLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(1,0,0)]),new THREE.LineDashedMaterial({color:'#ffffff',dashSize:1.2,gapSize:1.2,transparent:true,opacity:.75}));scene.add(aimLine);
+  dirLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(1,0,0)]),new THREE.LineBasicMaterial({color:'#ffffff',transparent:true,opacity:.6}));scene.add(dirLine);
+  ghostRing=new THREE.Mesh(new THREE.TorusGeometry(P.R,.12,6,32),new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.8}));ghostRing.rotation.x=-Math.PI/2;scene.add(ghostRing)}
+const R3=P.R;
+function layout(){const box=$('table').getBoundingClientRect(),side=matchMedia('(max-height:520px) and (orientation:landscape)').matches;
+  const w=box.width,maxH=side?innerHeight-16:Math.max(260,innerHeight-($('table').getBoundingClientRect().top+scrollY)-$('table').nextElementSibling.offsetHeight-22);
+  const h=Math.min(maxH,Math.max(240,w*(innerWidth<innerHeight?1.6:0.56)));$('table').style.height=h+'px';
+  if(renderer){renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}}
+const v3=(x,y,h)=>new THREE.Vector3(wx(x),h,wz(y));
+function draw(g){G=g;if(!renderer)return;const tpos=$('table').getBoundingClientRect().top+scrollY;if(ren==null||Math.abs(tpos-ren)>1){ren=tpos;layout()}}
+// the animation loop: move the meshes to the simulation, roll them, place the camera
+function frame(){requestAnimationFrame(frame);if(!G||!renderer)return;const S=G.S;
+  S.balls.forEach((b,i)=>{const m=balls[b.n];m.visible=b.on;if(!b.on){last[b.n]=null;return}const p=last[b.n];
+    if(p){const dx=b.x-p.x,dy=b.y-p.y,d=Math.sqrt(dx*dx+dy*dy);if(d>1e-4&&d<20){const ax=new THREE.Vector3(dy,0,-dx).normalize();m.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(ax,d/P.R))}}
+    last[b.n]={x:b.x,y:b.y};m.position.set(wx(b.x),P.R,wz(b.y))});
+  const cue=S.balls[0],aiming=!G.anim&&!S.over&&cue.on&&(G.myTurn||G.peerAim||S.busy);
+  const gh=G.ghost(),ang=Math.atan2(gh.uy,gh.ux);
+  cueStick.visible=aimLine.visible=ghostRing.visible=aiming;dirLine.visible=aiming&&!!(gh.ball&&gh.dir);kitchenMesh.visible=S.inHand==='kitchen'&&G.myTurn;
+  if(aiming){const pw=+getComputedStyle($('power')).getPropertyValue('--p')||0;cueStick.position.set(wx(cue.x),P.R+.6,wz(cue.y));cueStick.rotation.set(0,-ang,0.06);cueStick.children.forEach(c=>{});cueStick.translateX(-(P.R+1.2+pw*18));
+    aimLine.geometry.setFromPoints([v3(cue.x,cue.y,.12),v3(gh.x,gh.y,.12)]);aimLine.computeLineDistances();ghostRing.position.copy(v3(gh.x,gh.y,.15));
+    if(gh.ball&&gh.dir){dirLine.geometry.setFromPoints([v3(gh.ball.x,gh.ball.y,.12),v3(gh.ball.x+gh.dir.x*14,gh.ball.y+gh.dir.y*14,.12)])}}
+  // camera: behind the cue ball while aiming, pulled back over the table while balls roll, or straight down in top view
+  let want,look;const tall=cv.clientHeight>cv.clientWidth*1.05;
+  const overview=G.anim||S.over||!cue.on;shades.forEach(m=>m.visible=!(topView||(overview&&tall)));
+  if(topView||(overview&&tall)){// high enough that the whole table, frame included, fits the screen
+    const a=camera.aspect,t=Math.tan(camera.fov*Math.PI/360),hl=P.L/2+11,hw=P.W/2+11,need=tall?Math.max(hl,hw/a):Math.max(hw,hl/a);want=new THREE.Vector3(0,need/t+8,0.01);look=new THREE.Vector3(0,0,0);camera.up.set(tall?1:0,0,tall?0:-1)}
+  else{camera.up.set(0,1,0);if(overview){want=new THREE.Vector3(wx(-78),132,0);look=new THREE.Vector3(14,0,0)}
+    else{const ux=Math.cos(ang),uz=Math.sin(ang),dist=tall?62:46;want=new THREE.Vector3(wx(cue.x)-ux*dist,tall?30:21,wz(cue.y)-uz*dist);look=new THREE.Vector3(wx(cue.x)+ux*28,0,wz(cue.y)+uz*28)}}
+  if(!camReady){camPos.copy(want);camLook.copy(look);camReady=true}const k=G.anim?0.07:0.18;camPos.lerp(want,k);camLook.lerp(look,k);camera.position.copy(camPos);camera.lookAt(camLook);
+  renderer.render(scene,camera)}
+/* ---------- input ---------- */
+const ray=new THREE.Raycaster(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),-P.R);
+function toTable(e){const r=cv.getBoundingClientRect();ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1),camera);const p=new THREE.Vector3();if(!ray.ray.intersectPlane(plane,p))return null;return{x:p.x+P.L/2,y:p.z+P.W/2}}
+let drag=null;
+cv.addEventListener('pointerdown',e=>{if(!G||!G.myTurn)return;const p=toTable(e),c=G.S.balls[0];
+  drag={id:e.pointerId,x:e.clientX,mode:G.S.inHand&&p&&Math.hypot(p.x-c.x,p.y-c.y)<P.R*3.5?'place':topView?'point':'turn'};try{cv.setPointerCapture(e.pointerId)}catch(x){}cv.style.cursor='grabbing';if(drag.mode!=='turn')move(e)});
+cv.addEventListener('pointermove',e=>{if(drag&&e.pointerId===drag.id)move(e)});
+const endDrag=e=>{if(drag&&e.pointerId===drag.id){drag=null;cv.style.cursor='grab'}};cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+function move(e){if(drag.mode==='turn'){const dx=e.clientX-drag.x;drag.x=e.clientX;G.nudge(dx*0.0045);return}const p=toTable(e);if(!p)return;if(drag.mode==='place')G.placeCue(p.x,p.y);else G.aimAt(p.x,p.y)}
+$('view').onclick=()=>{topView=!topView;$('view').textContent=topView?'Player view':'Top view'};
+const pw=$('power');let pdrag=null;
+pw.addEventListener('pointerdown',e=>{if(!G||!G.myTurn)return;pdrag={id:e.pointerId,x:e.clientX};try{pw.setPointerCapture(e.pointerId)}catch(x){}});
+pw.addEventListener('pointermove',e=>{if(!pdrag||e.pointerId!==pdrag.id)return;const r=pw.getBoundingClientRect();G.setPower((e.clientX-pdrag.x)/(r.width*0.8))});
+const release=e=>{if(!pdrag||e.pointerId!==pdrag.id)return;pdrag=null;if(!G.shoot())G.setPower(0)};pw.addEventListener('pointerup',release);pw.addEventListener('pointercancel',()=>{pdrag=null;G.setPower(0)});
+function hold(btn,dir){let t=0,n=0;const go=()=>{G.nudge(dir*(n++<6?0.0025:0.012));t=setTimeout(go,n<2?260:60)};
+  btn.addEventListener('pointerdown',e=>{e.preventDefault();n=0;go()});['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(t)))}
+hold($('left'),-1);hold($('right'),1);
+let spaceT=0;
+document.addEventListener('keydown',e=>{if(!G||e.target.closest('select,input'))return;const big=e.shiftKey?0.03:0.004;
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();G.nudge(-big)}else if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();G.nudge(big)}
+  else if(e.key==='t'||e.key==='T')$('view').click();
+  else if(e.key===' '&&!e.repeat&&G.myTurn){e.preventDefault();const t0=performance.now();clearInterval(spaceT);spaceT=setInterval(()=>G.setPower(Math.min(1,(performance.now()-t0)/1400)),30)}});
+document.addEventListener('keyup',e=>{if(e.key===' '&&spaceT){clearInterval(spaceT);spaceT=0;if(!G.shoot())G.setPower(0)}});
+try{if(!window.THREE)throw 0;build()}catch(e){renderer=null;$('nogl').hidden=false;$('view').hidden=true}
+layout();
+const game=Pool.app({game:'Billiards',renderer:{draw,resize:layout}});
+const relayout=()=>{layout();game.render()};relayout();if(document.fonts)document.fonts.ready.then(relayout);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

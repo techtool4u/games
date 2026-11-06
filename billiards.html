@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Billiards</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with opponent, strength and new game; the connection bar for online play; a status line; the two players with their groups; the table (standing upright on a phone held upright, lying flat otherwise); the power bar with fine-aim buttons; rules below. Held sideways on a phone, the table sits on the left and everything else scrolls on the right. */
+:root{
+  --bg:#eef1ec; --fg:#1d2420; --muted:#66716a; --panel:#ffffff; --line:#d8ded8; --chip:#e7ece7; --accent:#1f7a4d; --accent-ink:#ffffff;
+  --display:"Bungee", "Arial Black", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#101512; --fg:#e7eee9; --muted:#9fb0a5; --panel:#18201b; --line:#2b362f; --chip:#202a23; --accent:#45c486; --accent-ink:#06140c; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#101512; --fg:#e7eee9; --muted:#9fb0a5; --panel:#18201b; --line:#2b362f; --chip:#202a23; --accent:#45c486; --accent-ink:#06140c; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1000px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.status{min-height:42px;font-size:14.5px;color:var(--muted)}
+.status b{color:var(--fg);margin-right:4px}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pl{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pl.cur{border-color:var(--accent)}
+.pl b{font-size:15px}.pl small{color:var(--muted);font-weight:700;font-size:12px}
+.bbs{display:flex;gap:2px;flex-wrap:wrap;min-height:18px}
+.bb{width:17px;height:17px;border-radius:50%;background:var(--c);font:800 8.5px/17px var(--body);text-align:center;font-style:normal;position:relative;overflow:hidden;box-shadow:inset 0 -2px 3px rgba(0,0,0,.3);isolation:isolate}
+.bb[data-s="1"]{background:linear-gradient(#fff 0 22%,var(--c) 22% 78%,#fff 78%)}
+.bb::before{content:"";position:absolute;inset:3.5px;border-radius:50%;background:#fff}
+.bb span{position:relative;color:#111}
+.bb.gone{opacity:.2}
+.table{position:relative;width:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.table canvas{display:block;width:100%;height:100%;cursor:crosshair}
+.shootbar{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
+.nudge{width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--panel);font:800 18px var(--body);cursor:pointer;touch-action:manipulation}
+.power{--p:0;position:relative;height:48px;border-radius:24px;background:var(--chip);border:1px solid var(--line);overflow:hidden;touch-action:none;cursor:ew-resize}
+.power::before{content:"";position:absolute;inset:0;width:calc(var(--p)*100%);background:linear-gradient(90deg,#3fbf6f,#f2c230 60%,#e0453a)}
+.power span{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:13px;white-space:nowrap;color:var(--fg);pointer-events:none;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+@media (max-width:520px){header{align-items:center}h1{font-size:30px}.controls select{min-height:36px;padding:6px 8px}.controls .btn{min-height:36px;padding:6px 12px}.pl{padding:4px 8px}.status{min-height:36px;font-size:13.5px}.wrap{gap:8px;padding-top:10px}}
+@media (max-width:400px){.controls{gap:4px}.controls select,.controls .btn{font-size:13.5px}.controls select{padding:6px 6px}.pl{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:baseline}.pl .bbs{grid-column:1/-1;min-height:0}.bbs:empty{display:none}}
+body:not(.my-turn) .shootbar{opacity:.45;pointer-events:none}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:none;display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,320px);column-gap:14px;padding-block:6px;align-items:start}
+  .wrap>*{grid-column:2}.wrap>.table{grid-column:1;grid-row:1/span 8}h1{font-size:24px}.wrap>.panel{max-height:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Billiards</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div id="netbar" hidden></div>
+  <div class="players" id="players"></div>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="table" id="table"><canvas id="cv" aria-label="Pool table. Drag to aim; drag the power bar and let go to shoot."></canvas></div>
+  <div class="shootbar">
+    <button class="nudge" id="left" aria-label="Turn the aim a little left">◀</button>
+    <div class="power" id="power" role="slider" aria-label="Shot power: drag right, then let go to shoot" tabindex="0"><span>Drag right, let go to shoot</span></div>
+    <button class="nudge" id="right" aria-label="Turn the aim a little right">▶</button>
+  </div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>8-ball pool. Break the rack, then one player takes the solids (1–7) and the other the stripes (9–15), decided by the first ball potted after the break.</li>
+        <li><b>Aim</b> by dragging on the table: the cue points where your finger is. The dotted line and ghost ball show where the cue ball will hit. ◀ ▶ fine-tune the aim.</li>
+        <li><b>Shoot</b> by dragging the power bar to the right and letting go. Slide back to the left before letting go to cancel.</li>
+        <li>Pot one of your balls and you shoot again. Clear your group, then pot the 8 to win.</li>
+        <li>Fouls (the cue ball going in, hitting the other group or the 8 first, hitting nothing, or no ball reaching a cushion) give your opponent ball in hand: they can place the cue ball anywhere. After the break it goes behind the line.</li>
+        <li>Pot the 8 before your group is cleared, or on a foul, and you lose.</li>
+        <li>Online: one player hosts, the other joins with the game code. 2D and 3D tables can play each other.</li>
+        <li>Keyboard: arrows aim (Shift for bigger steps), hold Space to build power and let go to shoot.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
+<script src="billiards-core.js"></script>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const cv=$('cv'),cx=cv.getContext('2d');let G=null,view=null;
+const P=Pool,FR=9;// rail width around the playing surface, in table units
+// The table lies flat when there's room; on a phone held upright it stands up (head of the table at the bottom).
+function layout(){const box=$('table').getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,3);
+  const tall=innerWidth<innerHeight&&box.width<640;const tw=(tall?P.W:P.L)+FR*2,th=(tall?P.L:P.W)+FR*2;
+  let w=box.width,h=w*th/tw;const side=matchMedia('(max-height:520px) and (orientation:landscape)').matches;
+  // leave room for the power bar underneath, so the whole game fits on the screen without scrolling
+  const maxH=side?innerHeight-16:Math.max(260,innerHeight-($('table').getBoundingClientRect().top+scrollY)-$('table').nextElementSibling.offsetHeight-22);
+  if(h>maxH){h=maxH;w=h*tw/th}$('table').style.height=h+'px';cv.style.width=w+'px';cv.style.height=h+'px';cv.style.margin='0 auto';
+  cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);view={tall,k:w*dpr/tw,dpr}}
+// table units -> canvas pixels, and back for the pointer
+const tx=(x,y)=>view.tall?[(FR+y)*view.k,(FR+P.L-x)*view.k]:[(FR+x)*view.k,(FR+y)*view.k];
+function fromScreen(e){const r=cv.getBoundingClientRect(),sx=(e.clientX-r.left)*view.dpr/view.k-FR,sy=(e.clientY-r.top)*view.dpr/view.k-FR;return view.tall?{x:P.L-sy,y:sx}:{x:sx,y:sy}}
+function draw(g){G=g;// if something above the table changed height, fit the table again
+  const top=$('table').getBoundingClientRect().top+scrollY;if(!view||view.top==null||Math.abs(top-view.top)>1){layout();view.top=top}const S=g.S,k=view.k;cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,cv.width,cv.height);
+  // switch to table units with the right rotation
+  if(view.tall)cx.setTransform(0,-k,k,0,FR*k,(FR+P.L)*k);else cx.setTransform(k,0,0,k,FR*k,FR*k);
+  // wooden frame
+  const wood=cx.createLinearGradient(0,-FR,0,P.W+FR);wood.addColorStop(0,'#7a4a24');wood.addColorStop(.5,'#5e3517');wood.addColorStop(1,'#7a4a24');
+  cx.fillStyle=wood;rr(-FR,-FR,P.L+FR*2,P.W+FR*2,4);cx.fill();cx.strokeStyle='rgba(255,220,170,.25)';cx.lineWidth=.4;rr(-FR+.8,-FR+.8,P.L+FR*2-1.6,P.W+FR*2-1.6,3.4);cx.stroke();
+  // felt
+  const felt=cx.createRadialGradient(P.L/2,P.W/2,10,P.L/2,P.W/2,P.L*.62);felt.addColorStop(0,'#2a8f5a');felt.addColorStop(1,'#1c6b42');cx.fillStyle=felt;cx.fillRect(-2.6,-2.6,P.L+5.2,P.W+5.2);
+  // cushions: the nose runs between the pocket mouths, the back angles in toward each pocket
+  for(const [x1,y1,x2,y2] of P.RAILS){let pts;const d=2.6,j=1.4;
+    if(y1===y2){const o=y1===0?-d:d;pts=[[x1,y1],[x2,y1],[x2+j,y1+o],[x1-j,y1+o]]}else{const o=x1===0?-d:d;pts=[[x1,y1],[x1,y2],[x1+o,y2+j],[x1+o,y1-j]]}
+    cx.fillStyle='#165536';cx.beginPath();pts.forEach(([x,y],i)=>i?cx.lineTo(x,y):cx.moveTo(x,y));cx.closePath();cx.fill();
+    cx.strokeStyle='rgba(120,220,160,.28)';cx.lineWidth=.3;cx.beginPath();cx.moveTo(...pts[0]);cx.lineTo(...pts[1]);cx.stroke()}
+  // diamonds
+  cx.fillStyle='#f3e6c8';for(let i=1;i<8;i++){if(i===4)continue;dia(P.L*i/8,-FR/2-1.3);dia(P.L*i/8,P.W+FR/2+1.3)}for(let i=1;i<4;i++){dia(-FR/2-1.3,P.W*i/4);dia(P.L+FR/2+1.3,P.W*i/4)}
+  // pockets
+  for(const pk of P.POCKETS){const gr=cx.createRadialGradient(pk.x,pk.y,.5,pk.x,pk.y,pk.r+.6);gr.addColorStop(0,'#000');gr.addColorStop(.8,'#111');gr.addColorStop(1,'#3a2414');cx.fillStyle=gr;cx.beginPath();cx.arc(pk.x,pk.y,pk.r+.4,0,7);cx.fill()}
+  // head string and foot spot
+  cx.strokeStyle='rgba(255,255,255,.14)';cx.lineWidth=.35;cx.beginPath();cx.moveTo(P.HEAD,0);cx.lineTo(P.HEAD,P.W);cx.stroke();cx.fillStyle='rgba(255,255,255,.25)';cx.beginPath();cx.arc(P.FOOT.x,P.FOOT.y,.6,0,7);cx.fill();
+  if(S.inHand==='kitchen'&&g.myTurn){cx.fillStyle='rgba(255,255,255,.05)';cx.fillRect(0,0,P.HEAD,P.W)}
+  // balls: shadows first, then the balls
+  for(const b of S.balls)if(b.on){cx.fillStyle='rgba(0,0,0,.28)';cx.beginPath();cx.ellipse(b.x+.55,b.y+.75,P.R*1.02,P.R*.92,0,0,7);cx.fill()}
+  for(const b of S.balls)if(b.on)ball(b.n,b.x,b.y);
+  // aim guide, ghost ball and cue
+  const cue=S.balls[0],aiming=!g.anim&&!S.over&&cue.on&&(g.myTurn||g.peerAim||S.busy);
+  if(aiming){const gh=g.ghost();cx.setLineDash([1.2,1.2]);cx.strokeStyle='rgba(255,255,255,.7)';cx.lineWidth=.35;cx.beginPath();cx.moveTo(cue.x,cue.y);cx.lineTo(gh.x,gh.y);cx.stroke();cx.setLineDash([]);
+    cx.strokeStyle='rgba(255,255,255,.8)';cx.lineWidth=.3;cx.beginPath();cx.arc(gh.x,gh.y,P.R,0,7);cx.stroke();
+    if(gh.ball&&gh.dir){cx.strokeStyle='rgba(255,255,255,.55)';cx.lineWidth=.35;cx.beginPath();cx.moveTo(gh.ball.x,gh.ball.y);cx.lineTo(gh.ball.x+gh.dir.x*14,gh.ball.y+gh.dir.y*14);cx.stroke();
+      const legal=P.targets(S,S.turn).includes(gh.ball.n);if(!legal){cx.strokeStyle='#ff6b6b';cx.lineWidth=.45;cx.beginPath();cx.arc(gh.ball.x,gh.ball.y,P.R+.7,0,7);cx.stroke()}}
+    const pw=+getComputedStyle($('power')).getPropertyValue('--p')||0,back=P.R+1.2+pw*18;
+    cx.save();cx.translate(cue.x,cue.y);cx.rotate(Math.atan2(gh.uy,gh.ux));const cg=cx.createLinearGradient(0,-.7,0,.7);cg.addColorStop(0,'#f0d7a8');cg.addColorStop(.5,'#c99a5b');cg.addColorStop(1,'#8a5a2b');
+    cx.fillStyle='rgba(0,0,0,.25)';cx.beginPath();cx.moveTo(-back+.6,.9);cx.lineTo(-back-90+.6,2.0);cx.lineTo(-back-90+.6,-.0);cx.lineTo(-back+.6,.3);cx.fill();
+    cx.fillStyle=cg;cx.beginPath();cx.moveTo(-back,-.45);cx.lineTo(-back-90,-1.1);cx.lineTo(-back-90,1.1);cx.lineTo(-back,.45);cx.closePath();cx.fill();
+    cx.fillStyle='#2a6fb0';cx.fillRect(-back-.9,-.47,.9,.94);cx.fillStyle='#f4f1ea';cx.fillRect(-back-1.6,-.5,.7,1);cx.fillStyle='#3a2414';cx.fillRect(-back-90,-1.1,22,2.2);cx.restore()}
+  if(S.inHand&&g.myTurn&&cue.on){cx.strokeStyle='rgba(255,255,255,.85)';cx.setLineDash([.8,.8]);cx.lineWidth=.35;cx.beginPath();cx.arc(cue.x,cue.y,P.R+1.6,0,7);cx.stroke();cx.setLineDash([])}}
+function rr(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.arcTo(x+w,y,x+w,y+h,r);cx.arcTo(x+w,y+h,x,y+h,r);cx.arcTo(x,y+h,x,y,r);cx.arcTo(x,y,x+w,y,r);cx.closePath()}
+function dia(x,y){cx.beginPath();cx.moveTo(x,y-.9);cx.lineTo(x+.6,y);cx.lineTo(x,y+.9);cx.lineTo(x-.6,y);cx.closePath();cx.fill()}
+function ball(n,x,y){const r=P.R,col=P.COLORS[n];cx.save();cx.beginPath();cx.arc(x,y,r,0,7);cx.clip();
+  if(n>8){cx.fillStyle='#f6f2e6';cx.fillRect(x-r,y-r,2*r,2*r);cx.fillStyle=col;cx.fillRect(x-r,y-r*.55,2*r,r*1.1)}else{cx.fillStyle=col;cx.fillRect(x-r,y-r,2*r,2*r)}
+  if(n>0){cx.fillStyle='#f8f5ec';cx.beginPath();cx.arc(x,y,r*.5,0,7);cx.fill();cx.fillStyle='#151515';cx.font=`800 ${r*(n>9?.52:.62)}px Nunito,sans-serif`;cx.textAlign='center';cx.textBaseline='middle';
+    if(view.tall){cx.save();cx.translate(x,y+.05);cx.rotate(Math.PI/2);cx.fillText(n,0,0);cx.restore()}else cx.fillText(n,x,y+.05)}
+  const sh=cx.createRadialGradient(x-r*.4,y-r*.45,r*.05,x,y,r*1.05);sh.addColorStop(0,'rgba(255,255,255,.75)');sh.addColorStop(.25,'rgba(255,255,255,.1)');sh.addColorStop(.7,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(0,0,0,.35)');
+  cx.fillStyle=sh;cx.fillRect(x-r,y-r,2*r,2*r);cx.restore()}
+
+/* ---------- input ---------- */
+let drag=null;
+cv.addEventListener('pointerdown',e=>{if(!G||!G.myTurn)return;const p=fromScreen(e),c=G.S.balls[0];
+  drag={mode:G.S.inHand&&Math.hypot(p.x-c.x,p.y-c.y)<P.R*3.2?'place':'aim',id:e.pointerId};try{cv.setPointerCapture(e.pointerId)}catch(x){}move(e)});
+cv.addEventListener('pointermove',e=>{if(drag&&e.pointerId===drag.id)move(e)});
+const endDrag=e=>{if(drag&&e.pointerId===drag.id)drag=null};cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+function move(e){const p=fromScreen(e);if(drag.mode==='place')G.placeCue(p.x,p.y);else G.aimAt(p.x,p.y)}
+// power bar: drag to the right to pull the cue back, let go to shoot
+const pw=$('power');let pdrag=null;
+pw.addEventListener('pointerdown',e=>{if(!G||!G.myTurn)return;pdrag={id:e.pointerId,x:e.clientX};try{pw.setPointerCapture(e.pointerId)}catch(x){}});
+pw.addEventListener('pointermove',e=>{if(!pdrag||e.pointerId!==pdrag.id)return;const r=pw.getBoundingClientRect();G.setPower((e.clientX-pdrag.x)/(r.width*0.8))});
+const release=e=>{if(!pdrag||e.pointerId!==pdrag.id)return;pdrag=null;if(!G.shoot())G.setPower(0)};pw.addEventListener('pointerup',release);pw.addEventListener('pointercancel',e=>{pdrag=null;G.setPower(0)});
+// fine aim: tap for a small turn, hold to keep turning
+function hold(btn,dir){let t=0,n=0;const go=()=>{G.nudge(dir*(n++<6?0.0025:0.012));t=setTimeout(go,n<2?260:60)};
+  btn.addEventListener('pointerdown',e=>{e.preventDefault();n=0;go()});['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(t)))}
+hold($('left'),-1);hold($('right'),1);
+let spaceT=0;
+document.addEventListener('keydown',e=>{if(!G||e.target.closest('select,input'))return;const big=e.shiftKey?0.03:0.004;
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();G.nudge(-big)}else if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();G.nudge(big)}
+  else if(e.key===' '&&!e.repeat&&G.myTurn){e.preventDefault();const t0=performance.now();clearInterval(spaceT);spaceT=setInterval(()=>G.setPower(Math.min(1,(performance.now()-t0)/1400)),30)}});
+document.addEventListener('keyup',e=>{if(e.key===' '&&spaceT){clearInterval(spaceT);spaceT=0;if(!G.shoot())G.setPower(0)}});
+layout();
+const game=Pool.app({game:'Billiards',renderer:{draw,resize:layout}});
+// measure again once the players and status are in place, and after the fonts arrive
+const relayout=()=>{layout();game.render()};relayout();if(document.fonts)document.fonts.ready.then(relayout);
+</script>
+</body>
+</html>
