@@ -51,7 +51,7 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
 .chart h2 small{font-family:var(--body);font-size:13px;color:var(--muted);letter-spacing:0}
 .chart.mine{max-width:100%}
 @media (max-width:640px){.chart.mine{max-width:62%;justify-self:center}}
-.grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));aspect-ratio:1;background:linear-gradient(160deg,var(--sea),var(--sea-2));border-radius:10px;overflow:hidden;box-shadow:0 12px 24px -16px rgba(10,40,70,.7);touch-action:manipulation;user-select:none;-webkit-user-select:none;outline:none}
+.grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));grid-template-rows:repeat(10,minmax(0,1fr));aspect-ratio:1;background:linear-gradient(160deg,var(--sea),var(--sea-2));border-radius:10px;overflow:hidden;box-shadow:0 12px 24px -16px rgba(10,40,70,.7);touch-action:manipulation;user-select:none;-webkit-user-select:none;outline:none}
 .grid:focus-visible{box-shadow:0 0 0 4px var(--accent)}
 .cell{position:relative;border:0;padding:0;background:transparent;box-shadow:inset -1px -1px 0 var(--grid);min-width:0;min-height:0;display:grid;place-items:center}
 .target .cell{cursor:crosshair}

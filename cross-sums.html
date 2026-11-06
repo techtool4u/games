@@ -45,7 +45,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
 .modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
 .game{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:16px;align-items:start}
-.grid{display:grid;grid-template-columns:repeat(var(--w),1fr);gap:2px;background:var(--clue);padding:2px;border-radius:6px;width:min(100%,calc(100vh - 210px),560px);margin:0 auto;aspect-ratio:1;container-type:inline-size;user-select:none;-webkit-user-select:none}
+.grid{display:grid;grid-template-columns:repeat(var(--w),minmax(0,1fr));grid-template-rows:repeat(var(--w),minmax(0,1fr));gap:2px;background:var(--clue);padding:2px;border-radius:6px;width:min(100%,calc(100vh - 210px),560px);margin:0 auto;aspect-ratio:1;container-type:inline-size;user-select:none;-webkit-user-select:none}
 .k{position:relative;background:var(--clue);color:var(--clue-ink)}
 .k.c{background:linear-gradient(to top right,var(--clue) calc(50% - 1px),#6d675d 50%,var(--clue) calc(50% + 1px))}
 .k .dn,.k .ac{position:absolute;font-weight:800;font-size:calc(min(42cqw/var(--w),20px));line-height:1}
@@ -54,7 +54,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
 .w.run{background:var(--run)}.w.sel{background:var(--sel)}
 .w.bad{color:var(--bad)}
 .w.rev{color:#2c58c4}
-.w .notes{position:absolute;inset:6%;display:grid;grid-template-columns:repeat(3,1fr);font-size:calc(17cqw/var(--w));color:var(--note);font-weight:600;line-height:1;text-align:center;align-items:center}
+.w .notes{position:absolute;inset:6%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));font-size:calc(17cqw/var(--w));color:var(--note);font-weight:600;line-height:1;text-align:center;align-items:center}
 .k.ok .dn,.k.ok .ac{opacity:.55}
 .side{display:flex;flex-direction:column;gap:10px}
 .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}

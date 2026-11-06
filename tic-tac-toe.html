@@ -43,10 +43,10 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
 .score small{color:var(--muted);font-weight:700}
 .status{text-align:center;font-weight:800;min-height:24px}
 .board{position:relative;width:min(100%,calc(100dvh - 300px));min-width:min(100%,260px);aspect-ratio:1;align-self:center;background:var(--board);border-radius:18px;padding:4%;box-sizing:border-box;box-shadow:inset 0 0 0 8px #6b4a2b,0 18px 30px -18px rgba(0,0,0,.6)}
-.grid{position:relative;display:grid;grid-template-columns:repeat(3,1fr);width:100%;height:100%}
+.grid{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));width:100%;height:100%}
 .grid svg.lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .grid svg.lines path{fill:none;stroke:var(--chalk);stroke-width:2.2;stroke-linecap:round;opacity:.9}
-.cell{border:0;background:none;padding:12%;cursor:pointer;display:grid;place-items:center;position:relative}
+.cell{border:0;background:none;padding:12%;cursor:pointer;display:grid;place-items:center;position:relative;min-width:0;min-height:0}
 .cell:disabled{cursor:default}
 .cell svg{width:100%;height:100%;overflow:visible}
 .cell svg path,.cell svg circle{fill:none;stroke-width:9;stroke-linecap:round;stroke-dasharray:300;stroke-dashoffset:300;animation:draw .35s ease-out forwards}
