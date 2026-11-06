@@ -102,6 +102,10 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
 .netbar.off .dot{background:#c62b2b}
 .netbar span{flex:1;min-width:0}
 .netbar .btn{min-height:34px;padding:5px 12px}
+.netbar select{flex:0 1 210px;min-width:0;min-height:34px;padding-block:4px}
+.netbar.off span{flex:0 0 auto}
+.netbar .btn{margin-left:auto}
+@media (max-width:440px){.netbar select{order:9;flex-basis:100%}.netbar.off span{flex:1 1 auto}}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:30;max-width:calc(100vw - 32px);text-align:center}
 .modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:400px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
 .modal h2{font-family:var(--display);font-weight:900;font-size:32px;margin:0}
@@ -132,7 +136,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
     </div>
     <div class="controls">
       <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
-      <select id="conn" aria-label="How to connect"><option value="code">Connect with a game code</option><option value="direct">Connect with two codes</option></select>
+      <select id="conn" aria-label="How to connect"><option value="code">Use a game code</option><option value="direct">Use two codes</option></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option><option value="expert">Expert</option></select>
       <select id="color" aria-label="Your pieces"><option value="w">Play white</option><option value="b">Play black</option><option value="r">Random color</option></select>
       <button class="btn primary" id="newgame">New game</button>
@@ -368,6 +372,7 @@ function chessEngine(){
 /* ================= page ================= */
 const E=chessEngine();
 const $=id=>document.getElementById(id);
+const CONN=document.getElementById('conn');// the "how to connect" menu; it sits in the connection bar while not connected
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 const LEVELS={easy:{depth:1,noise:140,random:.22,book:false,label:'Easy'},medium:{depth:3,noise:35,random:0,book:true,label:'Medium'},hard:{depth:6,ms:1000,book:true,label:'Hard'},expert:{depth:64,ms:3000,book:true,label:'Expert'}};
 const cfg=Object.assign({mode:'cpu',level:'medium',color:'w',conn:'code'},store.get('parlor-chess',{}));
@@ -403,7 +408,7 @@ const NAME={w:'White',b:'Black'};
 const colorOf=s=>s>0?'w':'b';
 const isCpuTurn=()=>G&&cfg.mode==='cpu'&&colorOf(E.side)!==G.human&&!G.over;
 function newGame(fromSave){
-  if(cfg.mode==='net'&&!online()&&!fromSave){$('overlay').hidden=true;goOnline();return}
+  if(cfg.mode==='net'&&!online()&&!fromSave){$('overlay').hidden=true;try{render()}catch(e){}goOnline();return}
   if(online()&&NET.role==='guest'&&!fromSave){NET.link.send({t:'again'});toast('Asked the host for a new game.');return}
   $('overlay').hidden=true;reqId++;pending=false;hintMove=null;sel=-1;
   const human=fromSave?fromSave.human:online()?(NET.games++%2?'b':'w'):(cfg.color==='r'?(Math.random()<.5?'w':'b'):cfg.color);
@@ -481,8 +486,8 @@ function render(){if(!G)return;
   $('hint').disabled=!canMove();
   const net=cfg.mode==='net';$('undo').hidden=$('hint').hidden=net;$('resign').hidden=!net||!online()||!!G.over;
   const nb=$('netbar');nb.hidden=!net;if(net){nb.className='netbar'+(online()?'':' off');
-    nb.innerHTML=`<i class="dot"></i><span>${online()?(NET.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}</span>${online()?'<button class="btn" id="leave">Leave</button>':'<button class="btn primary" id="reconnect">Connect</button>'}`;
-    const lv=$('leave');if(lv)lv.onclick=leaveOnline;const rc=$('reconnect');if(rc)rc.onclick=goOnline}}
+    if(CONN.parentNode===nb)nb.removeChild(CONN);nb.innerHTML=`<i class="dot"></i><span>${online()?(NET.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}</span>${online()?'<button class="btn" id="leave">Leave</button>':'<button class="btn primary" id="reconnect">Connect</button>'}`;
+    nb.insertBefore(CONN,nb.lastElementChild);CONN.hidden=online();const lv=$('leave');if(lv)lv.onclick=leaveOnline;const rc=$('reconnect');if(rc)rc.onclick=goOnline}}
 const sqIdx=a=>(a.charCodeAt(0)-97)+(+a[1]-1)*16;
 function hintSan(){const m=E.fromUci(hintMove);return m?E.san(m):hintMove}
 
@@ -519,12 +524,12 @@ function doFlip(){flip=!flip;buildSquares();syncPieces();render()}
 $('undo').onclick=undo;$('flip').onclick=doFlip;
 $('hint').onclick=()=>{if(!canMove())return;ask({depth:64,ms:1200,book:true},'hint')};
 $('newgame').onclick=()=>newGame();
-function syncCtl(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('color').value=cfg.color;$('level').hidden=$('color').hidden=cfg.mode!=='cpu';$('conn').value=cfg.conn;$('conn').hidden=cfg.mode!=='net'||!!(NET.link&&NET.link.open)}
+function syncCtl(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('color').value=cfg.color;$('level').hidden=$('color').hidden=cfg.mode!=='cpu';CONN.value=cfg.conn;CONN.hidden=cfg.mode!=='net'||!!(NET.link&&NET.link.open)}
 function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-chess',cfg);syncCtl();if(restart)newGame();else{render();maybeCpu()}}
 $('mode').onchange=e=>setCfg('mode',e.target.value,true);
 $('level').onchange=e=>setCfg('level',e.target.value,false);
 $('color').onchange=e=>setCfg('color',e.target.value,true);
-$('conn').onchange=e=>{cfg.conn=e.target.value;store.set('parlor-chess',cfg);if(cfg.mode==='net'&&!online()){if(NET.ui)NET.ui.close();NET.ui=null;goOnline()}};
+CONN.onchange=e=>{cfg.conn=e.target.value;store.set('parlor-chess',cfg);if(cfg.mode==='net'&&!online()){if(NET.ui)NET.ui.close();NET.ui=null;goOnline()}};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('overlay').hidden&&!$('modal').querySelector('.promo'))$('overlay').hidden=true});
 if(!LEVELS[cfg.level])cfg.level='medium';if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';// online play always starts by pairing, never straight from a saved setting
 if(!['w','b','r'].includes(cfg.color))cfg.color='w';if(!['code','direct'].includes(cfg.conn))cfg.conn='code';

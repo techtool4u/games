@@ -154,6 +154,11 @@
 .p2p-bar.off>i{background:#c62b2b}
 .p2p-bar>span{flex:1;min-width:0;font-weight:700}
 .p2p-bar>button{font:inherit;font-weight:800;border-radius:999px;padding:5px 14px;min-height:36px;border:1px solid var(--line,#ddd);background:var(--chip,#f1f1f4);color:inherit;cursor:pointer}
+.p2p-bar.off>span{flex:0 0 auto}
+.p2p-bar>button{margin-left:auto}
+@media (max-width:440px){.p2p-bar>select{order:9;flex-basis:100%}.p2p-bar.off>span{flex:1 1 auto}}
+.p2p-bar>select{flex:0 1 210px;min-width:0;font:inherit;font-size:13.5px;min-height:36px;max-width:100%;padding:4px 8px;border-radius:999px;border:1px solid var(--line,#ddd);background:var(--bg,#fff);color:inherit}
+@media (max-height:520px){.p2p-bar{padding:4px 10px;gap:8px}.p2p-bar>button,.p2p-bar>select{min-height:32px;padding-block:3px}}
 .p2p-bar>button.pri{background:var(--accent,#2f6fd6);color:var(--accent-ink,#fff);border-color:var(--accent,#2f6fd6)}
 .p2p-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg,#222);color:var(--bg,#fff);padding:10px 16px;border-radius:999px;font:700 14px var(--body,system-ui,sans-serif);z-index:4900;max-width:calc(100vw - 32px);box-sizing:border-box;text-align:center}
 `;
@@ -335,12 +340,15 @@
       leave(){if(N.link){N.link.send({t:'__bye'});N.link.close()}N.link=null;N.render()},
       render(){const on=o.active(),live=N.online();
         if(o.conn)o.conn.hidden=!on||live;
-        if(!o.bar)return;o.bar.hidden=!on;if(!on)return;o.bar.className='p2p-bar'+(live?'':' off');
+        if(!o.bar)return;o.bar.hidden=!on;if(!on){if(o.conn&&o.conn.parentNode===o.bar)o.bar.removeChild(o.conn);return}o.bar.className='p2p-bar'+(live?'':' off');
+        if(o.conn&&o.conn.parentNode===o.bar)o.bar.removeChild(o.conn);
         o.bar.innerHTML=`<i></i><span>${live?(N.role==='host'?'Connected · you are hosting':'Connected to the host'):'Not connected'}</span>`+(live?'<button data-leave>Leave</button>':'<button class="pri" data-connect>Connect</button>');
+        // before connecting, the "how to connect" menu sits in the bar, next to Connect
+        if(o.conn){o.bar.insertBefore(o.conn,o.bar.lastChild);o.conn.hidden=live}
         const l=o.bar.querySelector('[data-leave]'),c=o.bar.querySelector('[data-connect]');
         if(l)l.onclick=()=>{N.leave();if(o.onLeave)o.onLeave()};if(c)c.onclick=()=>N.start()}};
     const drop=()=>{if(N.link)N.link.close();N.link=null;N.render();if(o.onDrop)o.onDrop()};
-    if(o.conn){o.conn.innerHTML='<option value="code">Connect with a game code</option><option value="direct">Connect with two codes</option>';o.conn.value=connPref();o.conn.setAttribute('aria-label','How to connect');
+    if(o.conn){o.conn.innerHTML='<option value="code">Use a game code</option><option value="direct">Use two codes</option>';o.conn.value=connPref();o.conn.setAttribute('aria-label','How to connect');
       o.conn.onchange=()=>{setConnPref(o.conn.value);if(o.active()&&!N.online()){if(N.ui){N.ui.close();N.ui=null}N.start()}}}
     return N}
   window.P2P={net,connPref,setConnPref,takeJoin,note,open,_compact:compact,_expand:expand};

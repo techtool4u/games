@@ -62,6 +62,9 @@ details summary{cursor:pointer;font-weight:800}
 details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
 .row{display:flex;gap:8px;justify-content:center}
 @media (max-height:520px) and (orientation:landscape){.wrap{max-width:900px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;padding-block:8px 12px}.board{grid-column:1;grid-row:1/7;width:calc(100dvh - 20px);min-width:0}h1{font-size:28px}}
+/* online: leave room for the connection bar so the board still fits on screen */
+.wrap:has(#netbar:not([hidden])) .board{width:min(100%,calc(100dvh - 360px))}
+@media (max-height:520px) and (orientation:landscape){.wrap:has(#netbar:not([hidden])) .board{width:calc(100dvh - 20px)}}
 @media (prefers-reduced-motion:reduce){.cell svg path,.cell svg circle,.strike line{animation:none;stroke-dashoffset:0}}
 </style>
 
