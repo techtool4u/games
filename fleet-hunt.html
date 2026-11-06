@@ -120,12 +120,14 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
       <p class="sub">Hide five ships on your chart, then take turns calling shots at the enemy's. Sink every ship in their fleet before they sink yours.</p>
     </div>
     <div class="controls">
-      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
       <button class="btn primary" id="newgame">New game</button>
     </div>
   </header>
 
+  <div id="netbar" hidden></div>
   <div class="game">
     <section class="chart" id="leftChart">
       <h2><span id="tTitle">Enemy waters</span><small id="tSub"></small></h2>
@@ -170,6 +172,8 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
 <div class="toast" id="toast" hidden></div>
 <div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
 
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 <script>
 /* ---------- model ---------- */
 // Squares are 0-99 (row * 10 + column). A ship is {name, len, at (bow square), dir 'h'|'v'}.
@@ -179,7 +183,8 @@ const rand=n=>Math.floor(Math.random()*n);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const cfg=Object.assign({mode:'cpu',level:'medium',bonus:false},store.get('parlor-fleet',{}));
 const wins={0:0,1:0};
-let S=null,cursor=44,kb=false,toastT=0;
+let S=null,cursor=44,kb=false,toastT=0,net=null,games=0;
+const online=()=>cfg.mode==='net'&&!!net&&net.online();
 
 const cells=s=>[...Array(s.len)].map((_,k)=>s.dir==='h'?s.at+k:s.at+k*N);
 const fits=s=>{const r=Math.floor(s.at/N),c=s.at%N;return s.dir==='h'?c+s.len<=N:r+s.len<=N};
@@ -226,13 +231,21 @@ const okStep=(c,d)=>{const n=c+d;if(n<0||n>=N*N)return false;if(Math.abs(d)===1&
 /* ---------- game flow ---------- */
 // sides[0] belongs to player 0 (you), sides[1] to player 1 (computer or second person).
 const isCpu=p=>cfg.mode==='cpu'&&p===1;
-const nameOf=p=>cfg.mode==='cpu'?(p===0?'You':'Computer'):`Player ${p+1}`;
+const nameOf=p=>cfg.mode==='cpu'?(p===0?'You':'Computer'):cfg.mode==='net'?(p===0?'You':'Your friend'):`Player ${p+1}`;
 function toast(t,ms=1600){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
-function newGame(){$('overlay').hidden=true;S={sides:[side(),side()],phase:'setup',setupP:0,turn:0,sel:-1,cover:null,last:[-1,-1],stats:[{shots:0,hits:0},{shots:0,hits:0}],busy:false,gen:(S?S.gen:0)+1};render()}
+function newGame(from){
+  if(cfg.mode==='net'&&!from&&online()&&net.role==='guest'){net.send({t:'again'});toast('Asked the host for a new game.');return}
+  $('overlay').hidden=true;S={sides:[side(),side()],phase:'setup',setupP:0,turn:0,sel:-1,cover:null,last:[-1,-1],stats:[{shots:0,hits:0},{shots:0,hits:0}],busy:false,gen:(S?S.gen:0)+1,
+    shots:0,theirs:null,first:cfg.mode==='net'?(from?from.first:games++%2===0):true};render();
+  if(cfg.mode==='net'){if(!online()&&!from)net.start();else if(net.role==='host'&&!from)net.send({t:'start',guestFirst:!S.first,bonus:cfg.bonus})}}
+// Online: each device keeps its own fleet and sends it once both are placed; then only the shots travel.
+function begin(){S.sides[1].ships=S.theirs;S.phase='play';S.turn=S.first?0:1;render();toast(S.first?'Battle on! You fire first.':'Battle on! Your friend fires first.')}
 function ready(){if(!valid(S.sides[S.setupP].ships))return;S.sel=-1;
+  if(cfg.mode==='net'){if(!online())return;S.phase='wait';net.send({t:'fleet',ships:S.sides[0].ships});if(S.theirs)begin();else render();return}
   if(cfg.mode==='two'&&S.setupP===0){S.setupP=1;S.cover=`Pass the device to Player 2 to place their fleet.`;render();return}
   S.phase='play';S.turn=0;if(cfg.mode==='two')S.cover=`Player 1's turn to fire. Player 2, look away!`;render()}
-function fire(c){if(S.phase!=='play'||S.busy||S.cover)return;const p=S.turn,foe=S.sides[1-p];if(foe.shots[c])return;
+function fire(c,remote){if(S.phase!=='play'||S.busy||S.cover)return;const p=S.turn,foe=S.sides[1-p];if(foe.shots[c])return;
+  if(cfg.mode==='net'&&!remote){if(!online()||p!==0)return;net.send({t:'fire',c,n:S.shots})}S.shots++;
   const i=shipAt(foe,c);foe.shots[c]=i>=0?2:1;S.last[p]=c;S.stats[p].shots++;let msg='';
   if(i>=0){S.stats[p].hits++;msg='Hit!';if(isSunk(foe,i)){foe.sunk.push(i);msg=`${p===0&&cfg.mode==='cpu'?'You sank':isCpu(p)?'Computer sank':nameOf(p)+' sank'} the ${foe.ships[i].name.toLowerCase()}!`}}
   else msg='Miss.';
@@ -244,11 +257,11 @@ function fire(c){if(S.phase!=='play'||S.busy||S.cover)return;const p=S.turn,foe=
   if(again){render();return}
   S.turn=1-p;
   if(isCpu(S.turn)){S.busy=true;render();const g=S.gen;setTimeout(()=>{if(g!==S.gen)return;S.busy=false;fire(aiShot(S.sides[0]))},750)}
-  else{setTimeout(()=>{S.cover=`${msg} Pass the device to ${nameOf(S.turn)}.`;render()},900)}}
-function finish(p){const title=cfg.mode==='cpu'?(p===0?'You win!':'Computer wins'):`${nameOf(p)} wins`;
+  else if(cfg.mode==='two'){setTimeout(()=>{S.cover=`${msg} Pass the device to ${nameOf(S.turn)}.`;render()},900)}else render()}
+function finish(p){const title=cfg.mode==='cpu'?(p===0?'You win!':'Computer wins'):cfg.mode==='net'?(p===0?'You win!':'Your friend wins'):`${nameOf(p)} wins`;
   const st=S.stats[p];
   $('modal').innerHTML=`<h2>${title}</h2><p>The whole fleet is sunk in ${st.shots} shots (${Math.round(100*st.hits/st.shots)}% hits).</p><div class="row"><button class="btn" id="mview">View charts</button><button class="btn primary" id="magain">Play again</button></div>`;
-  $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame}
+  $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=()=>newGame()}
 
 /* ---------- setup moves ---------- */
 function setupTap(c){const sd=S.sides[S.setupP],i=shipAt(sd,c);
@@ -274,7 +287,7 @@ function drawGrid(el,sd,opts){let h='';const shipCells=new Map();
     h+=`<button class="${cls}" data-c="${c}" tabindex="-1" aria-label="${'ABCDEFGHIJ'[Math.floor(c/N)]}${c%N+1}${shot?shot===2?': hit':': miss':''}">${shot?'<i></i>':''}</button>`}
   el.innerHTML=h}
 function fleetList(el,sd,title){el.innerHTML=`<b>${title}</b>`+sd.ships.map((s,i)=>`<div class="sh${sd.sunk.includes(i)?' down':''}">${'<i></i>'.repeat(s.len)}<span>${s.name}</span></div>`).join('')}
-function render(){if(!S)return;const setup=S.phase==='setup',two=cfg.mode==='two';
+function render(){if(!S)return;const setup=S.phase==='setup'||S.phase==='wait',two=cfg.mode==='two',nm=cfg.mode==='net';if(net)net.render();
   // Which side is "me" on screen: the player placing ships, or the player whose turn it is (in 2-player mode).
   const me=setup?S.setupP:two?S.turn:0,foe=1-me;
   const covered=!!S.cover;
@@ -289,33 +302,45 @@ function render(){if(!S)return;const setup=S.phase==='setup',two=cfg.mode==='two
   $('mTitle').textContent=two?`${nameOf(me)}'s fleet`:'Your fleet';
   $('tSub').textContent=setup?'':`${S.sides[foe].sunk.length} of 5 sunk`;$('mSub').textContent=setup?'':`${S.sides[me].sunk.length} of 5 lost`;
   fleetList($('f0'),S.sides[foe],two?nameOf(foe):'Enemy');fleetList($('f1'),S.sides[me],two?nameOf(me):'Yours');
-  $('setupBtns').hidden=!setup||covered;
+  $('setupBtns').hidden=!setup||covered||S.phase==='wait';
   $('ready').disabled=!valid(S.sides[S.setupP].ships);
   $('turn').classList.toggle('think',S.busy);
-  $('turn').textContent=setup?(two?`${nameOf(S.setupP)}: place your fleet`:'Place your fleet'):S.phase==='over'?'Game over':S.busy?'Computer is aiming…':two?`${nameOf(S.turn)} to fire`:'Your shot';
-  $('hint').textContent=setup?'Tap a ship, then tap where it should go. Tap it again to turn it. Press Ready when you\'re happy.':
+  $('turn').textContent=nm&&!online()&&S.phase!=='over'?'Not connected':S.phase==='wait'?'Waiting for your friend…':setup?(two?`${nameOf(S.setupP)}: place your fleet`:'Place your fleet'):S.phase==='over'?'Game over':S.busy?'Computer is aiming…':two?`${nameOf(S.turn)} to fire`:nm&&S.turn===1?'Friend is aiming…':'Your shot';
+  $('turn').classList.toggle('think',S.busy||(nm&&S.phase==='play'&&S.turn===1)||S.phase==='wait');
+  $('hint').textContent=nm&&!online()&&S.phase!=='over'?'Tap Connect to play a friend on another device.':S.phase==='wait'?'Your fleet is ready. The battle starts when your friend has placed theirs.':nm&&S.phase==='play'&&S.turn===1?'Your friend is choosing where to fire.':setup?'Tap a ship, then tap where it should go. Tap it again to turn it. Press Ready when you\'re happy.':
     S.phase==='over'?'Press New game for another battle.':S.busy?'':covered?'':'Tap a square on the enemy chart to fire.'+(cfg.bonus?' A hit gives you another shot.':'');
   const st=S.stats[me];$('shots').textContent=st.shots;$('acc').textContent=st.shots?Math.round(100*st.hits/st.shots)+'%':'0%';$('wins').textContent=`${wins[0]}–${wins[1]}`}
 
 /* ---------- input & settings ---------- */
-$('target').addEventListener('click',e=>{const b=e.target.closest('.cell');if(!b)return;kb=false;const c=+b.dataset.c;if(S.phase==='setup')setupTap(c);else fire(c)});
+$('target').addEventListener('click',e=>{const b=e.target.closest('.cell');if(!b)return;kb=false;const c=+b.dataset.c;if(S.phase==='setup')setupTap(c);else if(S.phase!=='wait')fire(c)});
 $('target').addEventListener('keydown',e=>{const mv={ArrowUp:-N,ArrowDown:N,ArrowLeft:-1,ArrowRight:1}[e.key];
   if(mv){e.preventDefault();kb=true;if(okStep(cursor,mv))cursor+=mv;render();return}
-  if(e.key==='Enter'||e.key===' '){e.preventDefault();if(S.phase==='setup')setupTap(cursor);else fire(cursor)}
+  if(e.key==='Enter'||e.key===' '){e.preventDefault();if(S.phase==='setup')setupTap(cursor);else if(S.phase!=='wait')fire(cursor)}
   if((e.key==='r'||e.key==='R')&&S.phase==='setup')rotateSel()});
 $('target').addEventListener('focus',()=>{kb=true;render()});$('target').addEventListener('blur',()=>{kb=false;render()});
 $('shuffle').onclick=()=>{S.sides[S.setupP].ships=randomFleet();S.sel=-1;render()};
 $('rotate').onclick=rotateSel;$('ready').onclick=ready;
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('overlay').hidden)$('overlay').hidden=true;else if(S.sel>=0){S.sel=-1;render()}}});
 window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}if(S&&S.sel>=0){S.sel=-1;render();return true}return false};
-function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('bonus').checked=cfg.bonus;$('level').hidden=cfg.mode!=='cpu'}
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('bonus').checked=cfg.bonus;$('level').hidden=cfg.mode!=='cpu';$('bonus').disabled=cfg.mode==='net'&&online()&&net.role==='guest'}
 const started=()=>S&&S.phase==='play'&&S.stats[0].shots>0;
 function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-fleet',cfg);sync();if(restart)newGame();else render()}
 $('mode').onchange=e=>setCfg('mode',e.target.value,true);
 $('level').onchange=e=>setCfg('level',e.target.value,false);
-$('bonus').onchange=e=>setCfg('bonus',e.target.checked,false);
+$('bonus').onchange=e=>{setCfg('bonus',e.target.checked,false);if(online()&&net.role==='host')net.send({t:'bonus',v:cfg.bonus})};
 $('newgame').onclick=()=>{if(started()&&!confirm('Abandon this battle and start a new one?'))return;newGame()};
-if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';
+/* ---------- online play ---------- */
+net=P2P.net({game:'Fleet Hunt',bar:$('netbar'),conn:$('conn'),active:()=>cfg.mode==='net',
+  onOpen(role){sync();if(role==='host'){games=0;newGame();toast('Connected! Place your fleet, then press Ready.',2600)}else{render();toast('Connected! Waiting for the host…',2600)}},
+  onMessage(m){
+    if(m.t==='fire'){if(S.phase==='play'&&S.turn===1&&m.n===S.shots&&m.c>=0&&m.c<N*N)fire(m.c,true);return}
+    if(m.t==='fleet'){if(!Array.isArray(m.ships)||m.ships.length!==FLEET.length||!valid(m.ships))return;S.theirs=m.ships.map(s=>({name:s.name,len:s.len,at:s.at,dir:s.dir}));if(S.phase==='wait')begin();return}
+    if(net.role==='host'){if(m.t==='again')newGame();return}
+    if(m.t==='start'){cfg.bonus=!!m.bonus;sync();newGame({first:m.guestFirst});toast('New battle: place your fleet, then press Ready.',2600)}
+    else if(m.t==='bonus'){cfg.bonus=!!m.v;sync();render()}},
+  onLeave(){cfg.mode='cpu';store.set('parlor-fleet',cfg);sync();newGame()},
+  onDrop(){sync();render()}});
+if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(net.join)cfg.mode='net';if(!['easy','medium','hard'].includes(cfg.level))cfg.level='medium';
 sync();newGame();
 </script>
 </body>
