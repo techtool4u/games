@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carrom</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yatra+One&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with opponent, strength and new game; the connection bar for online play; the two players with their coins; a status line; the square board seen from your side; a slider to move the striker along your baseline; the power bar with fine-aim buttons; rules below. Held sideways on a phone, the board sits on the left and everything else on the right. */
+:root{
+  --bg:#f6efe2; --fg:#2a1d12; --muted:#7a6650; --panel:#fffaf1; --line:#e6d6bd; --chip:#f0e3cd; --accent:#b3401f; --accent-ink:#ffffff;
+  --display:"Yatra One", "Georgia", serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#17110b; --fg:#f4e8d6; --muted:#c2a888; --panel:#211810; --line:#3a2b1c; --chip:#2b2015; --accent:#ec7a4f; --accent-ink:#1b0d06; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#17110b; --fg:#f4e8d6; --muted:#c2a888; --panel:#211810; --line:#3a2b1c; --chip:#2b2015; --accent:#ec7a4f; --accent-ink:#1b0d06; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.status{min-height:42px;font-size:14.5px;color:var(--muted)}
+.status b{color:var(--fg);margin-right:4px}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pl{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pl.cur{border-color:var(--accent)}
+.pl b{font-size:15px}.pl small{color:var(--muted);font-weight:700;font-size:12px}
+.ccs{display:flex;gap:2px;flex-wrap:wrap;min-height:14px;align-items:center}
+.cc{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.25);opacity:.22}
+.cc.w{background:#f3e7cf;box-shadow:inset 0 0 0 1.5px #9c7f57}.cc.b{background:#2a1f18}.cc.q{background:#c8302a;width:14px;height:14px}
+.cc.got{opacity:1}.cc.pend{opacity:1;outline:2px dashed #c8302a;outline-offset:1px}
+.table{position:relative;width:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.table canvas{display:block;width:100%;height:100%;cursor:crosshair}
+.slide{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:800;color:var(--muted)}
+.slide input{flex:1;accent-color:var(--accent);height:36px}
+@media (max-height:520px) and (orientation:landscape){header>div{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}header h1{font-size:22px;margin:0}.controls select,.controls .btn{min-height:32px;padding:4px 8px;font-size:13px}.wrap{gap:7px}.pl{padding:3px 8px}.status{min-height:0;font-size:13px}.slide input{height:28px}.nudge,.power{height:42px;width:auto}.nudge{width:42px}}
+body:not(.my-turn) .slide{opacity:.45;pointer-events:none}
+.shootbar{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
+.nudge{width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--panel);font:800 18px var(--body);cursor:pointer;touch-action:manipulation}
+.power{--p:0;position:relative;height:48px;border-radius:24px;background:var(--chip);border:1px solid var(--line);overflow:hidden;touch-action:none;cursor:ew-resize}
+.power::before{content:"";position:absolute;inset:0;width:calc(var(--p)*100%);background:linear-gradient(90deg,#3fbf6f,#f2c230 60%,#e0453a)}
+.power span{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:13px;white-space:nowrap;color:var(--fg);pointer-events:none;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+@media (max-width:520px){header{align-items:center}h1{font-size:30px}.controls select{min-height:36px;padding:6px 8px}.controls .btn{min-height:36px;padding:6px 12px}.pl{padding:4px 8px}.status{min-height:36px;font-size:13.5px}.wrap{gap:8px;padding-top:10px}}
+@media (max-width:400px){.controls{gap:4px}.controls select,.controls .btn{font-size:13.5px}.controls select{padding:6px 6px}}
+body:not(.my-turn) .shootbar{opacity:.45;pointer-events:none}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:none;display:grid;grid-template-columns:calc(100dvh - 16px) minmax(0,1fr);column-gap:14px;padding-block:6px;align-items:start}
+  .wrap>*{grid-column:2}.wrap>.table{grid-column:1;grid-row:1/span 8}h1{font-size:24px}.wrap>.panel{max-height:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Carrom</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div id="netbar" hidden></div>
+  <div class="players" id="players"></div>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="table" id="table"><canvas id="cv" aria-label="Carrom board. Drag on the board to aim; drag the striker or use the slider to move it; drag the power bar and let go to flick."></canvas></div>
+  <label class="slide">Striker<input type="range" id="slide" min="0" max="1000" value="500" aria-label="Move the striker along your baseline"></label>
+  <div class="shootbar">
+    <button class="nudge" id="left" aria-label="Turn the aim a little left">◀</button>
+    <div class="power" id="power" role="slider" aria-label="Flick power: drag right, then let go" tabindex="0"><span>Drag right &amp; let go</span></div>
+    <button class="nudge" id="right" aria-label="Turn the aim a little right">▶</button>
+  </div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>One player has the 9 white coins, the other the 9 black. White strikes first. Flick the striker to knock your coins into the four corner pockets.</li>
+        <li><b>Move the striker</b> along your baseline by dragging it, or with the Striker slider. <b>Aim</b> by dragging on the board: the line shows where it will go. ◀ ▶ fine-tune the aim. Then drag the power bar right and let go to flick.</li>
+        <li>The striker must go forward from your baseline. Coins behind your line can still be reached off the side or far edges.</li>
+        <li>Pocket one of your coins and you go again.</li>
+        <li><b>The queen</b> (red) can be pocketed once you have pocketed a coin of your own. She must be <b>covered</b>: pocket one of your coins in the same shot or the very next one, or she goes back to the center.</li>
+        <li><b>Foul:</b> if the striker goes into a pocket, your turn ends and one of your pocketed coins comes back to the center.</li>
+        <li>Win by pocketing all your coins once the queen has been covered (by either player). You score a point for each of your rival's coins left, plus 3 if you hold the queen. Your last coin can't go in before the queen is covered: if it does, it comes back.</li>
+        <li>Online: one player hosts, the other joins with the game code. The 2D and 3D boards can play each other.</li>
+        <li>Keyboard: arrows aim (Shift for bigger steps), A and D move the striker, hold Space to build power and let go to flick.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
+<script src="carrom-core.js"></script>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+const cv=$('cv'),cx=cv.getContext('2d');let G=null,view=null;const C=Carrom,FR=8.5;
+// The board is seen from the side of the player at the bottom of this screen (you, online; player 1 otherwise).
+function layout(){const box=$('table').getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,3),side=matchMedia('(max-height:520px) and (orientation:landscape)').matches;
+  const below=$('table').nextElementSibling.offsetHeight+$('table').nextElementSibling.nextElementSibling.offsetHeight+30;
+  let w=box.width;const maxH=side?innerHeight-16:Math.max(250,innerHeight-($('table').getBoundingClientRect().top+scrollY)-below);if(w>maxH)w=maxH;
+  $('table').style.height=w+'px';cv.style.width=w+'px';cv.style.height=w+'px';cv.style.margin='0 auto';cv.width=Math.round(w*dpr);cv.height=Math.round(w*dpr);view={k:w*dpr/(C.B+FR*2),dpr,flip:false}}
+function fromScreen(e){const r=cv.getBoundingClientRect();let x=(e.clientX-r.left)*view.dpr/view.k-FR,y=(e.clientY-r.top)*view.dpr/view.k-FR;if(view.flip){x=C.B-x;y=C.B-y}return{x,y}}
+let wood=null;
+function woodGrain(){const c=document.createElement('canvas'),n=512;c.width=c.height=n;const g=c.getContext('2d');g.fillStyle='#e9cf9c';g.fillRect(0,0,n,n);
+  for(let i=0;i<180;i++){g.strokeStyle=`rgba(${150+Math.random()*40},${100+Math.random()*30},50,${.06+Math.random()*.08})`;g.lineWidth=.6+Math.random()*1.6;g.beginPath();let y=Math.random()*n;g.moveTo(0,y);for(let x=0;x<=n;x+=16){y+=Math.sin(x/60+i)*.9;g.lineTo(x,y)}g.stroke()}
+  return c}
+function draw(g){G=g;const top=$('table').getBoundingClientRect().top+scrollY;if(!view||view.top==null||Math.abs(top-view.top)>1){layout();view.top=top}
+  const S=g.S,k=view.k,B=C.B;view.flip=g.bottom===1;cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,cv.width,cv.height);
+  if(view.flip)cx.setTransform(-k,0,0,-k,(FR+B)*k,(FR+B)*k);else cx.setTransform(k,0,0,k,FR*k,FR*k);
+  // frame
+  const fr=cx.createLinearGradient(-FR,-FR,B+FR,B+FR);fr.addColorStop(0,'#4a2a14');fr.addColorStop(.5,'#2f190b');fr.addColorStop(1,'#4a2a14');cx.fillStyle=fr;rr(-FR,-FR,B+FR*2,B+FR*2,3);cx.fill();
+  cx.strokeStyle='rgba(255,210,150,.18)';cx.lineWidth=.5;rr(-FR+1,-FR+1,B+FR*2-2,B+FR*2-2,2.4);cx.stroke();
+  // playing surface
+  if(!wood)wood=cx.createPattern(woodGrain(),'repeat');cx.save();cx.fillStyle='#e9cf9c';cx.fillRect(0,0,B,B);cx.scale(B/512,B/512);cx.fillStyle=wood;cx.fillRect(0,0,512,512);cx.restore();
+  const sh=cx.createRadialGradient(B/2,B/2,10,B/2,B/2,B*.75);sh.addColorStop(0,'rgba(255,240,210,.18)');sh.addColorStop(1,'rgba(80,40,0,.18)');cx.fillStyle=sh;cx.fillRect(0,0,B,B);
+  cx.fillStyle='rgba(0,0,0,.25)';cx.fillRect(0,0,B,1.1);cx.fillRect(0,0,1.1,B);
+  // markings: baselines with their red end circles, the corner arrows and the center circles
+  const ink='#3a2312',red='#b3261e';cx.strokeStyle=ink;cx.lineWidth=.32;
+  const base=(x0,y0,x1,y1,nx,ny)=>{const g2=2*C.SR*0.62;for(const o of[-g2/2,g2/2]){cx.beginPath();cx.moveTo(x0+nx*o,y0+ny*o);cx.lineTo(x1+nx*o,y1+ny*o);cx.stroke()}
+    for(const [x,y] of[[x0,y0],[x1,y1]]){cx.beginPath();cx.arc(x,y,g2/2+.5,0,7);cx.fillStyle=red;cx.fill();cx.stroke()}};
+  const b0=C.BASE.x0,b1=C.BASE.x1,yb=C.BASE.y[0],yt=C.BASE.y[1];
+  base(b0,yb,b1,yb,0,1);base(b0,yt,b1,yt,0,1);base(yt,b0,yt,b1,1,0);base(yb,b0,yb,b1,1,0);
+  for(const [px,py] of C.POCKETS.map(q=>[q.x,q.y])){const dx=Math.sign(B/2-px),dy=Math.sign(B/2-py),x0=px+dx*9,y0=py+dy*9,x1=px+dx*26,y1=py+dy*26;
+    cx.beginPath();cx.moveTo(x0,y0);cx.lineTo(x1,y1);cx.stroke();cx.beginPath();cx.moveTo(x0,y0);cx.lineTo(x0+dx*2.2,y0+dy*.4);cx.moveTo(x0,y0);cx.lineTo(x0+dx*.4,y0+dy*2.2);cx.stroke();
+    cx.beginPath();cx.arc(x1+dx*1.7,y1+dy*1.7,1.7,0,7);cx.stroke()}
+  cx.beginPath();cx.arc(B/2,B/2,12.5,0,7);cx.stroke();cx.beginPath();cx.arc(B/2,B/2,13.4,0,7);cx.stroke();
+  cx.fillStyle=red;cx.beginPath();for(let i=0;i<16;i++){const a=i*Math.PI/8,r=i%2?5:11;cx.lineTo(B/2+Math.cos(a)*r,B/2+Math.sin(a)*r)}cx.closePath();cx.globalAlpha=.18;cx.fill();cx.globalAlpha=1;
+  cx.beginPath();cx.arc(B/2,B/2,1.7,0,7);cx.fillStyle=red;cx.fill();
+  // pockets
+  for(const q of C.POCKETS){const gr=cx.createRadialGradient(q.x,q.y,.3,q.x,q.y,C.HOLE+.4);gr.addColorStop(0,'#000');gr.addColorStop(.85,'#140b05');gr.addColorStop(1,'#5a3a1e');cx.fillStyle=gr;cx.beginPath();cx.arc(q.x,q.y,C.HOLE+.4,0,7);cx.fill()}
+  // pieces
+  for(const p of S.pieces)if(p.on){cx.fillStyle='rgba(0,0,0,.28)';cx.beginPath();cx.arc(p.x+.35,p.y+.5,p.r,0,7);cx.fill()}
+  for(const p of S.pieces)if(p.on)piece(p);
+  // aim guide
+  const st=S.pieces[0],aiming=!g.anim&&!S.over&&st.on&&(g.myTurn||g.peerAim||S.busy);
+  if(aiming){const gd=g.guide();cx.setLineDash([1,1]);cx.strokeStyle='rgba(40,20,5,.7)';cx.lineWidth=.3;cx.beginPath();cx.moveTo(st.x,st.y);cx.lineTo(gd.x,gd.y);cx.stroke();cx.setLineDash([]);
+    cx.strokeStyle='rgba(40,20,5,.75)';cx.beginPath();cx.arc(gd.x,gd.y,C.SR,0,7);cx.stroke();
+    if(gd.piece&&gd.dir){cx.strokeStyle='rgba(40,20,5,.55)';cx.lineWidth=.35;cx.beginPath();cx.moveTo(gd.piece.x,gd.piece.y);cx.lineTo(gd.piece.x+gd.dir.x*12,gd.piece.y+gd.dir.y*12);cx.stroke()}
+    // the flicking finger pulls back with the power
+    const pw=+getComputedStyle($('power')).getPropertyValue('--p')||0,a=Math.atan2(gd.uy,gd.ux),bx=st.x-Math.cos(a)*(C.SR+1.5+pw*8),by=st.y-Math.sin(a)*(C.SR+1.5+pw*8);
+    cx.fillStyle='rgba(240,200,160,.9)';cx.strokeStyle='rgba(90,50,20,.6)';cx.lineWidth=.25;cx.beginPath();cx.ellipse(bx,by,1.6,1.1,a,0,7);cx.fill();cx.stroke()}
+  if(g.myTurn&&!g.anim){cx.strokeStyle='rgba(179,64,31,.8)';cx.setLineDash([.7,.7]);cx.lineWidth=.3;cx.beginPath();cx.arc(st.x,st.y,C.SR+1.2,0,7);cx.stroke();cx.setLineDash([])}}
+function rr(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.arcTo(x+w,y,x+w,y+h,r);cx.arcTo(x+w,y+h,x,y+h,r);cx.arcTo(x,y+h,x,y,r);cx.arcTo(x,y,x+w,y,r);cx.closePath()}
+function piece(p){const r=p.r,base=p.k==='w'?'#f3e7cf':p.k==='b'?'#2a1f18':p.k==='q'?'#c8302a':'#f7f3ea';
+  const gr=cx.createRadialGradient(p.x-r*.35,p.y-r*.4,r*.1,p.x,p.y,r);gr.addColorStop(0,p.k==='b'?'#5a4636':'#ffffff');gr.addColorStop(.35,base);gr.addColorStop(1,p.k==='b'?'#120c08':p.k==='q'?'#7d1612':'#b9a37c');
+  cx.fillStyle=gr;cx.beginPath();cx.arc(p.x,p.y,r,0,7);cx.fill();
+  cx.strokeStyle=p.k==='b'?'rgba(255,255,255,.18)':'rgba(0,0,0,.18)';cx.lineWidth=.18;for(const f of[.72,.45])
+    {cx.beginPath();cx.arc(p.x,p.y,r*f,0,7);cx.stroke()}
+  if(p.k==='s'){cx.strokeStyle='rgba(179,64,31,.75)';cx.lineWidth=.3;cx.beginPath();cx.arc(p.x,p.y,r*.6,0,7);cx.stroke();cx.fillStyle='rgba(179,64,31,.75)';for(let i=0;i<8;i++){const a=i*Math.PI/4;cx.beginPath();cx.arc(p.x+Math.cos(a)*r*.6,p.y+Math.sin(a)*r*.6,.22,0,7);cx.fill()}}}
+/* ---------- input ---------- */
+let drag=null;
+cv.addEventListener('pointerdown',e=>{if(!G||!G.myTurn)return;const p=fromScreen(e),s=G.S.pieces[0];drag={mode:Math.hypot(p.x-s.x,p.y-s.y)<C.SR*2.2?'slide':'aim',id:e.pointerId};try{cv.setPointerCapture(e.pointerId)}catch(x){}if(drag.mode==='aim')move(e)});
+cv.addEventListener('pointermove',e=>{if(drag&&e.pointerId===drag.id)move(e)});
+const endDrag=e=>{if(drag&&e.pointerId===drag.id)drag=null};cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+function move(e){const p=fromScreen(e);if(drag.mode==='slide')G.slideTo(p.x);else G.aimAt(p.x,p.y)}
+const pw=$('power');let pdrag=null;
+pw.addEventListener('pointerdown',e=>{if(!G||!G.myTurn)return;pdrag={id:e.pointerId,x:e.clientX};try{pw.setPointerCapture(e.pointerId)}catch(x){}});
+pw.addEventListener('pointermove',e=>{if(!pdrag||e.pointerId!==pdrag.id)return;const r=pw.getBoundingClientRect();G.setPower((e.clientX-pdrag.x)/(r.width*0.8))});
+const release=e=>{if(!pdrag||e.pointerId!==pdrag.id)return;pdrag=null;if(!G.shoot())G.setPower(0)};pw.addEventListener('pointerup',release);pw.addEventListener('pointercancel',()=>{pdrag=null;G.setPower(0)});
+// ◀ ▶ turn the aim as the player sees it: when the board is turned around for the top player, so is "left"
+function hold(btn,dir){let t=0,n=0;const go=()=>{G.nudge(dir*(view&&view.flip?1:1)*(n++<6?0.0025:0.012));t=setTimeout(go,n<2?260:60)};
+  btn.addEventListener('pointerdown',e=>{e.preventDefault();n=0;go()});['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(t)))}
+hold($('left'),-1);hold($('right'),1);
+let spaceT=0;
+document.addEventListener('keydown',e=>{if(!G||e.target.closest('select,input'))return;const big=e.shiftKey?0.03:0.004,flip=view&&view.flip?-1:1;
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();G.nudge(-big)}else if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();G.nudge(big)}
+  else if(e.key==='a'||e.key==='A')G.slideTo(G.S.pieces[0].x-1.5*flip);else if(e.key==='d'||e.key==='D')G.slideTo(G.S.pieces[0].x+1.5*flip);
+  else if(e.key===' '&&!e.repeat&&G.myTurn){e.preventDefault();const t0=performance.now();clearInterval(spaceT);spaceT=setInterval(()=>G.setPower(Math.min(1,(performance.now()-t0)/1400)),30)}});
+document.addEventListener('keyup',e=>{if(e.key===' '&&spaceT){clearInterval(spaceT);spaceT=0;if(!G.shoot())G.setPower(0)}});
+layout();
+const game=Carrom.app({game:'Carrom',renderer:{draw,resize:layout}});
+const relayout=()=>{layout();game.render()};relayout();if(document.fonts)document.fonts.ready.then(relayout);
+</script>
+</body>
+</html>
