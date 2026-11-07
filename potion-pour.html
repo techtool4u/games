@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Potion Pour</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with the level number and Restart; a strip with the moves and best; the flasks on a dark alchemist's shelf, sized to fill the screen; a toolbar (Undo, Hint, Extra flask, Symbols); rules below. Held sideways on a phone, the shelf sits on the left and the rest on the right. */
+:root{
+  --bg:#f3eefb; --fg:#221a33; --muted:#6c6283; --panel:#ffffff; --line:#e0d7f0; --chip:#ebe3f7; --accent:#7b3fe4; --accent-ink:#ffffff;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#120d1c; --fg:#eee8fa; --muted:#a99cc4; --panel:#1b1429; --line:#2e2442; --chip:#251c36; --accent:#a875ff; --accent-ink:#140b24; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#120d1c; --fg:#eee8fa; --muted:#a99cc4; --panel:#1b1429; --line:#2e2442; --chip:#251c36; --accent:#a875ff; --accent-ink:#140b24; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.lvl{font:600 26px var(--display)}.lvl small{font:700 13px var(--body);color:var(--muted);margin-left:6px}
+.stats{color:var(--muted);font-weight:700;font-size:14px}.stats b{color:var(--fg)}
+.shelf{position:relative;width:100%;border-radius:18px;overflow:hidden;background:radial-gradient(120% 90% at 50% 10%,#3a2a5c,#1b1230 70%);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.shelf canvas{display:block;width:100%;height:100%}
+.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tool{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-radius:14px;border:1px solid var(--line);background:var(--panel);font:800 13px var(--body);cursor:pointer;min-height:56px;position:relative}
+.tool svg{width:22px;height:22px}
+.tool:disabled{opacity:.4;cursor:default}
+.tool.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.tool i{position:absolute;top:4px;right:8px;font-style:normal;font-size:11px;color:var(--muted)}
+.msg{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.msg span{background:rgba(20,12,34,.82);color:#fff;padding:10px 16px;border-radius:999px;font-weight:800;font-size:14px;pointer-events:auto}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:none;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(240px,1fr);column-gap:14px;padding-block:6px;align-items:start}
+  .wrap>*{grid-column:2}.wrap>.shelf{grid-column:1;grid-row:1/span 8}header>div{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}header h1{font-size:24px;margin:0}.wrap{gap:8px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Potion Pour</h1>
+    </div>
+    <div class="controls">
+      <button class="btn" id="levels">Levels</button>
+      <button class="btn primary" id="restart">Restart</button>
+    </div>
+  </header>
+  <div class="bar"><div class="lvl" id="lvl">Level 1</div><div class="stats" id="stats"></div></div>
+  <div class="shelf" id="shelf"><canvas id="cv" aria-label="Potion flasks. Tap a flask to pick it up, then tap another to pour."></canvas><div class="msg" id="note" hidden><span></span></div></div>
+  <div class="tools">
+    <button class="tool" id="undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>Undo</button>
+    <button class="tool" id="hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></svg>Hint</button>
+    <button class="tool" id="extra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-4 9a2 2 0 0 0 2 3h8a2 2 0 0 0 2-3l-4-9V3"/><path d="M12 12v5M9.5 14.5h5"/></svg>Flask<i id="extraN">1</i></button>
+    <button class="tool" id="sym"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/></svg>Symbols</button>
+  </div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>Sort the potions so every flask holds just one color, filled to the top.</li>
+        <li>Tap a flask to lift it, then tap another flask to pour. You can pour onto the same color or into an empty flask, as long as there's room. All the matching layers on top pour together.</li>
+        <li><b>Undo</b> takes back a pour. <b>Hint</b> shows a good next pour. <b>Flask</b> adds one empty flask, once per level. <b>Restart</b> starts the level again.</li>
+        <li>From level 15, some levels hide the lower layers under cloudy glass ( ? ). A hidden layer shows its color when it reaches the top.</li>
+        <li><b>Symbols</b> marks each color with its own shape, which helps if some colors look alike.</li>
+        <li>Every level has a solution. Your level and best scores are saved. Pick any level you've reached from <b>Levels</b>.</li>
+        <li>Keyboard: number keys 1–9 and 0 pick flasks (or arrows and Enter), U undoes, H shows a hint.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+/* ---------- colors ---------- */
+const COLORS=[['#e8443a','#ff8a7a'],['#2f7de1','#7fb6ff'],['#2fb35b','#7ee39b'],['#f4c430','#ffe58a'],['#9b4de0','#c99bff'],['#f07d22','#ffb37a'],['#1fb5b0','#7ee8e3'],['#e2489b','#ff9ccb'],['#7a4a26','#b9875e'],['#8fbf2f','#cdee7e'],['#3b3fa8','#8187ef'],['#c9c9d6','#ffffff']];
+const SYM=['●','▲','■','◆','★','✚','⬟','♥','⬢','☾','✦','◯'];
+const CAP=4;
+/* ---------- levels: seeded, so level N is always the same puzzle, and checked with the solver ---------- */
+function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function spec(n){const colors=n<=1?3:n<=2?4:n<=4?5:n<=7?6:n<=12?7:n<=20?8:n<=35?9:n<=60?10:n<=100?11:12;return{colors,empty:2,hidden:n>=15&&n%3===0}}
+function makeLevel(n){const sp=spec(n);
+  for(let attempt=0;attempt<60;attempt++){const r=rng(n*7919+attempt*104729+17),pool=[];for(let c=0;c<sp.colors;c++)for(let k=0;k<CAP;k++)pool.push(c);
+    for(let i=pool.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+    const tubes=[];for(let t=0;t<sp.colors;t++)tubes.push(pool.slice(t*CAP,t*CAP+CAP));for(let e=0;e<sp.empty;e++)tubes.push([]);
+    // no flask may start already sorted, and the puzzle must be solvable
+    if(tubes.some(t=>t.length===CAP&&t.every(c=>c===t[0])))continue;if(tubes.some(t=>t.length&&t.slice(1).every(c=>c===t[0])))continue;
+    const sol=solve(tubes,250000);if(sol)return{tubes,hidden:sp.hidden,n}}
+  return null}
+/* ---------- solver ---------- */
+const topRun=t=>{if(!t.length)return 0;const c=t[t.length-1];let k=0;for(let i=t.length-1;i>=0&&t[i]===c;i--)k++;return k};
+const done=t=>!t.length||(t.length===CAP&&t.every(c=>c===t[0]));
+function legal(tubes,i,j){const a=tubes[i],b=tubes[j];if(i===j||!a.length||b.length>=CAP)return false;return!b.length||b[b.length-1]===a[a.length-1]}
+function pour(tubes,i,j){const a=tubes[i],b=tubes[j],k=Math.min(topRun(a),CAP-b.length);for(let x=0;x<k;x++)b.push(a.pop());return k}
+// depth-first search with pruning; returns the list of [from,to] pours, or null
+function solve(start,limit){const seen=new Set(),path=[];let nodes=0;
+  const key=ts=>ts.map(t=>t.join('')).sort().join('|');
+  const rec=ts=>{if(ts.every(done))return true;if(++nodes>limit)return false;const k=key(ts);if(seen.has(k))return false;seen.add(k);
+    const moves=[];for(let i=0;i<ts.length;i++){const a=ts[i];if(!a.length||done(a))continue;const run=topRun(a),uni=run===a.length;
+      for(let j=0;j<ts.length;j++){if(!legal(ts,i,j))continue;const b=ts[j];if(uni&&!b.length)continue;// moving a one-color flask into an empty one is pointless
+        // prefer pours that finish or extend a stack of the same color
+        const score=(b.length?10+b.length:0)+(run<=CAP-b.length?5:0);moves.push([score,i,j])}}
+    moves.sort((x,y)=>y[0]-x[0]);
+    for(const [,i,j] of moves){const nt=ts.map(t=>t.slice());pour(nt,i,j);path.push([i,j]);if(rec(nt))return true;path.pop();if(nodes>limit)return false}
+    return false};
+  return rec(start.map(t=>t.slice()))?path.slice():null}
+/* ---------- game state ---------- */
+const save=store.get('parlor-potion',{level:1,max:1,best:{},sym:false});
+let L=null,T=null,H=null,hist=[],sel=-1,moves=0,extraUsed=false,anim=null,hint=null,won=false,kb=-1,plan=null;
+const stateKey=()=>T.map(t=>t.join(',')).join('|');
+function startLevel(n){const lv=makeLevel(n);if(!lv){toast('Couldn\'t make that level.');return}
+  plan=null;L=lv;T=lv.tubes.map(t=>t.slice());H=T.map(t=>t.map((_,i)=>lv.hidden&&i<t.length-1));hist=[];sel=-1;moves=0;extraUsed=false;anim=null;hint=null;won=false;kb=-1;
+  save.level=n;save.max=Math.max(save.max,n);store.set('parlor-potion',save);note('');layout();ui()}
+function ui(){$('lvl').innerHTML=`Level ${L.n}${L.hidden?'<small>mystery</small>':''}`;const b=save.best[L.n];$('stats').innerHTML=`Pours <b>${moves}</b>${b?` · Best <b>${b}</b>`:''}`;
+  $('undo').disabled=!hist.length||!!anim||won;$('hint').disabled=!!anim||won;$('extra').disabled=extraUsed||!!anim||won;$('extraN').textContent=extraUsed?'0':'1';$('sym').classList.toggle('on',save.sym)}
+function note(t,ms){const n=$('note');if(!t){n.hidden=true;return}n.firstChild.textContent=t;n.hidden=false;clearTimeout(note.t);if(ms)note.t=setTimeout(()=>n.hidden=true,ms)}
+function tap(i){if(anim||won)return;hint=null;
+  if(sel<0){if(!T[i].length||done(T[i])&&T[i].length===CAP){if(T[i].length)sfx('tap');return}sel=i;sfx('select');return}
+  if(sel===i){sel=-1;return}
+  if(!legal(T,sel,i)){// a different non-empty flask: pick that one up instead
+    if(T[i].length&&!(done(T[i])&&T[i].length===CAP)){sel=i;sfx('select')}else{sfx('bad');sel=-1}return}
+  doPour(sel,i)}
+// only the layers you can see pour: a hidden layer stays put even if it's the same color
+const seenRun=i=>{const t=T[i];let k=0;for(let x=t.length-1;x>=0&&t[x]===t[t.length-1]&&!H[i][x];x--)k++;return Math.max(1,k)};
+function doPour(i,j){hist.push({T:T.map(t=>t.slice()),H:H.map(h=>h.slice()),moves});const before=T[j].length,k=Math.min(seenRun(i),CAP-T[j].length),color=T[i][T[i].length-1];
+  anim={i,j,k,color,from:T[i].length,to:before,t0:performance.now(),dur:620+k*90};sel=-1;sfx('drop');ui()}
+function finishPour(){const {i,j,k}=anim;for(let x=0;x<k;x++)T[j].push(T[i].pop());H[j].length=T[j].length;for(let x=0;x<H[j].length;x++)if(H[j][x]==null)H[j][x]=false;
+  H[i].length=T[i].length;if(T[i].length)H[i][T[i].length-1]=false;// the new top layer shows its color
+  if(plan&&plan.moves[plan.idx]&&plan.moves[plan.idx][0]===i&&plan.moves[plan.idx][1]===j){plan.idx++;plan.key=stateKey()}else plan=null;
+  moves++;anim=null;if(done(T[j])&&T[j].length===CAP)sfx('good');
+  if(T.every(done)){won=true;const b=save.best[L.n];if(!b||moves<b)save.best[L.n]=moves;save.max=Math.max(save.max,L.n+1);store.set('parlor-potion',save);sfx('win');setTimeout(showWin,500)}
+  else if(!anyMove())note(extraUsed?'No pours left. Undo or restart.':'No pours left. Undo, or add a flask.');
+  ui()}
+const anyMove=()=>{for(let i=0;i<T.length;i++)for(let j=0;j<T.length;j++)if(legal(T,i,j))return true;return false};
+function showWin(){const b=save.best[L.n];modal(`<h2>Level ${L.n} done!</h2><p>${moves} pours${b===moves?' · your best':` · best ${b}`}.</p><div class="row"><button class="btn" id="replay">Play again</button><button class="btn primary" id="next">Next level</button></div>`);
+  $('replay').onclick=()=>{closeModal();startLevel(L.n)};$('next').onclick=()=>{closeModal();startLevel(L.n+1)}}
+$('undo').onclick=()=>{if(!hist.length||anim)return;const h=hist.pop();T=h.T;H=h.H;moves=h.moves;sel=-1;hint=null;plan=null;note('');sfx('tap');ui()};
+$('restart').onclick=()=>{if(moves&&!won&&!confirm('Start this level again?'))return;startLevel(L.n)};
+$('extra').onclick=()=>{if(extraUsed||anim)return;extraUsed=true;T.push([]);H.push([]);plan=null;note('');layout();sfx('place');ui()};
+$('sym').onclick=()=>{save.sym=!save.sym;store.set('parlor-potion',save);ui()};
+// the hint solves from where you are (hidden colors included, as the potion maker knows them)
+// the hint follows one plan while you follow it, so it never sends a potion back and forth
+$('hint').onclick=()=>{if(anim||won)return;let mv=plan&&plan.key===stateKey()&&plan.moves[plan.idx];if(mv&&!legal(T,mv[0],mv[1]))mv=null;
+  if(!mv){const s=solve(T,300000);if(!s||!s.length){plan=null;note(hist.length?'No way out from here. Try Undo.':'Try adding a flask.',2600);sfx('bad');return}plan={moves:s,idx:0,key:stateKey()};mv=s[0]}
+  hint=mv;sel=-1;sfx('select')};
+$('levels').onclick=()=>{let h='<h2>Levels</h2><div class="lvgrid">';const top=Math.max(save.max,1);for(let n=1;n<=top;n++)h+=`<button class="btn${n===L.n?' primary':''}" data-n="${n}">${n}${save.best[n]?'<small>★</small>':''}</button>`;
+  modal(h+'</div><div class="row"><button class="btn" id="lclose">Close</button></div>');$('lclose').onclick=closeModal;document.querySelectorAll('.lvgrid [data-n]').forEach(b=>b.onclick=()=>{closeModal();startLevel(+b.dataset.n)})};
+/* ---------- drawing ---------- */
+const cv=$('cv'),cx=cv.getContext('2d');let V=null,pos=[];
+function layout(){if(!T)return;const box=$('shelf').getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2.5),side=matchMedia('(max-height:520px) and (orientation:landscape)').matches;
+  const w=box.width,below=$('shelf').nextElementSibling.offsetHeight+24,h=side?innerHeight-16:Math.max(280,Math.min(w*1.25,innerHeight-($('shelf').getBoundingClientRect().top+scrollY)-below));
+  $('shelf').style.height=h+'px';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);V={w:cv.width,h:cv.height,dpr};
+  // choose the biggest flask size that fits all flasks in rows
+  const n=T.length;let best=null;for(let rows=1;rows<=4;rows++){const cols=Math.ceil(n/rows),fw=Math.min(V.w/(cols*1.45+.3),V.h/(rows*(3.9)+.4)/1);if(!best||fw>best.fw)best={rows,cols,fw}}
+  const {rows,cols,fw}=best,fh=fw*3.1,gx=(V.w-cols*fw)/(cols+1),gy=(V.h-rows*fh)/(rows+1);pos=[];
+  for(let k=0;k<n;k++){const r=Math.floor(k/cols),inRow=r<rows-1?cols:n-cols*(rows-1),c=k-r*cols,gxr=(V.w-inRow*fw)/(inRow+1);pos.push({x:gxr+c*(fw+gxr),y:gy+r*(fh+gy)+fh*0.05,w:fw,h:fh})}
+  V.fw=fw;V.fh=fh}
+// a flask: a round-bottomed tube; layers fill from the bottom
+function flaskPath(x,y,w,h){const r=w/2,neck=w*0.12;cx.beginPath();cx.moveTo(x-neck*.4,y);cx.lineTo(x+w+neck*.4,y);cx.lineTo(x+w,y+neck*1.2);cx.lineTo(x+w,y+h-r);cx.arc(x+r,y+h-r,r,0,Math.PI);cx.lineTo(x,y+neck*1.2);cx.closePath()}
+function layerBox(p,idx,fill){const inner=p.h-p.w*0.28,lh=inner/CAP*.94,bottom=p.y+p.h-p.w*0.06;return{y:bottom-(idx+fill)*lh,h:lh*fill,lh}}
+function drawFlask(i,p,tilt,ov){const t=ov?ov.tube:T[i],hid=ov?ov.hid:H[i];cx.save();
+  const cxp=p.x+p.w/2,cyp=p.y+p.h*0.1;cx.translate(cxp,cyp);cx.rotate(tilt||0);cx.translate(-cxp,-cyp);
+  // glass back
+  flaskPath(p.x,p.y,p.w,p.h);cx.fillStyle='rgba(255,255,255,.06)';cx.fill();
+  cx.save();flaskPath(p.x+p.w*.06,p.y,p.w*.88,p.h-p.w*.06);cx.clip();
+  const levels=ov?ov.levels:t.map(()=>1);let acc=0;
+  for(let k=0;k<t.length;k++){const f=levels[k]===undefined?1:levels[k];if(f<=0)continue;const lb=layerBox(p,acc,f),c=COLORS[t[k]],hidden=hid&&hid[k];acc+=f;
+    const g=cx.createLinearGradient(p.x,0,p.x+p.w,0);if(hidden){g.addColorStop(0,'#3a2d55');g.addColorStop(.5,'#5a4a7c');g.addColorStop(1,'#3a2d55')}else{g.addColorStop(0,c[0]);g.addColorStop(.45,c[1]);g.addColorStop(1,c[0])}
+    cx.fillStyle=g;cx.fillRect(p.x,lb.y,p.w,lb.h+1);
+    if(hidden){cx.fillStyle='rgba(255,255,255,.55)';cx.font=`800 ${Math.round(lb.lh*.5)}px Nunito,sans-serif`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('?',p.x+p.w/2,lb.y+lb.h/2)}
+    else if(save.sym&&f>.6){cx.fillStyle='rgba(255,255,255,.85)';cx.font=`700 ${Math.round(lb.lh*.46)}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(SYM[t[k]],p.x+p.w/2,lb.y+lb.h/2+1)}}
+  // surface and bubbles on the top layer
+  if(acc>0){const top=layerBox(p,acc,0),c=t.length?COLORS[t[t.length-1]]:null;if(c&&!(hid&&hid[t.length-1])){cx.fillStyle=c[1];cx.globalAlpha=.6;cx.beginPath();cx.ellipse(p.x+p.w/2,top.y,p.w*.44,p.w*.08,0,0,7);cx.fill();cx.globalAlpha=1}
+    const tm=performance.now()/1000;cx.fillStyle='rgba(255,255,255,.35)';for(let b=0;b<3;b++){const ph=(tm*0.35+b*.33+i*.17)%1,by=p.y+p.h-p.w*.2-ph*(p.y+p.h-top.y-p.w*.2);if(by>top.y+2)cx.beginPath(),cx.arc(p.x+p.w*(.3+.2*b),by,p.w*.035,0,7),cx.fill()}}
+  cx.restore();
+  // glass outline and shine
+  flaskPath(p.x,p.y,p.w,p.h);cx.strokeStyle='rgba(225,215,255,.75)';cx.lineWidth=Math.max(1.5,p.w*.045);cx.stroke();
+  cx.strokeStyle='rgba(255,255,255,.35)';cx.lineWidth=p.w*.07;cx.lineCap='round';cx.beginPath();cx.moveTo(p.x+p.w*.22,p.y+p.h*.12);cx.lineTo(p.x+p.w*.22,p.y+p.h*.78);cx.stroke();
+  // a finished flask gets a cork
+  if(!ov&&t.length===CAP&&done(t)&&!(hid||[]).some(Boolean)){cx.fillStyle='#b98a55';cx.fillRect(p.x+p.w*.12,p.y-p.w*.28,p.w*.76,p.w*.34);cx.fillStyle='#8a6034';cx.fillRect(p.x+p.w*.12,p.y-p.w*.02,p.w*.76,p.w*.06)}
+  cx.restore()}
+function draw(){requestAnimationFrame(draw);if(!T||!V)return;cx.clearRect(0,0,V.w,V.h);
+  // shelf boards under each row
+  const rowsY=[...new Set(pos.map(p=>Math.round(p.y+p.h)))];cx.fillStyle='#4b3424';for(const y of rowsY){cx.fillRect(V.w*.03,y+V.fw*.08,V.w*.94,V.fw*.18);cx.fillStyle='#2e1f15';cx.fillRect(V.w*.03,y+V.fw*.26,V.w*.94,V.fw*.06);cx.fillStyle='#4b3424'}
+  let A=null;if(anim){const e=(performance.now()-anim.t0)/anim.dur;if(e>=1){finishPour();}else A=Object.assign({e},anim)}
+  for(let i=0;i<T.length;i++){if(A&&i===A.i)continue;const p=pos[i];let ov=null;
+    if(A&&i===A.j){const f=Math.max(0,Math.min(1,(A.e-.38)/.42)),tube=T[i].slice(),levels=tube.map(()=>1);for(let k=0;k<A.k;k++){tube.push(A.color);levels.push(Math.max(0,Math.min(1,f*A.k-k)))}ov={tube,levels,hid:H[i]}}
+    const lift=i===sel?-V.fw*.45:0,hintGlow=hint&&(hint[0]===i||hint[1]===i);
+    if(hintGlow){cx.save();cx.shadowColor='#ffe066';cx.shadowBlur=V.fw*.6;}drawFlask(i,Object.assign({},p,{y:p.y+lift}),0,ov);if(hintGlow)cx.restore();
+    if(hintGlow){cx.fillStyle='#ffe066';cx.font=`800 ${Math.round(V.fw*.32)}px Nunito,sans-serif`;cx.textAlign='center';cx.fillText(hint[0]===i?'from':'to',p.x+p.w/2,p.y-V.fw*.35)}
+    if(kb===i){cx.strokeStyle='#fff';cx.setLineDash([4,4]);cx.lineWidth=2;cx.strokeRect(p.x-V.fw*.15,p.y-V.fw*.5,p.w+V.fw*.3,p.h+V.fw*.65);cx.setLineDash([])}}
+  if(A){// the poured flask lifts over the target, tips so its mouth is just above the target's, pours, and goes back
+    const s0=pos[A.i],d=pos[A.j],side=d.x>=s0.x?1:-1,maxTilt=side*1.15;
+    const go=Math.min(1,A.e/.3),back=Math.max(0,(A.e-.82)/.18),k=go*(1-back),e2=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2,tilt=maxTilt*e2;
+    const arm=s0.h*0.1,mouthOff=t=>({x:arm*Math.sin(t),y:-arm*Math.cos(t)});// the mouth, seen from the pivot near the top of the flask
+    const startPivot={x:s0.x+s0.w/2,y:s0.y+arm},M={x:d.x+d.w/2-side*d.w*.05,y:d.y-d.h*.16},mo=mouthOff(maxTilt),endPivot={x:M.x-mo.x-side*s0.w*.35,y:M.y-mo.y};
+    const pv={x:startPivot.x+(endPivot.x-startPivot.x)*e2,y:startPivot.y+(endPivot.y-startPivot.y)*e2},p={x:pv.x-s0.w/2,y:pv.y-arm,w:s0.w,h:s0.h};
+    const f=Math.max(0,Math.min(1,(A.e-.38)/.42)),tube=T[A.i].slice(),levels=tube.map(()=>1);for(let k2=0;k2<A.k;k2++)levels[tube.length-1-k2]=Math.max(0,Math.min(1,1-(f*A.k-(A.k-1-k2))));
+    drawFlask(A.i,p,tilt,{tube,levels,hid:H[A.i]});
+    if(A.e>.36&&A.e<.82){// the stream, from the lip down into the target
+      const c=COLORS[A.color],m=mouthOff(tilt),lip={x:pv.x+m.x+side*s0.w*.3*Math.cos(tilt),y:pv.y+m.y+side*s0.w*.3*Math.sin(tilt)},end={x:d.x+d.w/2,y:d.y+d.h*.2};
+      cx.strokeStyle=c[0];cx.lineWidth=d.w*.13;cx.lineCap='round';cx.beginPath();cx.moveTo(lip.x,lip.y);cx.quadraticCurveTo(end.x,lip.y,end.x,end.y);cx.stroke();
+      cx.strokeStyle=c[1];cx.lineWidth=d.w*.04;cx.beginPath();cx.moveTo(lip.x,lip.y);cx.quadraticCurveTo(end.x,lip.y,end.x,end.y);cx.stroke()}}}
+function hitTest(e){const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*V.dpr,y=(e.clientY-r.top)*V.dpr;let best=-1,bd=1e9;
+  pos.forEach((p,i)=>{const dx=Math.max(p.x-x,0,x-p.x-p.w),dy=Math.max(p.y-V.fw*.6-y,0,y-p.y-p.h);const d=dx+dy;if(d<bd){bd=d;best=i}});return bd<V.fw*.6?best:-1}
+cv.addEventListener('pointerdown',e=>{const i=hitTest(e);kb=-1;if(i>=0)tap(i);else sel=-1});
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!$('overlay').hidden)return;const k=e.key;
+  if(/^[0-9]$/.test(k)){const i=k==='0'?9:+k-1;if(i<T.length){kb=-1;tap(i)}return}
+  if(k==='ArrowRight'||k==='ArrowLeft'){e.preventDefault();kb=kb<0?0:(kb+(k==='ArrowRight'?1:T.length-1))%T.length;return}
+  if((k==='Enter'||k===' ')&&kb>=0){e.preventDefault();tap(kb);return}
+  if(k==='u'||k==='U')$('undo').click();else if(k==='h'||k==='H')$('hint').click();else if(k==='Escape')sel=-1});
+addEventListener('resize',layout);window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}if(sel>=0){sel=-1;return true}return false};
+const st=document.createElement('style');st.textContent='.lvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px;max-height:50vh;overflow:auto}.lvgrid .btn{padding:6px 0;min-height:40px}.lvgrid small{font-size:10px;margin-left:2px;color:#f2b400}';document.head.appendChild(st);
+startLevel(Math.max(1,Math.min(save.level||1,save.max||1)));if(document.fonts)document.fonts.ready.then(layout);requestAnimationFrame(draw);
+</script>
+</body>
+</html>
