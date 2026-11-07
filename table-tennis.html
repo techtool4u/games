@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Table Tennis</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with opponent, strength, match length and new game; the connection bar for online play; the scoreboard; a status line; the table, seen from behind your end (from above with two players on one device), filling the rest of the screen; rules below. Held sideways on a phone, the table sits on the left and the rest on the right. */
+:root{
+  --bg:#eef2f7; --fg:#16202c; --muted:#5f6b7a; --panel:#ffffff; --line:#d6dde6; --chip:#e6ecf3; --accent:#1f5fbf; --accent-ink:#ffffff;
+  --display:"Russo One", "Arial Black", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#0c121a; --fg:#e6edf5; --muted:#9aa9ba; --panel:#141c26; --line:#253243; --chip:#1b2633; --accent:#5b9bff; --accent-ink:#06101f; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#0c121a; --fg:#e6edf5; --muted:#9aa9ba; --panel:#141c26; --line:#253243; --chip:#1b2633; --accent:#5b9bff; --accent-ink:#06101f; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.score{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+.side{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 10px;display:flex;align-items:center;gap:10px;min-width:0}
+.side.serve{border-color:var(--accent)}
+.side b{font:400 30px/1 var(--display);min-width:1.4ch;text-align:center}
+.side span{display:flex;flex-direction:column;min-width:0}.side small{color:var(--muted);font-weight:700;font-size:12px}
+.side .nm{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side.right{flex-direction:row-reverse;text-align:right}
+.games{font:400 15px var(--display);color:var(--muted);text-align:center}
+.status{min-height:40px;font-size:14.5px;color:var(--muted)}
+.status b{color:var(--fg)}
+.court{position:relative;width:100%;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:16px;overflow:hidden;background:#123}
+.court canvas{display:block;width:100%;height:100%}
+@media (max-width:420px){.side b{font-size:26px}.side{padding:5px 8px;gap:6px}.wrap{gap:8px;padding-top:10px}h1{font-size:28px}.controls select,.controls .btn{min-height:36px;padding:5px 8px;font-size:13.5px}}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:none;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(250px,1fr);column-gap:14px;padding-block:6px;align-items:start}
+  .wrap>*{grid-column:2}.wrap>.court{grid-column:1;grid-row:1/span 8}header>div{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}header h1{font-size:22px;margin:0}
+  .controls select,.controls .btn{min-height:32px;padding:4px 8px;font-size:13px}.wrap{gap:7px}.status{min-height:0;font-size:13px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Table Tennis</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="bestof" aria-label="Match length"><option value="1">1 game</option><option value="3">Best of 3</option><option value="5">Best of 5</option></select>
+      <button class="btn primary" id="newgame">New match</button>
+    </div>
+  </header>
+  <div id="netbar" hidden></div>
+  <div class="score" aria-live="polite">
+    <div class="side" id="s0"><b id="p0">0</b><span><span class="nm" id="n0">You</span><small id="g0">Games 0</small></span></div>
+    <div class="games" id="gm">to 11</div>
+    <div class="side right" id="s1"><b id="p1">0</b><span><span class="nm" id="n1">Computer</span><small id="g1">Games 0</small></span></div>
+  </div>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="court" id="court"><canvas id="cv" aria-label="Table tennis table. Drag to move your bat; it swings by itself. Swipe while hitting to aim; tap to serve."></canvas></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li><b>Move your bat</b> by dragging anywhere on the table: left and right, and up and down to step in or back. The bat swings by itself when the ball reaches it.</li>
+        <li><b>Aim</b> by moving the bat sideways as you hit: swipe right to send the ball right. Hitting with the edge of the bat angles it too. <b>Swipe forward</b> as you hit for a faster, deeper shot, but too hard or too wide and it goes out or into the net.</li>
+        <li><b>Serve</b> by tapping the table. The serve bounces once on your side, then on your opponent's. Move the bat sideways first to aim it.</li>
+        <li>After the serve, the ball must land on the other side, and each player lets it bounce once on their side before hitting it back. Miss, hit it out, into the net, or let it bounce twice, and the point goes to your opponent.</li>
+        <li>A game goes to 11, and you must win by 2. The serve changes every 2 points (every point from 10–10).</li>
+        <li>2 players on one device: the table is shown from above; each player drags in their own half.</li>
+        <li>Online: one player hosts and the other joins with the game code. The host's device runs the game, so a good connection helps.</li>
+        <li>Keyboard: arrows move the bat, Space serves.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+/* ---------- the table (centimeters; x across, y along the table from player 1's end, z up) ---------- */
+const L=274,HW=76.25,NETH=15.25,BR=2,G=981,REACH=21,SPEED=1;
+const PAD_Y=[[-75,55],[L-55,L+75]];
+const LEVELS={easy:{v:150,react:.38,err:.16,pow:[0,.3],reach:34},medium:{v:240,react:.22,err:.06,pow:[.1,.55],reach:28},hard:{v:360,react:.1,err:.03,pow:[.45,.95],reach:24}};
+// how far from the bat's center a person's swing still reaches the ball: forgiving on a touch screen, more so on Easy
+const reachOf=p=>cpuSide(p)?REACH:cfg.mode==='cpu'?LEVELS[cfg.level].reach:28;
+const cfg=Object.assign({mode:'cpu',level:'medium',bestof:'3'},store.get('parlor-tt',{}));if(!['cpu','two'].includes(cfg.mode))cfg.mode='cpu';if(!LEVELS[cfg.level])cfg.level='medium';if(!['1','3','5'].includes(cfg.bestof))cfg.bestof='3';
+let S=null,net=null,matches=0,last=0,acc=0,sendT=0,peer={t:0},guestState=null;
+const online=()=>cfg.mode==='net'&&!!net&&net.online();
+const host=()=>cfg.mode!=='net'||(net&&net.role==='host');
+const meIdx=()=>cfg.mode==='net'&&net&&net.role==='guest'?1:0;
+const names=()=>cfg.mode==='cpu'?['You','Computer']:cfg.mode==='two'?['Player 1','Player 2']:(meIdx()?['Friend','You']:['You','Friend']);
+const cpuSide=p=>cfg.mode==='cpu'&&p===1;
+function newMatch(from){
+  if(cfg.mode==='net'&&!from&&online()&&net.role==='guest'){net.send({t:'again'});net.note('Asked the host for a new match.');return}
+  closeModal();const first=from?from.first:cfg.mode==='net'?(matches++%2):0;
+  S={ball:{x:0,y:-20,z:30,vx:0,vy:0,vz:0},pads:[{x:0,y:-30,vx:0,vy:0,swing:0},{x:0,y:L+30,vx:0,vy:0,swing:0}],score:[0,0],games:[0,0],first,firstOfGame:first,server:first,
+    phase:'serve',lastHit:null,need:null,canHit:[false,false],serveB:0,msg:'',pointT:0,over:null,bestof:+(from?from.bestof:cfg.bestof),names:names(),ev:0,trail:[],cpuT:0,cpuPlan:null,serveT:0};
+  holdBall();ui();
+  if(cfg.mode==='net'){if(!online()&&!from)net.start();else if(net.role==='host'&&!from)net.send({t:'start',first,bestof:S.bestof})}}
+// the server holds the ball just in front of their bat
+function holdBall(){const p=S.server,pd=S.pads[p],dir=p?-1:1;Object.assign(S.ball,{x:Math.max(-HW+10,Math.min(HW-10,pd.x)),y:p?Math.max(pd.y,L+8)+dir*4:Math.min(pd.y,-8)+dir*4,z:28,vx:0,vy:0,vz:0});S.phase='serve';S.serveT=0;S.lastHit=null;S.need=null;S.canHit=[false,false];S.trail=[]}
+/* ---------- physics ---------- */
+// one step of flight; returns what happened: 'table0'/'table1' (bounce on a side), 'net', 'floor', or ''
+function fly(b,dt){const py=b.y;b.vz-=G*dt;const k=1-0.1*dt;b.vx*=k;b.vy*=k;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;
+  if((py-L/2)*(b.y-L/2)<=0&&py!==b.y&&b.z<NETH&&b.z>-2&&Math.abs(b.x)<HW+15){b.y=L/2-Math.sign(b.vy)*1.2;b.vy=-b.vy*0.15;b.vx*=0.3;return'net'}
+  if(b.z<=BR&&b.vz<0&&Math.abs(b.x)<=HW&&b.y>=0&&b.y<=L&&b.z>-3){b.z=BR;b.vz=-b.vz*0.86;b.vx*=0.97;b.vy*=0.97;return b.y<L/2?'table0':'table1'}
+  if(b.z<-76||b.y<-260||b.y>L+260||Math.abs(b.x)>320){return'floor'}
+  return''}
+// launch the ball from where it is to land on (tx,ty) after t seconds
+function launch(b,tx,ty,t){b.vx=(tx-b.x)/t;b.vy=(ty-b.y)/t;b.vz=(BR-b.z+0.5*G*t*t)/t}
+/* ---------- rules ---------- */
+function hit(p,aim){const b=S.ball,pd=S.pads[p],dir=p?-1:1;let tx,pow;
+  if(aim){tx=aim.tx;pow=aim.pow}else{const fwd=dir*pd.vy;pow=Math.max(0,Math.min(1,fwd/260));const off=b.x-pd.x;tx=b.x*0.3+pd.vx*0.24+off*1.6;}
+  tx=Math.max(-(HW+40),Math.min(HW+40,tx));const ty=p?L*(0.30-0.20*pow)+(Math.random()-.5)*14:L*(0.70+0.20*pow)+(Math.random()-.5)*14;
+  b.z=Math.max(b.z,6);launch(b,tx,ty,0.8-0.42*pow);S.lastHit=p;S.need='land';S.canHit=[false,false];pd.swing=1;S.ev++;sfx('tap',{big:pow>.5});S.cpuPlan=null}
+function serve(p,aimX){if(S.phase!=='serve'||S.server!==p)return;const b=S.ball,dir=p?-1:1;
+  // find a serve that bounces on the server's side and then lands deep on the other side
+  const want=p?L*0.22:L*0.78,tx=Math.max(-HW+12,Math.min(HW-12,aimX));let best=null;
+  for(const f of[0.07,0.11,0.16,0.22])for(let t=0.06;t<=0.5;t+=0.01){const ownY=p?L*(1-f):L*f,c={x:b.x,y:b.y,z:b.z};launch(c,b.x+(tx-b.x)*0.3,ownY,t);const v={vx:c.vx,vy:c.vy,vz:c.vz};
+    let n=0,y2=null,ok=true;for(let i=0;i<600;i++){const e=fly(c,1/240);if(e==='net'||e==='floor'){ok=false;break}if(e.startsWith('table')){n++;if(n===1&&e!=='table'+p){ok=false;break}if(n===2){y2=e==='table'+(1-p)?c.y:null;break}}}
+    if(ok&&y2!=null){const d=Math.abs(y2-want);if(!best||d<best.d)best={d,v}}}
+  if(!best){launch(b,tx,want,0.9)}else{b.vx=best.v.vx;b.vy=best.v.vy;b.vz=best.v.vz}
+  S.phase='serving';S.serveB=0;S.lastHit=p;S.need=null;S.pads[p].swing=1;S.ev++;sfx('tap');S.msg=''}
+function bounce(side){S.ev++;sfx('bounce');const h=S.lastHit,o=1-h;
+  if(S.phase==='serving'){S.serveB++;if(S.serveB===1){if(side!==h)return point(o,'The serve has to bounce on your own side first.')}
+    else{if(side!==o)return point(o,'The serve didn\'t reach the other side.');S.phase='rally';S.need='hit';S.canHit[o]=true}return}
+  if(S.need==='land'){if(side!==o)return point(o,`#P${h} hit it on their own side.`);S.need='hit';S.canHit[o]=true;return}
+  if(S.need==='hit')return point(h,`The ball bounced twice on #S${o} side.`)}
+function point(w,why){if(S.phase==='point'||S.phase==='over')return;S.score[w]++;S.phase='point';S.pointT=1.2;S.msg=why;S.lastWinner=w;S.ev++;
+  sfx(cfg.mode==='cpu'?(w===0?'good':'bad'):cfg.mode==='net'?(w===meIdx()?'good':'bad'):'score');
+  const [a,b]=S.score;if((a>=11||b>=11)&&Math.abs(a-b)>=2){S.games[w]++;const need=Math.ceil(S.bestof/2);
+    if(S.games[w]>=need){S.over={winner:w};S.phase='over';S.msg=`#P${w} #V${w} the match ${S.games[w]}–${S.games[1-w]}!`;setTimeout(showEnd,900);return}
+    S.gameOver=w}}
+function nextPoint(){if(S.gameOver!=null){S.msg=`#P${S.gameOver} #V${S.gameOver} the game ${S.score[S.gameOver]}–${S.score[1-S.gameOver]}.`;S.score=[0,0];S.firstOfGame=1-S.firstOfGame;S.gameOver=null}
+  const [a,b]=S.score,tot=a+b;S.server=a>=10&&b>=10?(S.firstOfGame+tot)%2:(S.firstOfGame+Math.floor(tot/2))%2;holdBall()}
+// The bat steps in or back by itself to meet the ball where it drops to a good height after its bounce.
+function contact(p){const c=Object.assign({},S.ball),side=p;let bounced=S.canHit[p];
+  for(let i=0;i<600;i++){const e=fly(c,1/120);if(e==='net'||e==='floor')return null;if(e==='table'+side)bounced=true;
+    if(bounced){const[y0,y1]=PAD_Y[p],tooFar=p?c.y>y1:c.y<y0;if((c.vz<0&&c.z<40)||tooFar)return{x:c.x,y:Math.max(y0,Math.min(y1,c.y))}}}return null}
+function autoStep(p,dt){const pd=S.pads[p];let ty=p?L+28:-28;
+  if((S.phase==='rally'||S.phase==='serving')&&(S.canHit[p]||S.lastHit===1-p)){if(S._cEv!==S.ev+'/'+p){S._c=S._c||[];S._c[p]=contact(p);S._cEv=S.ev+'/'+p}const ct=S._c&&S._c[p];if(ct)ty=ct.y}
+  const d=ty-pd.y;pd.y+=Math.max(-420*dt,Math.min(420*dt,d))}
+/* ---------- the computer ---------- */
+// where will the ball cross the computer's bat line, after bouncing on its side?
+function predict(b,y0){const ct=contact(1);if(ct)return{x:ct.x};const c={x:b.x,y:b.y,z:b.z,vx:b.vx,vy:b.vy,vz:b.vz};let bounced=false;
+  for(let i=0;i<500;i++){const py=c.y,e=fly(c,1/120);if(e==='table1')bounced=true;if(e==='floor'||e==='net')return null;if(bounced&&(py-y0)*(c.y-y0)<=0)return{x:c.x,z:c.z,t:i/120}}return null}
+function cpu(dt){const p=1,pd=S.pads[p],Lv=LEVELS[cfg.level];
+  if(S.phase==='serve'&&S.server===p){S.serveT+=dt;if(S.serveT>0.9){pd.vx=0;serve(p,(Math.random()-.5)*90)}return}
+  let tx=0;if((S.phase==='rally'||S.phase==='serving')&&S.lastHit===0){S.cpuT=(S.cpuT||0)+dt;
+    if(S.cpuT>Lv.react){if(!S.cpuPlan){const pr=predict(S.ball,pd.y);S.cpuPlan=pr?{x:pr.x+(Math.random()-.5)*(cfg.level==='easy'?26:cfg.level==='medium'?12:4)}:{x:0}}tx=S.cpuPlan.x}else tx=pd.x}
+  else{S.cpuT=0;tx=S.lastHit===1?S.ball.x*0.3:0}
+  const d=tx-pd.x,v=Math.max(-Lv.v,Math.min(Lv.v,d*8));pd.vx=v;pd.x+=v*dt;pd.vy=0}
+function cpuAim(){const Lv=LEVELS[cfg.level],me=S.pads[0];
+  // aim away from the player's bat: Medium toward the open side, Hard close to the sideline
+  let tx=(me.x>0?-1:1)*(cfg.level==='hard'?52+Math.random()*20:30+Math.random()*35);if(cfg.level==='easy')tx=(Math.random()-.5)*90;
+  let pow=Lv.pow[0]+Math.random()*(Lv.pow[1]-Lv.pow[0]);if(S.ball.z<10)pow*=.5;
+  if(Math.random()<Lv.err){if(Math.random()<.5)tx=(tx>0?1:-1)*(HW+18+Math.random()*20);else pow=1}return{tx,pow}}
+/* ---------- the loop ---------- */
+function step(dt){const b=S.ball;S.pads.forEach(pd=>pd.swing=Math.max(0,pd.swing-dt*4));if(S.phase==='rally'||S.phase==='serving'){autoStep(0,dt);autoStep(1,dt)}
+  if(cfg.mode==='cpu')cpu(dt);
+  if(S.phase==='serve'){const pd=S.pads[S.server],dir=S.server?-1:1;b.x=Math.max(-HW+10,Math.min(HW-10,pd.x));b.y=(S.server?Math.max(pd.y,L+8):Math.min(pd.y,-8))+dir*4;b.z=28+Math.sin(performance.now()/180)*3;return}
+  if(S.phase==='point'||S.phase==='over'){fly(b,dt);if(S.phase==='point'){S.pointT-=dt;if(S.pointT<=0)nextPoint()}return}
+  const py=b.y,e=fly(b,dt);
+  if(e==='net'){S.ev++;sfx('clack');return point(1-S.lastHit,'Into the net.')}
+  if(e==='floor'){if(S.need==='hit')return point(S.lastHit,`#P${1-S.lastHit} missed the ball.`);return point(1-S.lastHit,S.phase==='serving'?'The serve went out.':'Out!')}
+  if(e)return bounce(+e.slice(5));
+  // a bat swings when the ball reaches it after bouncing on its side
+  for(const p of[0,1]){if(!S.canHit[p])continue;const pd=S.pads[p];
+    if(((py-pd.y)*(b.y-pd.y)<=0||Math.abs(b.y-pd.y)<5)&&Math.abs(b.x-pd.x)<reachOf(p)&&b.z>-20&&b.z<120){hit(p,cpuSide(p)?cpuAim():null);break}}
+  S.trail.push([b.x,b.y,b.z]);if(S.trail.length>9)S.trail.shift()}
+function loop(t){requestAnimationFrame(loop);if(!S)return;const real=Math.min(.05,(t-last)/1000);last=t;
+  if(host()){acc+=real*SPEED;while(acc>=1/240){acc-=1/240;step(1/240)}
+    if(online()&&t-sendT>33){sendT=t;net.send({t:'s',S:pack()})}}
+  else guestTick(real);
+  draw();if(t-(S._ui||0)>120){S._ui=t;ui()}}
+const pack=()=>({ball:S.ball,pads:S.pads.map(p=>({x:p.x,y:p.y,swing:p.swing})),score:S.score,games:S.games,server:S.server,phase:S.phase,msg:S.msg,over:S.over,bestof:S.bestof,ev:S.ev,canHit:S.canHit});
+// the guest draws the host's latest table, moving the ball on between updates, and sends its own bat
+function guestTick(dt){if(!online()){return}const mine=S.pads[1];
+  if(guestState){const g=guestState;guestState=null;const ev=g.ev!==S.ev;Object.assign(S,{score:g.score,games:g.games,server:g.server,phase:g.phase,msg:g.msg,over:g.over,bestof:g.bestof,canHit:g.canHit});
+    Object.assign(S.ball,g.ball);S.pads[0].x=g.pads[0].x;S.pads[0].y=g.pads[0].y;S.pads[0].swing=g.pads[0].swing;mine.swing=Math.max(mine.swing,g.pads[1].swing);
+    if(ev){S.ev=g.ev}if(S.over&&!S._shown){S._shown=1;setTimeout(showEnd,900)}}
+  else if(S.phase!=='serve')fly(S.ball,dt*SPEED);
+  mine.swing=Math.max(0,mine.swing-dt*4);S.trail.push([S.ball.x,S.ball.y,S.ball.z]);if(S.trail.length>9)S.trail.shift();
+  const t=performance.now();if(t-sendT>33){sendT=t;net.send({t:'p',x:mine.x,y:mine.y,vx:mine.vx,vy:mine.vy})}}
+/* ---------- drawing ---------- */
+const cv=$('cv'),cx=cv.getContext('2d');let V=null;
+function layout(){const box=$('court').getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2.5),side=matchMedia('(max-height:520px) and (orientation:landscape)').matches;
+  const w=box.width,h=side?innerHeight-16:Math.max(300,Math.min(w*1.5,innerHeight-($('court').getBoundingClientRect().top+scrollY)-14));
+  $('court').style.height=h+'px';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);V={w:cv.width,h:cv.height,dpr}}
+// camera behind the near end, looking down the table
+const CAM={y:-215,z:158},TH=Math.atan2(CAM.z,L*0.55-CAM.y),CT=Math.cos(TH),ST=Math.sin(TH);
+const flipView=()=>meIdx()===1;
+function proj(x,y,z){if(flipView()){x=-x;y=L-y}
+  if(topView()){const s=V.s,X=V.w/2+x*s,Y=V.h/2+(L/2-y)*s-z*s*0.45;return{x:X,y:Y,k:s*(1+z/260)}}
+  const dy=y-CAM.y,dz=z-CAM.z,D=dy*CT-dz*ST,U=dy*ST+dz*CT,k=V.F/Math.max(20,D);return{x:V.w/2+x*k,y:V.cy-U*k,k}}
+const topView=()=>cfg.mode==='two';
+function draw(){if(!V)layout();const w=V.w,h=V.h;
+  if(topView())V.s=Math.min(w/(HW*2+70),h/(L+170));else{V.F=Math.min(w*1.5,h/0.6);V.cy=h*(h>w*1.2?0.36:0.4)}
+  const fl=cx.createLinearGradient(0,0,0,h);fl.addColorStop(0,'#0d2236');fl.addColorStop(.45,'#163651');fl.addColorStop(1,'#1d4566');cx.fillStyle=fl;cx.fillRect(0,0,w,h);
+  if(!topView()){cx.fillStyle='rgba(255,255,255,.04)';for(let i=-6;i<=6;i++){const a=proj(i*60,-300,-76),b=proj(i*60,L+300,-76);cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.lineTo(b.x+2,b.y);cx.lineTo(a.x+2,a.y);cx.fill()}}
+  const far=flipView()?0:1,near=1-far;
+  // things on the far side of the net first, then the table, then the near side
+  drawPad(far);drawTable();
+  const ballFar=flipView()?S.ball.y<L/2:S.ball.y>L/2;
+  if(ballFar)drawBall();drawNet();if(!ballFar)drawBall();drawPad(near)}
+function poly(pts,fill){cx.beginPath();pts.forEach((p,i)=>i?cx.lineTo(p.x,p.y):cx.moveTo(p.x,p.y));cx.closePath();cx.fillStyle=fill;cx.fill()}
+function drawTable(){const c=(x,y,z=0)=>proj(x,y,z);
+  // legs and the table edge
+  cx.fillStyle='#0b1622';for(const [x,y] of[[-HW+10,20],[HW-10,20],[-HW+10,L-20],[HW-10,L-20]]){const a=c(x,y,0),b=c(x,y,-76);cx.fillRect(a.x-3*a.k,a.y,6*a.k,b.y-a.y)}
+  const ny=flipView()?L:0,fy=L-ny;poly([c(-HW,ny,0),c(HW,ny,0),c(HW,ny,-3),c(-HW,ny,-3)],'#0f3a6b');
+  const tg=cx.createLinearGradient(0,c(0,fy).y,0,c(0,ny).y);tg.addColorStop(0,'#1d5fa8');tg.addColorStop(1,'#2a78cf');poly([c(-HW,0),c(HW,0),c(HW,L),c(-HW,L)],tg);
+  cx.strokeStyle='#f4f8ff';const line=(a,b,wd)=>{cx.lineWidth=Math.max(1,wd*(a.k+b.k)/2);cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke()};
+  line(c(-HW,0),c(HW,0),2);line(c(-HW,L),c(HW,L),2);line(c(-HW,0),c(-HW,L),2);line(c(HW,0),c(HW,L),2);line(c(0,0),c(0,L),.6);
+  // shadow of the ball on the table or the floor
+  const b=S.ball,on=Math.abs(b.x)<=HW&&b.y>=0&&b.y<=L,sz=on?0:-76,sp=c(b.x,b.y,sz);if(b.z>sz-1){cx.fillStyle='rgba(0,0,0,.32)';cx.beginPath();cx.ellipse(sp.x,sp.y,BR*1.5*sp.k,BR*.8*sp.k,0,0,7);cx.fill()}}
+function drawNet(){const a=proj(-HW-15,L/2,0),b=proj(HW+15,L/2,0),a2=proj(-HW-15,L/2,NETH),b2=proj(HW+15,L/2,NETH);
+  cx.fillStyle='rgba(240,245,255,.22)';cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.lineTo(b2.x,b2.y);cx.lineTo(a2.x,a2.y);cx.closePath();cx.fill();
+  cx.strokeStyle='rgba(255,255,255,.18)';cx.lineWidth=1;for(let i=1;i<14;i++){const x=-HW-15+(HW*2+30)*i/14,p=proj(x,L/2,0),q=proj(x,L/2,NETH);cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(q.x,q.y);cx.stroke()}
+  cx.strokeStyle='#f4f8ff';cx.lineWidth=Math.max(1.5,2*a2.k);cx.beginPath();cx.moveTo(a2.x,a2.y);cx.lineTo(b2.x,b2.y);cx.stroke();cx.fillStyle='#c9d3df';for(const [p,q] of[[a,a2],[b,b2]])cx.fillRect(p.x-2*p.k,q.y,4*p.k,p.y-q.y)}
+function drawBall(){const b=S.ball;
+  S.trail.forEach((t,i)=>{const p=proj(t[0],t[1],t[2]);cx.fillStyle=`rgba(255,200,120,${i/S.trail.length*.25})`;cx.beginPath();cx.arc(p.x,p.y,BR*p.k*.8,0,7);cx.fill()});
+  const p=proj(b.x,b.y,b.z),r=Math.max(2.5,BR*p.k);const g=cx.createRadialGradient(p.x-r*.35,p.y-r*.35,r*.1,p.x,p.y,r);g.addColorStop(0,'#fff');g.addColorStop(.6,'#ffb347');g.addColorStop(1,'#d9771f');cx.fillStyle=g;cx.beginPath();cx.arc(p.x,p.y,r,0,7);cx.fill()}
+function drawPad(i){const pd=S.pads[i],p=proj(pd.x,pd.y,22),r=8.5*p.k,mine=cfg.mode==='two'||i===meIdx(),tilt=(i===(flipView()?1:0)?-1:1)*pd.swing*0.6;
+  cx.save();cx.translate(p.x,p.y);cx.rotate(tilt);cx.globalAlpha=mine&&!topView()?0.82:1;
+  cx.fillStyle='#7a4a24';cx.fillRect(-r*.18,r*.75,r*.36,r*.85);cx.fillStyle=i===0?'#d8312c':'#1c1c1c';cx.beginPath();cx.ellipse(0,0,r,r*.92,0,0,7);cx.fill();
+  cx.strokeStyle=i===0?'#8a1712':'#000';cx.lineWidth=Math.max(1,r*.12);cx.stroke();cx.restore();cx.globalAlpha=1;
+  if(S.phase==='serve'&&S.server===i&&mine&&canServeHere(i)){cx.fillStyle='rgba(255,255,255,.85)';cx.font=`800 ${Math.round(13*V.dpr)}px Nunito,sans-serif`;cx.textAlign='center';cx.fillText('Tap to serve',p.x,p.y-r*1.6)}}
+const canServeHere=i=>cfg.mode==='two'||(cfg.mode==='cpu'?i===0:online()&&i===meIdx());
+/* ---------- input: drag to move the bat, tap to serve ---------- */
+const ptrs=new Map();
+function worldFor(e,who){const r=cv.getBoundingClientRect(),sx=(e.clientX-r.left)*V.dpr,sy=(e.clientY-r.top)*V.dpr;let x,y;
+  if(topView()){x=(sx-V.w/2)/V.s;y=L/2-(sy-V.h/2)/V.s}
+  else{// sideways from the finger at the bat's distance; forward and back from how high the finger is on the lower part of the screen
+    const near=proj(0,-30,22),k=near.k;x=(sx-V.w/2)/k;const f=Math.max(0,Math.min(1,(sy-V.h*0.55)/(V.h*0.42)));y=-6-f*66;if(flipView()){x=-x;y=L-y}}
+  const [y0,y1]=PAD_Y[who];return{x:Math.max(-HW-60,Math.min(HW+60,x)),y:Math.max(y0,Math.min(y1,y))}}
+function whoFor(e){if(cfg.mode==='two'){const r=cv.getBoundingClientRect();return e.clientY-r.top>r.height/2?0:1}return meIdx()}
+cv.addEventListener('pointerdown',e=>{if(!S||S.over)return;const who=whoFor(e);if(cfg.mode==='cpu'&&who!==0)return;try{cv.setPointerCapture(e.pointerId)}catch(x){}
+  ptrs.set(e.pointerId,{who,x0:e.clientX,y0:e.clientY,t0:performance.now(),moved:0,hist:[]});movePad(e)});
+cv.addEventListener('pointermove',e=>{const p=ptrs.get(e.pointerId);if(!p)return;p.moved+=Math.abs(e.movementX||0)+Math.abs(e.movementY||0);movePad(e)});
+const up=e=>{const p=ptrs.get(e.pointerId);if(!p)return;ptrs.delete(e.pointerId);if(performance.now()-p.t0<350&&Math.hypot(e.clientX-p.x0,e.clientY-p.y0)<14)tapServe(p.who)};
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',e=>ptrs.delete(e.pointerId));
+function movePad(e){const p=ptrs.get(e.pointerId);if(!p||!S)return;const w=worldFor(e,p.who),pd=S.pads[p.who],t=performance.now();
+  p.hist.push({t,x:w.x,y:w.y});while(p.hist.length>2&&t-p.hist[0].t>90)p.hist.shift();const h0=p.hist[0],dt=Math.max(.016,(t-h0.t)/1000);
+  pd.vx=(w.x-h0.x)/dt/SPEED;pd.vy=(w.y-h0.y)/dt/SPEED;pd.x=w.x;if(S.phase==='serve'||S.phase==='point')pd.y=w.y;clearTimeout(pd.decay);pd.decay=setTimeout(()=>{pd.vx=pd.vy=0},90)}
+function tapServe(who){if(!S||S.phase!=='serve'||S.server!==who||!canServeHere(who))return;const aim=S.pads[who].x*0.25+(S.pads[who].vx||0)*0.2;
+  if(host())serve(who,aim);else net.send({t:'serve',aim})}
+const keys={};document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();keys[e.key]=true;if(e.key===' ')tapServe(cfg.mode==='two'?S.server:meIdx())});
+document.addEventListener('keyup',e=>{keys[e.key]=false});
+setInterval(()=>{if(!S)return;const who=cfg.mode==='two'?0:meIdx(),pd=S.pads[who],s=flipView()?-1:1;let vx=0,vy=0;if(keys.ArrowLeft)vx-=220;if(keys.ArrowRight)vx+=220;if(keys.ArrowUp)vy+=160;if(keys.ArrowDown)vy-=160;
+  if(!vx&&!vy)return;const [y0,y1]=PAD_Y[who];pd.vx=vx*s;pd.vy=vy*s;pd.x=Math.max(-HW-60,Math.min(HW+60,pd.x+pd.vx/60));pd.y=Math.max(y0,Math.min(y1,pd.y+pd.vy/60))},1000/60);
+/* ---------- scoreboard ---------- */
+function ui(){if(!S)return;if(net)net.render();const nm=S.names,left=flipView()?1:0,right=1-left;
+  for(const [el,p] of[[0,left],[1,right]]){$('p'+el).textContent=S.score[p];$('n'+el).textContent=nm[p];$('g'+el).textContent=S.bestof>1?`Games ${S.games[p]}`:(S.server===p&&!S.over?'Serving':' ');$('s'+el).classList.toggle('serve',S.server===p&&!S.over)}
+  $('gm').textContent=S.bestof>1?`Best of ${S.bestof}`:'to 11';
+  let st;if(cfg.mode==='net'&&!online())st='Not connected. Tap Connect to play a friend.';else if(S.over)st='';
+  else if(S.phase==='serve'){const me=canServeHere(S.server);st=me?(cfg.mode==='two'?`${nm[S.server]}: tap to serve.`:'Your serve: move the bat to aim, then tap the table.'):cfg.mode==='cpu'?'The computer is serving…':'Your friend is serving…'}
+  else st='Drag to move your bat. Swipe sideways as you hit to aim, forward for a fast one.';
+  const said=S.msg.replace(/#([PVS])(\d)/g,(m,k,i)=>{const n=S.names[i];return k==='P'?n:k==='V'?(n==='You'?'win':'wins'):(n==='You'?'your':n+'\'s')});
+  $('status').innerHTML=(said?`<b>${said}</b> `:'')+st;$('level').hidden=cfg.mode!=='cpu';$('bestof').disabled=online()&&net.role==='guest';if($('bestof').disabled)$('bestof').value=String(S.bestof)}
+function showEnd(){if(!S.over)return;const w=S.over.winner,t=cfg.mode==='cpu'?(w===0?'You win!':'Computer wins'):cfg.mode==='net'?(w===meIdx()?'You win!':'Your friend wins'):`${S.names[w]} wins!`;
+  modal(`<h2>${t}</h2><p>${S.bestof>1?`Games ${S.games[w]}–${S.games[1-w]}.`:`${S.score[w]}–${S.score[1-w]}.`}</p><div class="row"><button class="btn primary" id="again">Play again</button></div>`);$('again').onclick=()=>newMatch()}
+/* ---------- settings and online ---------- */
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('bestof').value=cfg.bestof}
+const busy=()=>S&&!S.over&&(S.score[0]+S.score[1]+S.games[0]+S.games[1])>0;
+$('mode').onchange=e=>{if(busy()&&!confirm('Start a new match?')){sync();return}cfg.mode=e.target.value;if(cfg.mode!=='net')store.set('parlor-tt',cfg);matches=0;newMatch()};
+$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-tt',cfg)};
+$('bestof').onchange=e=>{cfg.bestof=e.target.value;store.set('parlor-tt',cfg);if(!busy())newMatch();else ui()};
+$('newgame').onclick=()=>{if(busy()&&!confirm('Start a new match?'))return;newMatch()};
+// online: the host's device runs the game; the guest sends its bat and its serve, and draws what the host sends
+net=P2P.net({game:'Table Tennis',bar:$('netbar'),conn:$('conn'),active:()=>cfg.mode==='net',
+  onOpen(role){S.names=names();if(role==='host'){matches=0;newMatch();net.note('Connected! You serve first.')}else{ui();net.note('Connected! Waiting for the host…')}},
+  onMessage(m){
+    if(host()){const pd=S.pads[1];if(m.t==='p'){pd.x=m.x;pd.y=Math.max(PAD_Y[1][0],Math.min(PAD_Y[1][1],m.y));pd.vx=m.vx;pd.vy=m.vy}else if(m.t==='serve')serve(1,m.aim);else if(m.t==='again')newMatch();return}
+    if(m.t==='s'){if(m.S.ev!==S.ev){const d=m.S.ev-S.ev;if(d>0&&d<4){/* sounds for what happened */if(m.S.phase==='point'&&S.phase!=='point')sfx(m.S.score[1]>S.score[1]?'good':'bad');else sfx('tap')}}guestState=m.S}
+    else if(m.t==='start'){S=null;newMatch({first:m.first,bestof:m.bestof});S.names=names()}},
+  onLeave(){cfg.mode='cpu';sync();newMatch()},onDrop(){ui()}});
+if(net.join)cfg.mode='net';
+sync();layout();newMatch();addEventListener('resize',()=>{layout()});
+if(document.fonts)document.fonts.ready.then(layout);
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+requestAnimationFrame(t=>{last=t;loop(t)});
+</script>
+</body>
+</html>
