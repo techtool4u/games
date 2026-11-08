@@ -7,9 +7,26 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}.room{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.room h3{margin:0;font-size:17px}.room p{margin:0;color:var(--muted);font-size:14px}
+.room .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.room input[type=text]{font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:inherit;min-width:0;flex:1}
+.room .code{font:700 30px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.14em}
+.seats{display:grid;gap:6px}
+.seat{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:var(--chip,#f1f1f4);font-weight:700;min-height:40px}
+.seat i{width:16px;height:16px;border-radius:50%;flex:none}.seat span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat small{color:var(--muted);font-weight:700}.seat .ok{color:#1f8a4c}.seat select{min-height:32px}
+.room .mini{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.room .mini b{flex:1}
+.room .err{color:#c62b2b;font-weight:700}
+/* your own counter, online */
+.tok.mine .ring{stroke:#fff;stroke-width:.06;animation:minepulse 1.2s ease-in-out infinite alternate}
+@keyframes minepulse{from{opacity:.4}to{opacity:1}}
+.tok .you{font:800 .22px system-ui,sans-serif;fill:#fff;paint-order:stroke;stroke:#000;stroke-width:.05;text-anchor:middle}
+</style>
 <script src="sound.js"></script>
 <script>window.sfx=window.sfx||function(){}</script>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 </head>
 <body>
 <style>
@@ -118,13 +135,14 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
       <p class="sub">Roll and race to square 100. Ladders carry you up, snakes slide you down. Pure luck, all the way to the top.</p>
     </div>
     <div class="controls">
-      <select id="players" aria-label="Number of players"><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option></select>
+      <select id="players" aria-label="Number of players"><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="net">Online room (2–4)</option></select>
       <select id="humans" aria-label="People playing"></select>
       <select id="layout" aria-label="Board"><option value="classic">Classic board</option><option value="jungle">Jungle board</option><option value="tricky">Tricky board</option></select>
       <button class="btn primary" id="newgame">New game</button>
     </div>
   </header>
 
+  <div class="room" id="room" hidden></div>
   <div class="game">
     <section class="stage" aria-label="Board">
       <div class="boardbox"><svg id="svg" viewBox="0 0 10 10.9" role="img" aria-label="Snakes and ladders board"></svg></div>
@@ -180,19 +198,23 @@ let S=null,toastT=0;
 
 // Square n (1-100) runs left to right on the bottom row, then right to left, snaking up the board.
 function xy(n){if(n<=0)return null;const r=Math.floor((n-1)/10),k=(n-1)%10,c=r%2?9-k:k;return[c+.5,9-r+.5]}
-const isCpu=pl=>pl>=S.humans;
-const nameOf=pl=>S.humans===1?(pl===0?'You':`Computer ${COL[pl][1]}`):(isCpu(pl)?`Computer ${COL[pl][1]}`:COL[pl][1]);
+const isCpu=pl=>S.owner?S.owner[pl]==='cpu':pl>=S.humans;
+// online, only the device that owns the player whose turn it is can roll
+const canAct=pl=>!isCpu(pl)&&(!S.owner||S.owner[pl]===ROOM.me);
+const nameOf=pl=>S.owner?(S.owner[pl]===ROOM.me?'You':isCpu(pl)?`Computer ${COL[pl][1]}`:S.pnames[pl]):S.humans===1?(pl===0?'You':`Computer ${COL[pl][1]}`):(isCpu(pl)?`Computer ${COL[pl][1]}`:COL[pl][1]);
 const delay=ms=>cfg.fast&&isCpu(S.turn)?Math.min(ms,110):ms;
 function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
 
 /* ---------- game flow ---------- */
-function newGame(){$('overlay').hidden=true;const n=+cfg.players;
+function newGame(){if(ROOM.role==='guest'){ROOM.link.send({t:'again'});toast('Asked the host for a new game.');return}
+  if(cfg.players==='net'&&ROOM.role!=='host'){showRoom();return}
+  $('overlay').hidden=true;const n=ROOM.role==='host'?ROOM.n:+cfg.players;
   const L=LAYOUTS[cfg.layout],jump=new Map();for(const[a,b]of L.ladders)jump.set(a,b);for(const[a,b]of L.snakes)jump.set(a,b);
-  S={n,humans:Math.min(+cfg.humans,n),pos:new Array(n).fill(0),turn:0,phase:'roll',die:0,rolled:false,anim:false,over:null,msg:'',log:[],jump,L,gen:(S?S.gen:0)+1,climbs:new Array(n).fill(0),slides:new Array(n).fill(0)};
+  S={n,humans:Math.min(+cfg.humans,n),owner:ROOM.role==='host'?ROOM.owners.slice():null,pnames:ROOM.role==='host'?ROOM.pnames.slice():null,note:null,pos:new Array(n).fill(0),turn:0,phase:'roll',die:0,rolled:false,anim:false,over:null,msg:'',log:[],jump,L,gen:(S?S.gen:0)+1,climbs:new Array(n).fill(0),slides:new Array(n).fill(0)};
   for(let pl=0;pl<n;pl++)if(wins[pl]===undefined)wins[pl]=0;
-  build();startTurn()}
+  build();startTurn();if(ROOM.role==='host'){ROOM.send({t:'start',owners:S.owner,pnames:S.pnames,layout:cfg.layout,exact:cfg.exact});ROOM.sendState()}}
 function startTurn(){S.phase='roll';render();if(isCpu(S.turn)){const g=S.gen;setTimeout(()=>{if(g===S.gen)roll()},delay(700))}}
-function roll(){if(S.over||S.phase!=='roll')return;const g=S.gen,pl=S.turn;
+function roll(){if(S.over||S.phase!=='roll')return;if(ROOM.role==='guest'){if(canAct(S.turn))ROOM.link.send({t:'roll'});return}const g=S.gen,pl=S.turn;
   S.die=1+rand(6);S.rolled=true;S.anim=true;S.phase='anim';sfx('dice');S.msg='';render();S.anim=false;
   const from=S.pos[pl];let target=from+S.die,bounce=0;
   if(target>100){if(cfg.exact){bounce=target-100;target=100-bounce}else target=100}
@@ -200,16 +222,17 @@ function roll(){if(S.over||S.phase!=='roll')return;const g=S.gen,pl=S.turn;
   let i=0;const walk=()=>{if(g!==S.gen)return;if(i<path.length){S.pos[pl]=path[i++];renderTokens();sfx('step');setTimeout(walk,delay(170));return}
     const land=S.pos[pl],to=S.jump.get(land);let note=`${nameOf(pl)} rolled ${S.die}: ${from||'start'} → ${land}${bounce?' (bounced back)':''}`;
     if(to){const up=to>land;up?S.climbs[pl]++:S.slides[pl]++;note+=up?`, climbed a ladder to ${to}!`:`, slid down a snake to ${to}.`;
-      setTimeout(()=>{if(g!==S.gen)return;S.pos[pl]=to;renderTokens(true);sfx(up?'climb':'fall');toast(up?`${nameOf(pl)} climbed to ${to}!`:`Hiss! ${nameOf(pl)} slid down to ${to}.`);setTimeout(()=>{if(g===S.gen)after(pl,note)},delay(800))},delay(250))}
+      setTimeout(()=>{if(g!==S.gen)return;S.pos[pl]=to;renderTokens(true);sfx(up?'climb':'fall');{const why=up?`${nameOf(pl)} climbed to ${to}!`:`Hiss! ${nameOf(pl)} slid down to ${to}.`;toast(why);S.note={t:why,k:(S.note?S.note.k:0)+1,up}}setTimeout(()=>{if(g===S.gen)after(pl,note)},delay(800))},delay(250))}
     else after(pl,note)};
   setTimeout(walk,delay(350))}
 function after(pl,note){S.log.unshift(note);S.log=S.log.slice(0,30);
   if(S.pos[pl]===100){finish(pl);return}
   if(S.die===6){S.msg='Rolled a 6: roll again.'}else{S.msg='';S.turn=(S.turn+1)%S.n;S.rolled=false}
   startTurn()}
-function finish(w){S.over={w};S.phase='over';wins[w]=(wins[w]||0)+1;render();
+function finish(w){S.over={w};S.phase='over';wins[w]=(wins[w]||0)+1;render();showEnd(w)}
+function showEnd(w){
   const rank=[...Array(S.n).keys()].sort((a,b)=>S.pos[b]-S.pos[a]);
-  setTimeout(()=>{if(!S.over)return;$('modal').innerHTML=`<h2>${S.humans===1&&w===0?'You win!':nameOf(w)+' wins'}</h2><p>${S.climbs[w]} ladder${S.climbs[w]===1?'':'s'} climbed and ${S.slides[w]} snake${S.slides[w]===1?'':'s'} slid on the way to 100.</p>${S.n>2?`<ol>${rank.map(pl=>`<li>${nameOf(pl)}: square ${S.pos[pl]}</li>`).join('')}</ol>`:''}<div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
+  setTimeout(()=>{if(!S.over)return;$('modal').innerHTML=`<h2>${nameOf(w)==='You'?'You win!':nameOf(w)+' wins'}</h2><p>${S.climbs[w]} ladder${S.climbs[w]===1?'':'s'} climbed and ${S.slides[w]} snake${S.slides[w]===1?'':'s'} slid on the way to 100.</p>${S.n>2?`<ol>${rank.map(pl=>`<li>${nameOf(pl)}: square ${S.pos[pl]}</li>`).join('')}</ol>`:''}<div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
     $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame},900)}
 
 /* ---------- drawing ---------- */
@@ -235,17 +258,17 @@ function build(){const L=S.L;let s=`<defs><filter id="sh" x="-20%" y="-20%" widt
   s+=`<rect x="0" y="10" width="10" height=".9" fill="var(--c)"/><text class="n big" x=".2" y="10.55">START</text><line x1="0" y1="10" x2="10" y2="10" stroke="var(--num)" stroke-width=".03" opacity=".4"/>`;
   for(const[a,b]of L.ladders)s+=ladderSVG(a,b);
   L.snakes.forEach(([h,t],k)=>{s+=snakeSVG(h,t,k)});
-  s+='<g id="toks">';for(let pl=0;pl<S.n;pl++)s+=`<g class="tok" id="t${pl}"><circle class="body" r=".27" fill="url(#g${pl})"/><circle class="ring" r=".14"/></g>`;s+='</g>';
+  s+='<g id="toks">';for(let pl=0;pl<S.n;pl++)s+=`<g class="tok" id="t${pl}"><circle class="body" r=".27" fill="url(#g${pl})"/><circle class="ring" r=".14"/>${S.owner&&S.owner[pl]===ROOM.me?'<text class="you" y="-.36">YOU</text>':''}</g>`;s+='</g>';
   $('svg').innerHTML=s;renderTokens()}
-function renderTokens(slide){const at=new Map();for(let pl=0;pl<S.n;pl++){const p=S.pos[pl];if(!at.has(p))at.set(p,[]);at.get(p).push(pl)}
+function renderTokens(slide){if(ROOM.role==='host')ROOM.sendState();const at=new Map();for(let pl=0;pl<S.n;pl++){const p=S.pos[pl];if(!at.has(p))at.set(p,[]);at.get(p).push(pl)}
   for(let pl=0;pl<S.n;pl++){const el=$(`t${pl}`),p=S.pos[pl];let x,y,sc=1;
     if(p===0){x=1.9+pl*.75;y=10.45}else{[x,y]=xy(p);const g=at.get(p);if(g.length>1){const j=g.indexOf(pl),a=j/g.length*Math.PI*2+Math.PI/4;x+=Math.cos(a)*.21;y+=Math.sin(a)*.21;sc=.78}}
-    el.classList.toggle('slide',!!slide&&pl===S.turn);el.style.transform=`translate(${x}px,${y}px) scale(${sc})`;
+    el.classList.toggle('slide',!!slide&&pl===S.turn);el.classList.toggle('mine',!!S.owner&&S.owner[pl]===ROOM.me);el.style.transform=`translate(${x}px,${y}px) scale(${sc})`;
     if(pl===S.turn)$('toks').appendChild(el)}}
 const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
-function trayHTML(){const pl=S.turn,me=!isCpu(pl)&&!S.over,canRoll=me&&S.phase==='roll';
-  const msg=S.over?'Game over.':S.msg?S.msg:isCpu(pl)?'Rolling…':S.phase==='roll'?(S.pos[pl]?`On square ${S.pos[pl]}. Tap the die to roll.`:'Tap the die to roll.'):'Moving…';
-  const head=S.over?`${nameOf(S.over.w)} ${S.humans===1&&S.over.w===0?'win':'wins'}`:S.humans===1&&pl===0?'Your turn':nameOf(pl);
+function trayHTML(){const pl=S.turn,me=canAct(pl)&&!S.over,canRoll=me&&S.phase==='roll';
+  const msg=S.over?'Game over.':S.msg?S.msg:isCpu(pl)?'Rolling…':!me&&S.phase==='roll'?'Waiting for them to roll…':S.phase==='roll'?(S.pos[pl]?`On square ${S.pos[pl]}. Tap the die to roll.`:'Tap the die to roll.'):'Moving…';
+  const head=S.over?`${nameOf(S.over.w)} ${nameOf(S.over.w)==='You'?'win':'wins'}`:nameOf(pl)==='You'?'Your turn':nameOf(pl);
   const v=S.rolled?S.die:0;
   return `<div class="who${isCpu(pl)&&!S.over?' think':''}"><span class="dot" style="background:${COL[S.over?S.over.w:pl][0]}"></span><span>${head}<span class="msg">${msg}</span></span></div>
     <button class="die${canRoll?' can':''}${S.anim&&v?' roll':''}" data-die="1" aria-label="${canRoll?'Roll the die':v?'Rolled '+v:'Die'}"${canRoll?'':' disabled'}>${[...Array(9)].map((_,k)=>v&&PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</button>`}
@@ -255,21 +278,102 @@ function render(){if(!S)return;renderTokens();const h=trayHTML();$('tray').inner
   $('tally').innerHTML=[...Array(S.n).keys()].map(pl=>`<span>${nameOf(pl)} <b>${wins[pl]||0}</b></span>`).join('')}
 
 /* ---------- input & settings ---------- */
-document.addEventListener('click',e=>{if(e.target.closest('[data-die]')&&S&&!isCpu(S.turn))roll()});
+document.addEventListener('click',e=>{if(e.target.closest('[data-die]')&&S&&canAct(S.turn))roll()});
 document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;
   if(e.key==='Escape'&&!$('overlay').hidden){$('overlay').hidden=true;return}
-  if((e.key===' '||e.key==='r'||e.key==='R')&&S&&S.phase==='roll'&&!isCpu(S.turn)&&$('overlay').hidden&&!e.target.closest('button')){e.preventDefault();roll()}});
+  if((e.key===' '||e.key==='r'||e.key==='R')&&S&&S.phase==='roll'&&canAct(S.turn)&&$('overlay').hidden&&!e.target.closest('button')){e.preventDefault();roll()}});
 window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
-function fillHumans(){const n=+cfg.players;$('humans').innerHTML=[...Array(n).keys()].map(k=>{const h=k+1;return `<option value="${h}">${h===1?'You vs computers':h===n?`${h} people, no computer`:`${h} people + ${n-h} computer${n-h>1?'s':''}`}</option>`}).join('');
+/* ---------- online rooms: one host and up to three friends ----------
+   The host's device runs the game; each friend's device shows it and sends its own rolls and moves. Seats can be friends or computers. */
+const ROOM={role:null,me:'local',hub:null,link:null,code:'',n:4,seats:[],guests:new Map(),owners:[],pnames:[],err:'',joining:false,
+  send(m){if(this.role==='host')for(const g of this.guests.values())g.link.send(m)},
+  sendState(){if(!S)return;this.send({t:'st',S:{pos:S.pos,turn:S.turn,phase:S.phase,die:S.die,rolled:S.rolled,msg:S.msg,over:S.over,anim:S.anim,note:S.note,log:S.log,climbs:S.climbs,slides:S.slides}})}};
+const myName=()=>store.get('parlor-name','')||'';
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// the seats as the host sees them; seat 0 is the host
+function lobbyList(){return ROOM.seats.slice(0,ROOM.n).map((x,k)=>({...x,color:k}))}
+function sendLobby(){ROOM.send({t:'lobby',n:ROOM.n,code:ROOM.code,seats:lobbyList().map(x=>({kind:x.kind,name:x.name,id:x.id}))})}
+function seatRow(x,k,host){const c=COL[x.color];let who;
+  if(x.kind==='host')who=`<span>${esc(x.name||'Host')}</span><small>host</small>`;
+  else if(x.kind==='guest')who=`<span>${esc(x.name||'Friend')}</span><small class="ok">● joined</small>`;
+  else if(x.kind==='cpu')who=`<span>Computer</span>`;else who=`<span style="color:var(--muted)">Waiting for a friend…</span>`;
+  const ctl=host&&k>0&&x.kind!=='guest'?`<select data-seat="${k}" aria-label="Seat ${k+1}"><option value="open"${x.kind==='open'?' selected':''}>Open</option><option value="cpu"${x.kind==='cpu'?' selected':''}>Computer</option></select>`:'';
+  return`<div class="seat"><i style="background:${c[0]}"></i>${who}${ctl}</div>`}
+function showRoom(){const el=$('room');el.hidden=cfg.players!=='net';if(el.hidden)return;
+  if(!ROOM.role&&!ROOM.joining){el.innerHTML=`<h3>Online room</h3><p>Play Snakes and Ladders with 2 to 4 people on their own devices. One player hosts and gets a game code; friends join with it. Empty seats can be computers.</p>
+      <div class="row"><input type="text" id="rname" maxlength="14" placeholder="Your name" value="${esc(myName())}" aria-label="Your name"></div>
+      <div class="row"><button class="btn primary" id="rhost">Host a room</button><input type="text" id="rcode" maxlength="8" placeholder="Game code" aria-label="Game code" style="text-transform:uppercase;max-width:9em"><button class="btn" id="rjoin">Join</button></div>${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}`;
+    $('rname').onchange=e=>store.set('parlor-name',e.target.value.trim());$('rhost').onclick=hostRoom;$('rjoin').onclick=()=>joinRoom($('rcode').value);$('rcode').onkeydown=e=>{if(e.key==='Enter')joinRoom($('rcode').value)};return}
+  if(ROOM.joining&&!ROOM.role){el.innerHTML=`<h3>Joining…</h3><p>Connecting to the room.</p><div class="row"><button class="btn" id="rleave">Cancel</button></div>`;$('rleave').onclick=leaveRoom;return}
+  const playing=!!(S&&S.owner);
+  if(playing){el.innerHTML=`<div class="mini"><b>Online room ${ROOM.code.slice(0,3)} ${ROOM.code.slice(3)} · ${S.n} players</b><button class="btn" id="rleave">Leave</button></div>`;$('rleave').onclick=leaveRoom;return}
+  const host=ROOM.role==='host',list=host?lobbyList():ROOM.lobby||[];
+  const friends=list.filter(x=>x.kind==='guest').length,ready=list.length>=2&&list.every(x=>x.kind!=='open')&&friends>0;
+  el.innerHTML=`<h3>${host?'Your room':'In the room'}</h3>
+    <div class="row"><span class="code">${ROOM.code?ROOM.code.slice(0,3)+' '+ROOM.code.slice(3):'······'}</span>${host&&ROOM.code?`<button class="btn" id="rcopy">Copy code</button>${navigator.share?'<button class="btn" id="rshare">Share</button>':''}`:''}</div>
+    <p>${host?(ROOM.code?'Send this code to your friends. They choose Online room, type it and tap Join.':'Getting a game code…'):'Waiting for the host to start the game.'}</p>
+    ${host?`<div class="row"><label>Players <select id="rn"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label></div>`:''}
+    <div class="seats">${list.map((x,k)=>seatRow(x,k,host)).join('')}</div>
+    <div class="row">${host?`<button class="btn primary" id="rstart"${ready?'':' disabled'}>Start game</button>`:''}<button class="btn" id="rleave">${host?'Close room':'Leave'}</button></div>
+    ${host&&!ready?`<p>${friends?'Fill or close the open seats (set them to Computer) to start.':'At least one friend needs to join.'}</p>`:''}${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}`;
+  $('rleave').onclick=leaveRoom;
+  if(host){$('rn').value=String(ROOM.n);$('rn').onchange=e=>{ROOM.n=+e.target.value;fitSeats();showRoom();sendLobby()};
+    el.querySelectorAll('[data-seat]').forEach(sel=>sel.onchange=()=>{ROOM.seats[+sel.dataset.seat].kind=sel.value;showRoom();sendLobby()});
+    if($('rstart'))$('rstart').onclick=startRoomGame;
+    if($('rcopy'))$('rcopy').onclick=async()=>{try{await navigator.clipboard.writeText(ROOM.code)}catch(e){}$('rcopy').textContent='Copied!'};
+    if($('rshare'))$('rshare').onclick=()=>navigator.share({title:'Snakes and Ladders room',text:`Join my Snakes and Ladders game in Game Parlor. Code: ${ROOM.code}`}).catch(()=>{})}}
+// keep seat 0 for the host and push friends who no longer fit back out
+function fitSeats(){while(ROOM.seats.length<4)ROOM.seats.push({kind:'open'});
+  for(const [id,g] of ROOM.guests){const k=ROOM.seats.findIndex(x=>x.id===id);if(k>=ROOM.n){ROOM.seats[k]={kind:'open'};const free=ROOM.seats.slice(1,ROOM.n).findIndex(x=>x.kind!=='guest');if(free>=0)ROOM.seats[free+1]={kind:'guest',name:g.name,id};else{g.link.send({t:'full'});g.link.close();ROOM.guests.delete(id)}}}}
+function hostRoom(){if(!window.P2P||!P2P.hostRoom){ROOM.err='Online play needs p2p.js.';showRoom();return}store.set('parlor-name',($('rname')&&$('rname').value.trim())||myName());
+  Object.assign(ROOM,{role:'host',me:'host',code:'',err:'',seats:[{kind:'host',name:myName()||'Host'},{kind:'open'},{kind:'open'},{kind:'open'}],guests:new Map(),n:4});showRoom();
+  ROOM.hub=P2P.hostRoom({game:'Snakes and Ladders',onReady(code){ROOM.code=code;showRoom()},onError(m){ROOM.err=m;leaveRoom(true)},
+    onConn(link){const id=link.id;link.onmessage=m=>fromGuest(id,m);link.onclose=()=>guestLeft(id);
+      if(S&&S.owner){link.send({t:'full',why:'The game has already started.'});setTimeout(()=>link.close(),300);return}
+      const free=ROOM.seats.slice(1,ROOM.n).findIndex(x=>x.kind==='open');if(free<0){link.send({t:'full'});setTimeout(()=>link.close(),300);return}
+      ROOM.guests.set(id,{link,name:'Friend'});ROOM.seats[free+1]={kind:'guest',name:'Friend',id};link.send({t:'welcome',id});showRoom();sendLobby();sfx('select')}})}
+function fromGuest(id,m){const g=ROOM.guests.get(id);if(!g||!m)return;
+  if(m.t==='hello'){g.name=String(m.name||'Friend').slice(0,14)||'Friend';const k=ROOM.seats.findIndex(x=>x.id===id);if(k>=0)ROOM.seats[k].name=g.name;showRoom();sendLobby();return}
+  if(!S||!S.owner)return;const mine=S.owner[S.turn]==='g:'+id;
+  if(m.t==='roll'&&mine)roll();else if(m.t==='again'&&S.over)newGame()}
+function guestLeft(id){const g=ROOM.guests.get(id);ROOM.guests.delete(id);const name=g?g.name:'A friend';
+  if(S&&S.owner){const pl=S.owner.indexOf('g:'+id);if(pl>=0){S.owner[pl]='cpu';ROOM.owners[pl]='cpu';toast(`${name} left. A computer takes over.`,3000);ROOM.send({t:'owners',owners:S.owner,pnames:S.pnames});render();
+      // if it was their turn, the computer carries on from where they were
+      if(S.turn===pl&&!S.over&&S.phase==='roll'){const g2=S.gen;setTimeout(()=>{if(g2===S.gen)roll()},600)}}}
+  else{const k=ROOM.seats.findIndex(x=>x.id===id);if(k>=0)ROOM.seats[k]={kind:'open'};showRoom();sendLobby();toast(`${name} left the room.`)}}
+function startRoomGame(){const list=lobbyList();ROOM.owners=list.map(x=>x.kind==='host'?'host':x.kind==='guest'?'g:'+x.id:'cpu');ROOM.pnames=list.map(x=>x.name||'');for(const w in wins)delete wins[w];newGame();showRoom();sfx('good')}
+function joinRoom(code){if(!window.P2P||!P2P.joinRoom){ROOM.err='Online play needs p2p.js.';showRoom();return}store.set('parlor-name',($('rname')&&$('rname').value.trim())||myName());
+  ROOM.err='';ROOM.joining=true;showRoom();
+  ROOM.hub=P2P.joinRoom({game:'Snakes and Ladders',code,onError(m){ROOM.joining=false;ROOM.err=m;showRoom()},
+    onOpen(link){ROOM.joining=false;Object.assign(ROOM,{role:'guest',link,code:String(code).toUpperCase().replace(/[\s-]+/g,''),lobby:[]});link.send({t:'hello',name:myName()||'Friend'});
+      link.onmessage=fromHost;link.onclose=()=>{if(ROOM.role==='guest'){toast('The host closed the room.',3000);leaveRoom(true)}};showRoom()}})}
+function fromHost(m){if(!m)return;
+  if(m.t==='welcome'){ROOM.me='g:'+m.id;return}
+  if(m.t==='full'){ROOM.err=m.why||'That room is full.';leaveRoom(true);return}
+  if(m.t==='lobby'){ROOM.lobby=m.seats.map((x,k)=>({...x,color:k}));ROOM.n=m.n;ROOM.code=m.code||ROOM.code;if(!S||!S.owner||S.over)showRoom();return}
+  if(m.t==='start'){$('overlay').hidden=true;cfg.layout=m.layout;cfg.exact=m.exact;$('layout').value=m.layout;$('exact').checked=m.exact;
+    const L=LAYOUTS[m.layout],jump=new Map();for(const[a,b]of L.ladders)jump.set(a,b);for(const[a,b]of L.snakes)jump.set(a,b);const n=m.owners.length;
+    S={n,owner:m.owners,pnames:m.pnames,humans:0,pos:new Array(n).fill(0),turn:0,phase:'roll',die:0,rolled:false,anim:false,over:null,msg:'',log:[],jump,L,gen:1,climbs:new Array(n).fill(0),slides:new Array(n).fill(0),note:null};
+    for(let pl=0;pl<n;pl++)if(wins[pl]===undefined)wins[pl]=0;build();showRoom();render();sfx('good');return}
+  if(m.t==='owners'&&S){S.owner=m.owners;S.pnames=m.pnames;render();return}
+  if(m.t==='st'&&S&&S.owner){const was=S.over,prevDie=S.rolled?S.die:0,prevTok=JSON.stringify(S.pos),prevNote=S.note&&S.note.k;Object.assign(S,m.S);
+    if(S.rolled&&S.anim)sfx('dice');else if(JSON.stringify(S.pos)!==prevTok)sfx('step');if(S.note&&S.note.k!==prevNote)toast(S.note.t);
+    render();if(S.over&&!was){wins[S.over.w]=(wins[S.over.w]||0)+1;showEnd(S.over.w)}}}
+function leaveRoom(quiet){if(ROOM.role==='host'){ROOM.send({t:'bye'});for(const g of ROOM.guests.values())try{g.link.close()}catch(e){}}if(ROOM.link)try{ROOM.link.close()}catch(e){}if(ROOM.hub)ROOM.hub.close();
+  const err=ROOM.err;Object.assign(ROOM,{role:null,me:'local',hub:null,link:null,code:'',guests:new Map(),seats:[],joining:false,err:quiet===true?err:''});S&&(S.owner=null);
+  if(S&&S.owner===null&&cfg.players==='net'){S.gen++;S.phase='idle';$('tray').innerHTML=$('tray2').innerHTML='';$('plist').innerHTML='';}showRoom();if(cfg.players!=='net')newGame()}
+function fillHumans(){if(cfg.players==='net'){$('humans').innerHTML='';return}const n=+cfg.players;$('humans').innerHTML=[...Array(n).keys()].map(k=>{const h=k+1;return `<option value="${h}">${h===1?'You vs computers':h===n?`${h} people, no computer`:`${h} people + ${n-h} computer${n-h>1?'s':''}`}</option>`}).join('');
   if(+cfg.humans>n)cfg.humans=n;$('humans').value=cfg.humans}
-function sync(){$('players').value=cfg.players;fillHumans();$('layout').value=cfg.layout;$('exact').checked=cfg.exact;$('fast').checked=cfg.fast}
-function setCfg(k,v,restart){cfg[k]=v;store.set('parlor-ladders',cfg);sync();if(restart){if(k!=='layout')for(const w in wins)delete wins[w];newGame()}else render()}
-$('players').onchange=e=>setCfg('players',+e.target.value,true);
+function sync(){$('players').value=String(cfg.players);fillHumans();$('layout').value=cfg.layout;$('exact').checked=cfg.exact;$('fast').checked=cfg.fast;const net=cfg.players==='net';$('humans').hidden=net;
+  $('layout').disabled=$('exact').disabled=ROOM.role==='guest';$('newgame').hidden=net&&ROOM.role!=='host'&&!(S&&S.owner);showRoom()}
+function setCfg(k,v,restart){if(k==='players'&&ROOM.role)leaveRoom(true);cfg[k]=v;store.set('parlor-ladders',Object.assign({},cfg,{players:cfg.players==='net'?2:cfg.players}));sync();
+  if(restart){if(k!=='layout')for(const w in wins)delete wins[w];if(cfg.players==='net'&&!(S&&S.owner)){if(S){S.gen++;S.phase='idle'}showRoom();return}newGame()}else render()}
+$('players').onchange=e=>setCfg('players',e.target.value==='net'?'net':+e.target.value,true);
 $('humans').onchange=e=>setCfg('humans',+e.target.value,true);
 $('layout').onchange=e=>setCfg('layout',e.target.value,true);
 $('exact').onchange=e=>setCfg('exact',e.target.checked,false);
 $('fast').onchange=e=>setCfg('fast',e.target.checked,false);
-$('newgame').onclick=newGame;
+$('newgame').onclick=()=>newGame();
 if(![2,3,4].includes(+cfg.players))cfg.players=2;cfg.players=+cfg.players;cfg.humans=Math.max(1,Math.min(+cfg.humans||1,cfg.players));if(!LAYOUTS[cfg.layout])cfg.layout='classic';
 sync();newGame();
 </script>
