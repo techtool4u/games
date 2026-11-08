@@ -465,6 +465,12 @@ const GAMES=[
  {id:'logicgrid',name:'Logic Grid',genres:['Deduction','Puzzle'],p:['solo'],plabel:'Solo',mins:15,diff:3,motif:'nono',v:'logic',pal:['#f6f1e4','#2a2a3a','#1d9a62'],blurb:'Read the clues, mark yes and no in the grid, and work out who owns which pet.',url:'logic-grid.html',
   feats:['New puzzles in three sizes, from 3 friends up to 5 friends and 4 things','Every puzzle solvable by logic alone, with no spare clues','Auto ✗, mistake check, undo, and hints that point to the next useful clue']}
 ];
+// Games hidden from the home page for now. The pages still work if opened directly; take an id out of this list to show it again.
+const HIDDEN=new Set(['backgammon','mancala','hexgame','shogi','xiangqi','pig','farkle','rummy',
+  'fivedice','liars','shutbox','shipcap','bunco',
+  'klondike','spider','hearts','eights','freecell','pyramid','spades','cribbage','gin','gofish','war','euchre',
+  'nonogram','tt','pool3d','minigolf','market','blaster','carrom3d']);
+for(let i=GAMES.length-1;i>=0;i--)if(HIDDEN.has(GAMES[i].id))GAMES.splice(i,1);
 const GENRES=['Strategy','Classic board','Cards','Dice','Word','Puzzle','Deduction','Arcade','Race','Party & kids'];
 const PLAYERS_LBL={solo:'Solo',cpu:'Vs computer',two:'2 players',group:'3+ players'};
 const DIFF_LBL={1:'Easy',2:'Medium',3:'Hard'};
