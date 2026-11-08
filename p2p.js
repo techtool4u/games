@@ -181,12 +181,12 @@
   const peerOpts=()=>Object.assign({debug:0},window.P2P_PEER_OPTIONS||{});
   let pjLoading=null;
   const loadPeerJS=()=>pjLoading||(pjLoading=new Promise((res,rej)=>{if(window.Peer)return res();const s=document.createElement('script');s.src='peerjs.min.js';s.onload=res;s.onerror=()=>{pjLoading=null;rej(new Error('peerjs.min.js is missing'))};document.head.appendChild(s)}));
-  function peerLink(role,peer,conn){
+  function peerLink(role,peer,conn,shared){
     const link={role,peer,conn,via:'code',onmessage:null,onclose:null,open:false,
       send(obj){if(conn.open)conn.send(obj)},
-      close(){link.open=false;try{conn.close()}catch(e){}try{peer.destroy()}catch(e){}}};
+      close(){link.open=false;try{conn.close()}catch(e){}if(!shared)try{peer.destroy()}catch(e){}}};
     let closed=false,last=Date.now();
-    const lost=()=>{if(closed||!link.open)return;closed=true;link.open=false;try{peer.destroy()}catch(e){}if(link.onclose)link.onclose()};
+    const lost=()=>{if(closed||!link.open)return;closed=true;link.open=false;if(!shared)try{peer.destroy()}catch(e){}if(link.onclose)link.onclose()};
     conn.on('data',m=>{last=Date.now();if(m&&m.__ping)return;if(link.onmessage)link.onmessage(m)});
     conn.on('close',lost);conn.on('error',lost);
     const hb=setInterval(()=>{if(closed){clearInterval(hb);return}if(conn.open){try{conn.send({__ping:1})}catch(e){}if(Date.now()-last>20000)lost()}},4000);
@@ -311,6 +311,28 @@
     // lets the page close this window itself (for example when the player picks another way to connect)
     return{close(){opts.onCancel=null;cancel()}}}
 
+  /* ---------- rooms: one host and up to several guests, all with one game code ----------
+   * P2P.hostRoom({game, onReady(code), onConn(link), onError(msg)}) -> {close()}: every guest who joins arrives as its own link
+   * (link.id tells them apart). P2P.joinRoom({game, code, onOpen(link), onError(msg)}) -> {close()}: the guest's one link to the host.
+   * Rooms always use the free game-code server (PeerJS); the two-code way connects only two devices. */
+  function hostRoom(o){let peer=null,closed=false,tries=0;
+    const go=async()=>{try{await loadPeerJS()}catch(e){o.onError(e.message);return}if(closed)return;
+      const code=newCode(),p=new Peer(peerId(o.game,code),peerOpts());peer=p;
+      const t=setTimeout(()=>{if(!p.open&&!closed)o.onError('Couldn\'t reach the game-code server. Check the internet connection.')},15000);
+      p.on('open',()=>{clearTimeout(t);if(!closed)o.onReady(code)});
+      p.on('connection',c=>{c.on('open',()=>{if(closed){c.close();return}const link=peerLink('host',p,c,true);link.open=true;link.id=c.peer;o.onConn(link)})});
+      p.on('disconnected',()=>{if(!closed&&!p.destroyed)try{p.reconnect()}catch(e){}});
+      p.on('error',e=>{if(closed)return;if(e.type==='unavailable-id'&&tries++<4){p.destroy();go();return}if(e.type==='peer-unavailable')return;o.onError(peerErr(e))})};
+    go();return{close(){closed=true;try{peer&&peer.destroy()}catch(e){}}}}
+  function joinRoom(o){let peer=null,closed=false,done=false;
+    const code=cleanCode(o.code);if(!goodCode(code)){setTimeout(()=>o.onError('A game code is 6 letters and numbers, like ABC 234.'));return{close(){}}}
+    (async()=>{try{await loadPeerJS()}catch(e){o.onError(e.message);return}if(closed)return;const p=new Peer(peerOpts());peer=p;
+      const t=setTimeout(()=>{if(!done&&!closed){try{p.destroy()}catch(e){}o.onError(p.open?'Couldn\'t connect to the host. Check the code and try again.':'Couldn\'t reach the game-code server. Check the internet connection.')}},20000);
+      p.on('open',()=>{if(closed)return;const c=p.connect(peerId(o.game,code),{serialization:'json',reliable:true});
+        c.on('open',()=>{clearTimeout(t);if(closed)return;done=true;const link=peerLink('guest',p,c);link.open=true;o.onOpen(link)})});
+      p.on('error',e=>{if(closed||done)return;clearTimeout(t);try{p.destroy()}catch(x){}o.onError(e.type==='peer-unavailable'?'No room is open with that code. Check the code, and that the host\'s screen still shows it.':peerErr(e))})})();
+    return{close(){closed=true;if(!done)try{peer&&peer.destroy()}catch(e){}}}}
+
   /* ---------- shared online plumbing for a game page ----------
    * const net=P2P.net({game:'Checkers', bar:el, conn:selectEl, active:()=>cfg.mode==='net',
    *   onOpen(role){...}, onMessage(m){...}, onLeave(){...switch back to an offline mode...}, onDrop(){...}})
@@ -351,5 +373,5 @@
     if(o.conn){o.conn.innerHTML='<option value="code">Use a game code</option><option value="direct">Use two codes</option>';o.conn.value=connPref();o.conn.setAttribute('aria-label','How to connect');
       o.conn.onchange=()=>{setConnPref(o.conn.value);if(o.active()&&!N.online()){if(N.ui){N.ui.close();N.ui=null}N.start()}}}
     return N}
-  window.P2P={net,connPref,setConnPref,takeJoin,note,open,_compact:compact,_expand:expand};
+  window.P2P={hostRoom,joinRoom,net,connPref,setConnPref,takeJoin,note,open,_compact:compact,_expand:expand};
 })();
