@@ -122,9 +122,10 @@ function placeActors(){const n=cfg.diff==='easy'?3:4;G.p={x:G.start.x,y:G.start.
   G.bugs=BEETLES.slice(0,n).map((b,k)=>{const home=k===0?out:G.burrow[(k-1)%G.burrow.length];return{...b,x:home.x,y:home.y,dir:-1,t:0,state:k===0?'out':'home',release:k*{easy:5,normal:3.5,hard:2.5}[cfg.diff],home:G.burrow[k%G.burrow.length],corner:[[W-2,1],[1,1],[W-2,H-2],[1,H-2]][k]}});
   G.dizzy=0;G.combo=0;G.clock=0;G.readyT=1.2}
 const lvl=()=>Math.min(G.level-1,6);
-const pspeed=()=>({easy:7,normal:7.4,hard:7.8}[cfg.diff])+lvl()*.15;
-const bspeed=b=>{const base=({easy:5,normal:6.1,hard:7}[cfg.diff])+lvl()*.25;const tunnel=b.y===G.maze.findIndex(r=>r[0]==='T')&&(b.x<3||b.x>W-4);
-  return b.state==='eyes'?14:b.state==='dizzy'?base*.55:tunnel?base*.5:base};
+// cells per second; about a quarter slower than before, for the firefly and the beetles alike
+const pspeed=()=>({easy:5.2,normal:5.6,hard:6}[cfg.diff])+lvl()*.12;
+const bspeed=b=>{const base=({easy:3.8,normal:4.6,hard:5.3}[cfg.diff])+lvl()*.2;const tunnel=b.y===G.maze.findIndex(r=>r[0]==='T')&&(b.x<3||b.x>W-4);
+  return b.state==='eyes'?11:b.state==='dizzy'?base*.55:tunnel?base*.5:base};
 function start(){$('msg').hidden=true;if(G.state==='over')newGame(),$('msg').hidden=true;G.state='run';last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
 function showMsg(t,p,b){$('msg').innerHTML=`<div><b>${t}</b><p>${p}</p><button class="btn primary" id="go">${b}</button></div>`;$('msg').hidden=false;$('go').onclick=e=>{e.stopPropagation();start()}}
 function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;const n=Math.ceil(dt/(1/240));for(let k=0;k<n&&G.state==='run';k++)step(dt/n);draw();hud();if(G.state==='run')raf=requestAnimationFrame(loop)}

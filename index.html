@@ -436,6 +436,8 @@ const GAMES=[
   feats:['Five-station pizza line with a bottleneck to beat','Eight pizzas to add to the menu','Keeps cooking while you are away','New shops with gold-star bonuses']},
  {id:'blaster',name:'Blaster Run',genres:['Arcade'],p:['solo'],plabel:'Solo',mins:15,diff:2,motif:'arcade',v:'blaster',pal:['#120f1c','#3a2357','#ff9f1c'],blurb:'A side-scrolling run-and-gun: sprint through three stages, blast walkers, turrets and drones, and take down a guardian machine at the end of each.',url:'blaster-run.html',
   feats:['Three stages, each with a boss fight','Eight-way aiming, spread shot and rapid fire','Checkpoints, hearts and three lives','Keyboard or on-screen buttons']},
+ {id:'darts',name:'Darts',genres:['Arcade','Party & kids'],p:['two','cpu','group'],plabel:'1 to 4 players, vs computer or online',mins:10,diff:2,motif:'arcade',v:'darts',pal:['#141316','#c8322a','#1f8a4c'],blurb:'Hold to aim, let go to throw: 501, 301, Cricket or Around the Clock on a regulation board, against the computer, 2 to 4 friends on one device, or online.',url:'darts.html',
+  feats:['501 and 301 with double out and checkout tips','Cricket and Around the Clock','Computer at three levels','2 to 4 players on one device, or online with a game code']},
  {id:'potion',name:'Potion Pour',genres:['Puzzle','Party & kids'],p:['solo'],plabel:'Solo',mins:5,diff:1,motif:'arcade',v:'potion',pal:['#2a1d45','#e8443a','#2f7de1'],blurb:'Pour glowing potions between flasks until every flask holds a single color. Endless levels, each one checked to have a solution.',url:'potion-pour.html',
   feats:['Endless levels, from 3 colors up to 12','Mystery levels with hidden layers','Undo, hints and a spare flask','Color symbols for color-blind players']},
  {id:'tt',name:'Table Tennis',genres:['Arcade','Party & kids'],p:['two','cpu'],plabel:'2 players, vs computer or online',mins:10,diff:2,motif:'arcade',v:'tt',pal:['#163651','#2a78cf','#ffb347'],blurb:'Fast ping-pong from behind your end of the table: drag to move your bat, swipe to aim and smash, and win to 11 against the computer or a friend.',url:'table-tennis.html',
@@ -463,6 +465,12 @@ const GAMES=[
  {id:'logicgrid',name:'Logic Grid',genres:['Deduction','Puzzle'],p:['solo'],plabel:'Solo',mins:15,diff:3,motif:'nono',v:'logic',pal:['#f6f1e4','#2a2a3a','#1d9a62'],blurb:'Read the clues, mark yes and no in the grid, and work out who owns which pet.',url:'logic-grid.html',
   feats:['New puzzles in three sizes, from 3 friends up to 5 friends and 4 things','Every puzzle solvable by logic alone, with no spare clues','Auto ✗, mistake check, undo, and hints that point to the next useful clue']}
 ];
+// Games hidden from the home page for now. The pages still work if opened directly; take an id out of this list to show it again.
+const HIDDEN=new Set(['backgammon','mancala','hexgame','shogi','xiangqi','pig','farkle','rummy',
+  'fivedice','liars','shutbox','shipcap','bunco',
+  'klondike','spider','hearts','eights','freecell','pyramid','spades','cribbage','gin','gofish','war','euchre',
+  'nonogram','tt','pool3d','minigolf','market','blaster','carrom3d']);
+for(let i=GAMES.length-1;i>=0;i--)if(HIDDEN.has(GAMES[i].id))GAMES.splice(i,1);
 const GENRES=['Strategy','Classic board','Cards','Dice','Word','Puzzle','Deduction','Arcade','Race','Party & kids'];
 const PLAYERS_LBL={solo:'Solo',cpu:'Vs computer',two:'2 players',group:'3+ players'};
 const DIFF_LBL={1:'Easy',2:'Medium',3:'Hard'};
@@ -674,6 +682,12 @@ M.arcade=(R,p,v)=>{let s='';const cols=['#ff5a5f','#ff8a3d','#ffd84a','#3ecf8e',
     const pie=(x,y,r,d)=>{s+=`<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r*.62}" fill="${d?'#d9973f':'#f0d29c'}"/><ellipse cx="${x}" cy="${y}" rx="${r-5}" ry="${(r-5)*.62}" fill="${d?'#b8321e':'#d6362a'}"/>`;for(let i=0;i<5;i++){const a=i*1.3;s+=`<ellipse cx="${x+Math.cos(a)*(r-10)}" cy="${y+Math.sin(a)*(r-10)*.62}" rx="6" ry="4" fill="#ffe066"/>`}if(d)for(let i=0;i<4;i++){const a=i*1.7+.4;s+=`<circle cx="${x+Math.cos(a)*(r-12)}" cy="${y+Math.sin(a)*(r-12)*.62}" r="3" fill="#c92a2a"/>`}};
     pie(60,135,26,0);pie(140,135,26,1);s+=`<rect x="276" y="118" width="38" height="30" fill="#c98a4b"/><rect x="276" y="118" width="38" height="8" fill="#e0a96a"/>`;
     s+=`<circle cx="80" cy="56" r="26" fill="${p[2]}"/><text x="80" y="66" text-anchor="middle" font-family="Fredoka,sans-serif" font-size="28" font-weight="700" fill="#7a4a00">$</text>`}
+  else if(v==='darts'){s+=`<rect width="320" height="200" fill="#1d1c20"/><circle cx="160" cy="100" r="86" fill="#111"/>`;
+    const C={x:160,y:100},seg=(r1,r2,a1,a2,col)=>{const p=(r,a)=>`${C.x+Math.cos(a)*r} ${C.y+Math.sin(a)*r}`;s+=`<path d="M${p(r1,a1)} L${p(r2,a1)} A${r2} ${r2} 0 0 1 ${p(r2,a2)} L${p(r1,a2)} A${r1} ${r1} 0 0 0 ${p(r1,a1)}Z" fill="${col}"/>`};
+    for(let i=0;i<20;i++){const a1=(i*18-9-90)*Math.PI/180,a2=(i*18+9-90)*Math.PI/180,d=i%2===0;seg(7,42,a1,a2,d?'#1a1a1a':'#efe3c4');seg(46,66,a1,a2,d?'#1a1a1a':'#efe3c4');seg(42,46,a1,a2,d?'#c8322a':'#1f8a4c');seg(66,70,a1,a2,d?'#c8322a':'#1f8a4c')}
+    s+=`<circle cx="160" cy="100" r="7" fill="#1f8a4c"/><circle cx="160" cy="100" r="3" fill="#c8322a"/>`;
+    const dart=(x,y,r)=>s+=`<g transform="translate(${x} ${y}) rotate(${r})"><rect x="-1" y="-3" width="2" height="5" fill="#ccc"/><rect x="-2.2" y="-26" width="4.4" height="23" fill="#3a3a40"/><path d="M0 -26 L-9 -42 L0 -37 L9 -42Z" fill="#c8322a"/></g>`;
+    dart(160,58,-32);dart(168,64,-28);dart(150,97,-36)}
   else if(v==='potion'){s+=`<rect width="320" height="200" fill="#2a1d45"/><rect x="20" y="170" width="280" height="8" fill="#4b3424"/>`;
     const C=['#e8443a','#2f7de1','#2fb35b','#f4c430','#9b4de0','#f07d22'],fl=[[0,1,2,3],[3,2,0,1],[1,4,4,2],[5,0,3,4],[]];
     fl.forEach((t,i)=>{const x=40+i*52,y=40,w=34,h=128;t.forEach((c,k)=>s+=`<rect x="${x+2}" y="${y+h-14-(k+1)*26}" width="${w-4}" height="27" fill="${C[c]}"/>`);

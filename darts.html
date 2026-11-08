@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Darts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;700;800&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: header with players, game, options and new game; the connection bar for online play; the player cards with scores; a status line with the checkout suggestion; the dartboard on a dark wall, sized to fit; the three darts of this turn; rules below. Held sideways on a phone, the board sits on the left. */
+:root{
+  --bg:#f2efe9; --fg:#1d1a16; --muted:#6e675c; --panel:#ffffff; --line:#e0d9cc; --chip:#ebe5da; --accent:#c8322a; --accent-ink:#ffffff;
+  --display:"Bebas Neue", "Impact", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --bg:#13110e; --fg:#f0ebe2; --muted:#ada393; --panel:#1d1a16; --line:#332e27; --chip:#27231d; --accent:#ff5a4e; --accent-ink:#1a0806; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#13110e; --fg:#f0ebe2; --muted:#ada393; --panel:#1d1a16; --line:#332e27; --chip:#27231d; --accent:#ff5a4e; --accent-ink:#1a0806; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding-block:16px 30px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.back:hover{color:var(--accent)}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);line-height:1;margin:4px 0 0}
+.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,input{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;border-radius:999px;min-height:40px;max-width:100%}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:40px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:800}
+details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:4px}
+.label{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.overlay{position:fixed;inset:0;background:rgba(10,10,25,.55);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:18px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.modal h2{font-family:var(--display);font-weight:400;font-size:36px;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.modal .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100vw - 32px);text-align:center;box-sizing:border-box}
+.players{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.pc{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:6px 10px;display:flex;flex-direction:column;min-width:0}
+.pc.cur{border-color:var(--accent)}
+.pc .nm{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc .sc{font:400 34px/1 var(--display);letter-spacing:.02em}
+.pc small{color:var(--muted);font-weight:700;font-size:12px}
+.marks{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:2px;font-size:11px;text-align:center;font-weight:800}
+.marks span{color:var(--muted)}.marks b{display:block;font:400 15px/1 var(--display);color:var(--fg)}
+.status{min-height:40px;font-size:14.5px;color:var(--muted)}.status b{color:var(--fg)}.status .co{color:var(--accent);font-weight:800}
+.wall{position:relative;width:100%;border-radius:18px;overflow:hidden;background:radial-gradient(90% 80% at 50% 45%,#3b3a3f,#141316);touch-action:none;user-select:none;-webkit-user-select:none}
+.wall canvas{display:block;width:100%;height:100%;cursor:crosshair}
+.turn{display:grid;grid-template-columns:repeat(3,1fr) auto;gap:8px;align-items:center}
+.turn span{background:var(--panel);border:1px solid var(--line);border-radius:12px;text-align:center;font:400 22px/1.6 var(--display);min-height:38px}
+.turn span.empty{color:var(--muted);font:700 13px/2.9 var(--body)}
+.turn b{font:400 26px var(--display);min-width:3ch;text-align:right}
+@media (max-width:420px){.wrap{gap:8px;padding-top:10px}h1{font-size:30px}.controls select,.controls .btn{min-height:36px;padding:5px 8px;font-size:13.5px}.pc .sc{font-size:28px}}
+@media (max-height:520px) and (orientation:landscape){.wrap{max-width:none;display:grid;grid-template-columns:calc(100dvh - 16px) minmax(0,1fr);column-gap:14px;padding-block:6px;align-items:start}
+  .wrap>*{grid-column:2}.wrap>.wall{grid-column:1;grid-row:1/span 8}header>div{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}header h1{font-size:26px;margin:0}
+  .controls select,.controls .btn{min-height:32px;padding:4px 8px;font-size:13px}.wrap{gap:7px}.status{min-height:0;font-size:13px}.pc .sc{font-size:26px}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Game Parlor</a>
+      <h1>Darts</h1>
+    </div>
+    <div class="controls">
+      <select id="mode" aria-label="Players"><option value="cpu">Vs computer</option><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
+      <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
+      <select id="game" aria-label="Game"><option value="501">501</option><option value="301">301</option><option value="cricket">Cricket</option><option value="clock">Around the Clock</option></select>
+      <label class="check" id="dblwrap" style="display:flex;align-items:center;gap:4px;font-weight:700;font-size:14px"><input type="checkbox" id="dbl"> Double out</label>
+      <button class="btn primary" id="newgame">New game</button>
+    </div>
+  </header>
+  <div id="netbar" hidden></div>
+  <div class="players" id="players"></div>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="wall" id="wall"><canvas id="cv" aria-label="Dartboard. Hold your finger on the board to aim; the crosshair sways; let go to throw."></canvas></div>
+  <div class="turn" id="turn"></div>
+  <div class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li><b>Throwing:</b> hold your finger (or the mouse) on the board. The crosshair sits a little above your finger so you can see it, and it sways like a real hand. Let go to throw. Holding too long makes the sway grow. Keyboard: arrows aim, Space throws.</li>
+        <li>Each turn is three darts. The outer ring scores double, the inner ring treble; the green ring is 25 and the bullseye 50.</li>
+        <li><b>501 / 301:</b> count down to exactly zero. With <b>Double out</b>, the last dart must land in a double (or the bullseye). Going below zero (or to 1 with double out) is a <b>bust</b>: the turn doesn't count. From 170 down, the status line suggests a checkout.</li>
+        <li><b>Cricket:</b> only 15 to 20 and the bull count. Hit a number three times (a double counts 2, a treble 3) to close it. Once closed, more hits on it score points while any rival still has it open. Close everything with the most points to win.</li>
+        <li><b>Around the Clock:</b> hit 1, then 2, and so on to 20, then the bull. Any part of the number counts.</li>
+        <li>Play the computer, pass one device between 2 to 4 players, or play a friend online with a game code.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
+
+<script>
+const $=id=>document.getElementById(id);
+const rand=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
+function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
+const closeModal=()=>{$('overlay').hidden=true};
+/* ---------- the board, in millimeters from the center (regulation sizes) ---------- */
+const ORDER=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+const R_BULL=6.35,R_OUTER=15.9,R_T1=99,R_T2=107,R_D1=162,R_D2=170,R_NUM=212;
+// what a dart at (x,y) scores; y points up
+function score(x,y){const r=Math.hypot(x,y);if(r<=R_BULL)return{v:50,m:2,n:25,label:'Bull'};if(r<=R_OUTER)return{v:25,m:1,n:25,label:'25'};if(r>R_D2)return{v:0,m:0,n:0,label:'Miss'};
+  let a=Math.atan2(x,y)*180/Math.PI;if(a<0)a+=360;const n=ORDER[Math.floor(((a+9)%360)/18)];
+  if(r>=R_D1)return{v:n*2,m:2,n,label:'D'+n};if(r>=R_T1&&r<=R_T2)return{v:n*3,m:3,n,label:'T'+n};return{v:n,m:1,n,label:String(n)}}
+// the middle of a scoring area, for aiming
+function spot(label){if(label==='Bull')return{x:0,y:0};if(label==='25')return{x:0,y:-11};const k=label[0]==='T'?'T':label[0]==='D'?'D':'S',n=+(k==='S'?label:label.slice(1));
+  if(n===25)return k==='D'?{x:0,y:0}:{x:0,y:-11};const a=ORDER.indexOf(n)*18*Math.PI/180,r=k==='T'?103:k==='D'?166:134;return{x:Math.sin(a)*r,y:Math.cos(a)*r}}
+/* ---------- checkouts: the fewest darts that finish (the last one a double when double-out is on) ---------- */
+const DARTS=[];for(let n=20;n>=1;n--)DARTS.push({l:'T'+n,v:3*n});DARTS.push({l:'Bull',v:50,d:true});DARTS.push({l:'25',v:25});for(let n=20;n>=1;n--)DARTS.push({l:'D'+n,v:2*n,d:true});for(let n=20;n>=1;n--)DARTS.push({l:String(n),v:n});
+const coCache={};
+function checkout(rem,darts,dbl){const key=rem+'/'+darts+'/'+dbl;if(key in coCache)return coCache[key];let best=null;
+  const last=dbl?50:60;
+  const rec=(left,k,path)=>{if(best)return;if(k===1){const f=DARTS.find(d=>d.v===left&&(!dbl||d.d));if(f)best=path.concat(f.l);return}
+    for(const d of DARTS){const after=left-d.v;if(after<(dbl?2:1)||after>60*(k-2)+last)continue;rec(after,k-1,path.concat(d.l));if(best)return}};
+  for(let k=1;k<=darts&&!best;k++)rec(rem,k,[]);
+  return coCache[key]=best}
+/* ---------- game state ---------- */
+const cfg=Object.assign({mode:'cpu',level:'medium',game:'501',dbl:true},store.get('parlor-darts',{}));if(!['cpu','2','3','4'].includes(cfg.mode))cfg.mode='cpu';
+const CRICKET=[20,19,18,17,16,15,25];const LEVELS={easy:34,medium:21,hard:13};
+let S=null,net=null,matches=0,aim=null,cpuT=0;
+const online=()=>cfg.mode==='net'&&!!net&&net.online();
+const meIdx=()=>cfg.mode==='net'&&net&&net.role==='guest'?1:0;
+const count=()=>cfg.mode==='cpu'||cfg.mode==='net'?2:+cfg.mode;
+const isCpu=p=>cfg.mode==='cpu'&&p===1;
+const myTurn=()=>S&&!S.over&&!S.pause&&!S.flying&&(cfg.mode==='cpu'?S.cur===0:cfg.mode==='net'?online()&&S.cur===meIdx():true);
+function names(){if(cfg.mode==='cpu')return['You','Computer'];if(cfg.mode==='net')return meIdx()?['Friend','You']:['You','Friend'];return Array.from({length:count()},(_,i)=>`Player ${i+1}`)}
+function newGame(from){
+  if(cfg.mode==='net'&&!from&&online()&&net.role==='guest'){net.send({t:'again'});net.note('Asked the host for a new game.');return}
+  closeModal();clearTimeout(cpuT);const game=from?from.game:cfg.game,dbl=from?from.dbl:cfg.dbl,first=from?from.first:cfg.mode==='net'?(matches++%2):0;
+  const start=game==='501'?501:game==='301'?301:0;
+  S={game,dbl,players:names().map(n=>({name:n,score:start,marks:{},target:1,turnStart:start,thrown:0,total:0})),cur:first,dart:0,board:[],turnDarts:[],over:null,pause:false,flying:null,throws:0,msg:''};
+  ui();draw();
+  if(cfg.mode==='net'){if(!online()&&!from)net.start();else if(net.role==='host'&&!from)net.send({t:'start',game,dbl,first})}
+  maybeCpu()}
+/* ---------- throwing ---------- */
+// a dart lands at (x,y): fly it in, then score it
+function throwAt(x,y){if(!S||S.over||S.pause||S.flying)return;const n=S.throws;
+  if(cfg.mode==='net'){if(S.cur!==meIdx()&&!isCpu(S.cur))return;net.send({t:'dart',x,y,n})}land(x,y)}
+function land(x,y){S.throws++;S.flying={x,y,t0:performance.now()};sfx('tap');
+  setTimeout(()=>{const f=S.flying;S.flying=null;if(!f)return;sfx('clack',{big:true});apply(f.x,f.y)},330)}
+function apply(x,y){const p=S.players[S.cur],sc=score(x,y);S.board.push({x,y,label:sc.label});S.turnDarts.push(sc.label);S.dart++;p.thrown++;let end=false,msg='';
+  if(S.game==='501'||S.game==='301'){const left=p.score-sc.v;
+    if(left<0||(S.dbl&&left===1)||(left===0&&S.dbl&&!(sc.m===2))){p.score=p.turnStart;msg=`Bust! ${p.name} stays on ${p.score}.`;sfx('bad');end=true}
+    else{p.score=left;p.total+=sc.v;if(left===0){S.over={winner:S.cur};msg=`${p.name} checked out on ${sc.label}!`;sfx('win');end=true}}}
+  else if(S.game==='cricket'){if(CRICKET.includes(sc.n)&&sc.m){let hits=sc.m;const had=p.marks[sc.n]||0,closeNow=Math.min(3,had+hits);p.marks[sc.n]=closeNow;const extra=had+hits-3;
+      if(extra>0&&S.players.some((q,i)=>i!==S.cur&&(q.marks[sc.n]||0)<3)){p.score+=extra*(sc.n===25?25:sc.n)}}
+    const all=CRICKET.every(n=>(p.marks[n]||0)>=3);if(all&&S.players.every((q,i)=>i===S.cur||q.score<=p.score)){S.over={winner:S.cur};msg=`${p.name} closed everything and ${p.name==='You'?'win':'wins'}!`;sfx('win');end=true}}
+  else{const tgt=p.target;if(sc.m&&(tgt<=20?sc.n===tgt&&sc.n!==25:sc.n===25)){p.target++;if(p.target>21){S.over={winner:S.cur};msg=`${p.name} hit the bull and ${p.name==='You'?'win':'wins'}!`;sfx('win');end=true}else sfx('good')}}
+  if(S.dart>=3)end=true;S.msg=msg;
+  if(cfg.mode==='net'&&net.role==='host')net.send({t:'state',S:pack()});
+  if(end){S.pause=true;ui();draw();if(S.over){setTimeout(showEnd,900);return}setTimeout(nextTurn,1300)}else{ui();draw();maybeCpu()}}
+function nextTurn(){if(!S||S.over)return;S.pause=false;S.cur=(S.cur+1)%S.players.length;S.dart=0;S.board=[];S.turnDarts=[];const p=S.players[S.cur];p.turnStart=p.score;S.msg='';ui();draw();maybeCpu()}
+const pack=()=>JSON.parse(JSON.stringify({players:S.players.map(p=>({score:p.score,marks:p.marks,target:p.target,turnStart:p.turnStart,thrown:p.thrown,total:p.total})),cur:S.cur,dart:S.dart,throws:S.throws}));
+/* ---------- the computer ---------- */
+function cpuTarget(){const p=S.players[S.cur],o=S.players[1-S.cur];
+  if(S.game==='501'||S.game==='301'){const left=3-S.dart,co=p.score<=170?checkout(p.score,left,S.dbl):null;if(co)return co[0];
+    if(S.dbl&&p.score<=60){// set up a double
+      for(const d of[32,40,16,24,36,20,8,12,4])if(p.score-d>0&&p.score-d<=20)return String(p.score-d);}
+    return p.score>60?'T20':String(Math.min(20,p.score))}
+  if(S.game==='cricket'){for(const n of CRICKET)if((p.marks[n]||0)<3)return n===25?'Bull':'T'+n;for(const n of CRICKET)if((o.marks[n]||0)<3)return n===25?'Bull':'T'+n;return'T20'}
+  return p.target>20?'Bull':String(p.target)}
+function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function maybeCpu(){clearTimeout(cpuT);if(!S||S.over||S.pause||!isCpu(S.cur))return;
+  cpuT=setTimeout(()=>{if(!S||S.over||S.pause||!isCpu(S.cur)||S.flying)return;const t=spot(cpuTarget()),sd=LEVELS[cfg.level];aim={x:t.x,y:t.y,cpu:true};draw();
+    setTimeout(()=>{aim=null;throwAt(t.x+gauss()*sd,t.y+gauss()*sd)},420)},650)}
+/* ---------- drawing ---------- */
+const cv=$('cv'),cx=cv.getContext('2d');let V=null;
+function layout(){const box=$('wall').getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2.5),side=matchMedia('(max-height:520px) and (orientation:landscape)').matches;
+  const below=$('wall').nextElementSibling.offsetHeight+34;let w=box.width;const maxH=side?innerHeight-16:Math.max(220,innerHeight-($('wall').getBoundingClientRect().top+scrollY)-below);const h=Math.min(w,maxH);
+  $('wall').style.height=h+'px';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);V={w:cv.width,h:cv.height,dpr,k:Math.min(cv.width,cv.height)/2/(R_NUM+22)}}
+const toPx=(x,y)=>({x:V.w/2+x*V.k,y:V.h/2-y*V.k});const toMm=(px,py)=>({x:(px-V.w/2)/V.k,y:-(py-V.h/2)/V.k});
+let boardImg=null;
+function drawBoard(){const c=document.createElement('canvas');c.width=V.w;c.height=V.h;const g=c.getContext('2d'),C={x:V.w/2,y:V.h/2},k=V.k;
+  // cabinet surround and the sisal board
+  g.fillStyle='#111';g.beginPath();g.arc(C.x,C.y,(R_NUM+18)*k,0,7);g.fill();
+  const seg=(r1,r2,a1,a2,col)=>{g.beginPath();g.arc(C.x,C.y,r2*k,a1,a2);g.arc(C.x,C.y,r1*k,a2,a1,true);g.closePath();g.fillStyle=col;g.fill()};
+  for(let i=0;i<20;i++){const a1=(i*18-9-90)*Math.PI/180,a2=(i*18+9-90)*Math.PI/180,dark=i%2===0;
+    seg(R_OUTER,R_T1,a1,a2,dark?'#1a1a1a':'#efe3c4');seg(R_T2,R_D1,a1,a2,dark?'#1a1a1a':'#efe3c4');
+    seg(R_T1,R_T2,a1,a2,dark?'#c8322a':'#1f8a4c');seg(R_D1,R_D2,a1,a2,dark?'#c8322a':'#1f8a4c')}
+  g.beginPath();g.arc(C.x,C.y,R_OUTER*k,0,7);g.fillStyle='#1f8a4c';g.fill();g.beginPath();g.arc(C.x,C.y,R_BULL*k,0,7);g.fillStyle='#c8322a';g.fill();
+  // the wire spider
+  g.strokeStyle='rgba(210,210,215,.85)';g.lineWidth=Math.max(1,k*1.1);for(const r of[R_BULL,R_OUTER,R_T1,R_T2,R_D1,R_D2]){g.beginPath();g.arc(C.x,C.y,r*k,0,7);g.stroke()}
+  for(let i=0;i<20;i++){const a=(i*18-9-90)*Math.PI/180;g.beginPath();g.moveTo(C.x+Math.cos(a)*R_OUTER*k,C.y+Math.sin(a)*R_OUTER*k);g.lineTo(C.x+Math.cos(a)*R_D2*k,C.y+Math.sin(a)*R_D2*k);g.stroke()}
+  // the number ring
+  g.fillStyle='#f4f1ea';g.font=`400 ${Math.round(26*k)}px "Bebas Neue",Impact,sans-serif`;g.textAlign='center';g.textBaseline='middle';
+  ORDER.forEach((n,i)=>{const a=(i*18-90)*Math.PI/180;g.fillText(n,C.x+Math.cos(a)*(R_D2+23)*k,C.y+Math.sin(a)*(R_D2+23)*k+1)});
+  boardImg=c}
+function draw(){if(!V)layout();if(!boardImg||boardImg.width!==V.w||boardImg.height!==V.h)drawBoard();cx.clearRect(0,0,V.w,V.h);cx.drawImage(boardImg,0,0);if(!S)return;
+  for(const d of S.board)drawDart(d.x,d.y,1);
+  if(S.flying){const e=Math.min(1,(performance.now()-S.flying.t0)/330),p=toPx(S.flying.x,S.flying.y);const sx=V.w/2+(p.x-V.w/2)*.3,sy=V.h*1.15;
+    drawDart(0,0,1+(1-e)*2.2,{x:sx+(p.x-sx)*e,y:sy+(p.y-sy)*e-Math.sin(e*Math.PI)*V.h*.12})}
+  if(aim){const p=toPx(aim.x,aim.y),r=12*V.dpr;cx.strokeStyle=aim.cpu?'rgba(255,255,255,.6)':'#fff';cx.lineWidth=2*V.dpr;cx.beginPath();cx.arc(p.x,p.y,r,0,7);cx.moveTo(p.x-r*1.6,p.y);cx.lineTo(p.x-r*.4,p.y);cx.moveTo(p.x+r*.4,p.y);cx.lineTo(p.x+r*1.6,p.y);cx.moveTo(p.x,p.y-r*1.6);cx.lineTo(p.x,p.y-r*.4);cx.moveTo(p.x,p.y+r*.4);cx.lineTo(p.x,p.y+r*1.6);cx.stroke();
+    cx.fillStyle='#ff5a4e';cx.beginPath();cx.arc(p.x,p.y,2*V.dpr,0,7);cx.fill()}}
+// a dart stuck in the board (seen slightly from the side), or flying in at a bigger size
+function drawDart(x,y,scale,at){const p=at||toPx(x,y),u=V.k*1.9*scale;cx.save();cx.translate(p.x,p.y);
+  cx.fillStyle='rgba(0,0,0,.35)';cx.beginPath();cx.ellipse(u*3,u*5,u*1.4,u*.6,.6,0,7);cx.fill();
+  cx.rotate(-0.55);cx.fillStyle='#c9c9cf';cx.fillRect(-u*.35,-u*1,u*.7,u*2);cx.fillStyle='#3a3a40';cx.fillRect(-u*.9,-u*9,u*1.8,u*8);
+  cx.fillStyle='#c8322a';cx.beginPath();cx.moveTo(0,-u*9);cx.lineTo(-u*3.2,-u*15);cx.lineTo(0,-u*13);cx.lineTo(u*3.2,-u*15);cx.closePath();cx.fill();
+  cx.fillStyle='#f4c430';cx.fillRect(-u*.25,-u*14,u*.5,u*5);cx.fillStyle='#fff';cx.beginPath();cx.arc(0,0,u*.45,0,7);cx.fill();cx.restore()}
+function animate(){requestAnimationFrame(animate);if(S&&(S.flying||(aim&&!aim.cpu)))draw()}
+/* ---------- aiming input: hold, the crosshair sways above the finger, let go to throw ---------- */
+let hold=null;const SWAY=8.5;
+function swayAt(t){const fat=Math.max(0,t-1.4)*7,A=SWAY+fat;return{x:A*(Math.sin(t*2.1)+.5*Math.sin(t*3.7+1)),y:A*(Math.sin(t*2.7+.4)+.5*Math.sin(t*4.3+2))}}
+function aimFrom(e){const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*V.dpr,py=(e.clientY-r.top)*V.dpr-(e.pointerType==='mouse'?0:56*V.dpr);return toMm(px,py)}
+function tick(){if(!hold)return;const t=(performance.now()-hold.t0)/1000,s=swayAt(t);aim={x:hold.x+s.x,y:hold.y+s.y};requestAnimationFrame(tick)}
+cv.addEventListener('pointerdown',e=>{if(!myTurn())return;try{cv.setPointerCapture(e.pointerId)}catch(x){}const m=aimFrom(e);hold={id:e.pointerId,x:m.x,y:m.y,t0:performance.now()};tick()});
+cv.addEventListener('pointermove',e=>{if(hold&&e.pointerId===hold.id){const m=aimFrom(e);hold.x=m.x;hold.y=m.y}});
+cv.addEventListener('pointerup',e=>{if(!hold||e.pointerId!==hold.id)return;const a=aim;hold=null;aim=null;if(a&&myTurn())throwAt(a.x+gauss()*4,a.y+gauss()*4);else draw()});
+cv.addEventListener('pointercancel',()=>{hold=null;aim=null;draw()});
+let key={x:0,y:0,t0:0,on:false};
+document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!myTurn())return;const st=12;const mv={ArrowLeft:[-st,0],ArrowRight:[st,0],ArrowUp:[0,st],ArrowDown:[0,-st]}[e.key];
+  if(mv){e.preventDefault();if(!key.on){key={x:0,y:0,t0:performance.now(),on:true}}key.x+=mv[0];key.y+=mv[1];const s=swayAt((performance.now()-key.t0)/1000);aim={x:key.x+s.x,y:key.y+s.y};draw()}
+  else if(e.key===' '){e.preventDefault();const a=aim;if(!a)return;key.on=false;aim=null;throwAt(a.x+gauss()*4,a.y+gauss()*4)}});
+setInterval(()=>{if(key.on&&aim&&!aim.cpu){const s=swayAt((performance.now()-key.t0)/1000);aim={x:key.x+s.x,y:key.y+s.y};draw()}},33);
+/* ---------- scoreboard ---------- */
+function ui(){if(!S)return;if(net)net.render();const cr=S.game==='cricket',clock=S.game==='clock';
+  $('players').innerHTML=S.players.map((p,i)=>{let main=cr?p.score:clock?(p.target>20?'Bull':p.target):p.score,sub=cr?'points':clock?'next':`avg ${p.thrown?(p.total/p.thrown*3).toFixed(1):'–'}`;
+    const marks=cr?`<div class="marks">${CRICKET.map(n=>`<span>${n===25?'B':n}<b>${['','/','X','⊗'][p.marks[n]||0]||'·'}</b></span>`).join('')}</div>`:'';
+    return`<div class="pc${!S.over&&S.cur===i?' cur':''}"><span class="nm">${p.name}</span><span class="sc">${main}</span><small>${sub}</small>${marks}</div>`}).join('');
+  const p=S.players[S.cur];let st;
+  if(cfg.mode==='net'&&!online())st='Not connected. Tap Connect to play a friend.';else if(S.over)st='';
+  else if(isCpu(S.cur))st='The computer is throwing…';else if(cfg.mode==='net'&&S.cur!==meIdx())st='Your friend is throwing…';
+  else{st=`${count()>2||cfg.mode==='2'?p.name+': h':'H'}old on the board to aim, let go to throw. Dart ${S.dart+1} of 3.`;
+    if((S.game==='501'||S.game==='301')&&p.score<=170){const co=checkout(p.score,3-S.dart,S.dbl);if(co)st+=` <span class="co">Checkout: ${co.join(' ')}</span>`}
+    if(clock)st+=` Aim for <b>${p.target>20?'the bull':p.target}</b>.`}
+  $('status').innerHTML=(S.msg?`<b>${S.msg}</b> `:'')+st;
+  // this turn's darts and, for the countdown games, their total
+  const td=S.turnDarts,tot=S.board.reduce((a,d)=>a+score(d.x,d.y).v,0);
+  $('turn').innerHTML=[0,1,2].map(i=>td[i]?`<span>${td[i]}</span>`:`<span class="empty">dart ${i+1}</span>`).join('')+`<b>${(S.game==='501'||S.game==='301')&&tot?tot:''}</b>`;
+  $('level').hidden=cfg.mode!=='cpu';$('dblwrap').style.display=cfg.game==='501'||cfg.game==='301'?'flex':'none';
+  for(const id of['game','dbl'])$(id).disabled=online()&&net.role==='guest'}
+function showEnd(){if(!S.over)return;const w=S.over.winner,p=S.players[w];const t=cfg.mode==='cpu'?(w===0?'You win!':'Computer wins'):cfg.mode==='net'?(w===meIdx()?'You win!':'Your friend wins'):`${p.name} wins!`;
+  modal(`<h2>${t}</h2><p>${S.msg}</p><p>${S.players.map(q=>`${q.name}: ${q.thrown} darts`).join(' · ')}</p><div class="row"><button class="btn primary" id="again">Play again</button></div>`);$('again').onclick=()=>newGame()}
+/* ---------- settings and online ---------- */
+function sync(){$('mode').value=cfg.mode;$('level').value=cfg.level;$('game').value=cfg.game;$('dbl').checked=cfg.dbl}
+const busy=()=>S&&!S.over&&S.throws>0;
+function setCfg(k,v,restart){if(restart&&busy()&&!confirm('Start a new game?')){sync();return}cfg[k]=v;if(cfg.mode!=='net')store.set('parlor-darts',cfg);sync();if(restart){matches=0;newGame()}else ui()}
+$('mode').onchange=e=>setCfg('mode',e.target.value,true);$('level').onchange=e=>setCfg('level',e.target.value,false);
+$('game').onchange=e=>setCfg('game',e.target.value,true);$('dbl').onchange=e=>setCfg('dbl',e.target.checked,true);
+$('newgame').onclick=()=>{if(busy()&&!confirm('Start a new game?'))return;newGame()};
+// online: each device shows the same game; the thrower's device decides where each dart lands and sends it
+net=P2P.net({game:'Darts',bar:$('netbar'),conn:$('conn'),active:()=>cfg.mode==='net',
+  onOpen(role){if(role==='host'){matches=0;newGame();net.note('Connected! You throw first.')}else{S.players.forEach((p,i)=>p.name=names()[i]);ui();net.note('Connected! Waiting for the host…')}},
+  onMessage(m){
+    if(m.t==='dart'){if(S.over||S.pause||S.flying||S.cur===meIdx()||m.n!==S.throws){if(net.role==='host')net.send({t:'state',S:pack()});return}land(m.x,m.y);return}
+    if(net.role==='host'){if(m.t==='again')newGame();return}
+    if(m.t==='start'){cfg.game=m.game;cfg.dbl=m.dbl;sync();newGame({game:m.game,dbl:m.dbl,first:m.first});net.note(m.first===1?'New game: you throw first.':'New game: your friend throws first.')}
+    else if(m.t==='state'&&!S.flying){m.S.players.forEach((q,i)=>Object.assign(S.players[i],q));S.cur=m.S.cur;S.dart=m.S.dart;S.throws=m.S.throws;ui();draw()}},
+  onLeave(){cfg.mode='cpu';sync();newGame()},onDrop(){ui()}});
+if(net.join)cfg.mode='net';
+sync();layout();newGame();addEventListener('resize',()=>{layout();draw()});if(document.fonts)document.fonts.ready.then(()=>{boardImg=null;layout();draw()});
+window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
