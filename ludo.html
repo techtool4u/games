@@ -121,12 +121,14 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
 .room .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .room input[type=text]{font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:inherit;min-width:0;flex:1}
 .room .code{font:700 30px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.14em}
-.seats{display:grid;gap:6px}
+.seats{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
 .seat{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:var(--chip,#f1f1f4);font-weight:700;min-height:40px}
 .seat i{width:16px;height:16px;border-radius:50%;flex:none}.seat span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.seat small{color:var(--muted);font-weight:700}.seat .ok{color:#1f8a4c}.seat select{min-height:32px}
+.seat small{color:var(--muted);font-weight:700;flex:none}.seat .ok{color:#1f8a4c}.seat select{min-height:32px;flex:0 1 auto;min-width:0;max-width:55%;font-size:13.5px;padding:4px 6px}
 .room .mini{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.room .mini b{flex:1}
 .room .err{color:#c62b2b;font-weight:700}
+.waitcover{position:absolute;inset:0;z-index:3;display:grid;place-items:center;text-align:center;padding:16px;background:rgba(20,20,28,.62);color:#fff;font-weight:800;font-size:17px;border-radius:inherit;backdrop-filter:blur(2px)}
+.waitcover small{display:block;font-weight:700;font-size:13px;opacity:.85;margin-top:6px}
 @media (prefers-reduced-motion:reduce){.tok{transition:none}.die.roll,.halo,.think .dot{animation:none}}
 </style>
 
@@ -148,7 +150,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
   <div class="room" id="room" hidden></div>
   <div class="game">
     <section class="stage" aria-label="Board">
-      <div class="boardbox" id="boardbox"><div class="tags" id="tags"></div><svg id="svg" viewBox="0 0 15 15" tabindex="0" aria-label="Ludo board. Space or R rolls; arrow keys choose a pawn and Enter moves it."></svg></div>
+      <div class="boardbox" id="boardbox"><div class="waitcover" id="waitcover" hidden></div><div class="tags" id="tags"></div><svg id="svg" viewBox="0 0 15 15" tabindex="0" aria-label="Ludo board. Space or R rolls; arrow keys choose a pawn and Enter moves it."></svg></div>
       <div class="tray" id="tray"></div>
     </section>
 
@@ -323,7 +325,7 @@ function trayHTML(){const pl=S.turn,me=canAct(pl)&&!S.over;
   const v=S.rolled?S.die:0;
   return `<div class="who${isCpu(pl)&&!S.over?' think':''}"><span class="dot" style="background:${colorOf(S.over?S.over.w:pl)}"></span><span>${head}<span class="msg">${msg}</span></span></div>
     <button class="die${canRoll?' can':''}${S.anim&&v?' roll':''}" id="die" aria-label="${canRoll?'Roll the die':v?'Rolled '+v:'Die'}"${canRoll?'':' disabled'}>${[...Array(9)].map((_,k)=>v&&PIPS[v].includes(k)?'<i></i>':'<span></span>').join('')}</button>`}
-function render(){if(!S)return;renderTokens();renderTags();
+function render(){if(!S)return;updateCover();renderTokens();renderTags();
   const h=trayHTML();$('tray').innerHTML=h;$('tray2').innerHTML=h.replace('id="die"','id="die2"');
   $('plist').innerHTML=[...Array(S.n).keys()].map(pl=>{const home=S.tok[pl].filter(p=>p===FINISH).length,pr=S.tok[pl].reduce((a,p)=>a+Math.max(0,p+1),0);
     return `<div class="pl${pl===S.turn&&!S.over?' now':''}"><span class="dot" style="background:${colorOf(pl)}"></span><b>${nameOf(pl)}</b><small>${home}/4</small><span class="bar"><i style="width:${(100*pr/228).toFixed(0)}%;background:${colorOf(pl)}"></i></span></div>`}).join('');
@@ -354,10 +356,10 @@ function sendLobby(){ROOM.send({t:'lobby',n:ROOM.n,code:ROOM.code,seats:lobbyLis
 function seatRow(x,k,host){const c=COL[x.color];let who;
   if(x.kind==='host')who=`<span>${esc(x.name||'Host')}</span><small>host</small>`;
   else if(x.kind==='guest')who=`<span>${esc(x.name||'Friend')}</span><small class="ok">● joined</small>`;
-  else if(x.kind==='cpu')who=`<span>Computer</span>`;else who=`<span style="color:var(--muted)">Waiting for a friend…</span>`;
-  const ctl=host&&k>0&&x.kind!=='guest'?`<select data-seat="${k}" aria-label="Seat ${k+1}"><option value="open"${x.kind==='open'?' selected':''}>Open</option><option value="cpu"${x.kind==='cpu'?' selected':''}>Computer</option></select>`:'';
+  else if(x.kind==='cpu')who=`<span>Computer</span>`;else who=`<span style="color:var(--muted)">Open seat</span>`;
+  const ctl=host&&k>0&&x.kind!=='guest'?`<select data-seat="${k}" aria-label="Seat ${k+1}"><option value="open"${x.kind==='open'?' selected':''}>Open for a friend</option><option value="cpu"${x.kind==='cpu'?' selected':''}>Computer</option></select>`:'';
   return`<div class="seat"><i style="background:${c[0]}"></i>${who}${ctl}</div>`}
-function showRoom(){const el=$('room');el.hidden=cfg.players!=='net';if(el.hidden)return;
+function showRoom(){const el=$('room');el.hidden=cfg.players!=='net';updateCover();if(el.hidden)return;
   if(!ROOM.role&&!ROOM.joining){el.innerHTML=`<h3>Online room</h3><p>Play Ludo with 2 to 4 people on their own devices. One player hosts and gets a game code; friends join with it. Empty seats can be computers.</p>
       <div class="row"><input type="text" id="rname" maxlength="14" placeholder="Your name" value="${esc(myName())}" aria-label="Your name"></div>
       <div class="row"><button class="btn primary" id="rhost">Host a room</button><input type="text" id="rcode" maxlength="8" placeholder="Game code" aria-label="Game code" style="text-transform:uppercase;max-width:9em"><button class="btn" id="rjoin">Join</button></div>${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}`;
@@ -366,14 +368,14 @@ function showRoom(){const el=$('room');el.hidden=cfg.players!=='net';if(el.hidde
   const playing=!!(S&&S.owner);
   if(playing){el.innerHTML=`<div class="mini"><b>Online room ${ROOM.code.slice(0,3)} ${ROOM.code.slice(3)} · ${S.n} players</b><button class="btn" id="rleave">Leave</button></div>`;$('rleave').onclick=leaveRoom;return}
   const host=ROOM.role==='host',list=host?lobbyList():ROOM.lobby||[];
-  const friends=list.filter(x=>x.kind==='guest').length,ready=list.length>=2&&list.every(x=>x.kind!=='open')&&friends>0;
+  const friends=list.filter(x=>x.kind==='guest').length,open=list.filter(x=>x.kind==='open').length,ready=list.length>=2;
   el.innerHTML=`<h3>${host?'Your room':'In the room'}</h3>
     <div class="row"><span class="code">${ROOM.code?ROOM.code.slice(0,3)+' '+ROOM.code.slice(3):'······'}</span>${host&&ROOM.code?`<button class="btn" id="rcopy">Copy code</button>${navigator.share?'<button class="btn" id="rshare">Share</button>':''}`:''}</div>
     <p>${host?(ROOM.code?'Send this code to your friends. They choose Online room, type it and tap Join.':'Getting a game code…'):'Waiting for the host to start the game.'}</p>
     ${host?`<div class="row"><label>Players <select id="rn"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label></div>`:''}
     <div class="seats">${list.map((x,k)=>seatRow(x,k,host)).join('')}</div>
-    <div class="row">${host?`<button class="btn primary" id="rstart"${ready?'':' disabled'}>Start game</button>`:''}<button class="btn" id="rleave">${host?'Close room':'Leave'}</button></div>
-    ${host&&!ready?`<p>${friends?'Fill or close the open seats (set them to Computer) to start.':'At least one friend needs to join.'}</p>`:''}${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}`;
+    <div class="row">${host?`<button class="btn primary" id="rstart"${ready?'':' disabled'}>${open?`Start: computers take ${open} open seat${open>1?'s':''}`:'Start game'}</button>`:''}<button class="btn" id="rleave">${host?'Close room':'Leave'}</button></div>
+    ${host?`<p>${friends?`${friends} friend${friends>1?'s have':' has'} joined.`:'No friends have joined yet: share the code, or start now to play the computers.'}${open?' Seats still open when you start are played by computers.':''}</p>`:''}${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}`;
   $('rleave').onclick=leaveRoom;
   if(host){$('rn').value=String(ROOM.n);$('rn').onchange=e=>{ROOM.n=+e.target.value;fitSeats();showRoom();sendLobby()};
     el.querySelectorAll('[data-seat]').forEach(sel=>sel.onchange=()=>{ROOM.seats[+sel.dataset.seat].kind=sel.value;showRoom();sendLobby()});
@@ -399,7 +401,7 @@ function guestLeft(id){const g=ROOM.guests.get(id);ROOM.guests.delete(id);const 
       // if it was their turn, the computer carries on from where they were
       if(S.turn===pl&&!S.busy&&!S.over){const g2=S.gen;if(S.phase==='roll')setTimeout(()=>{if(g2===S.gen)roll()},600);else if(S.phase==='move')setTimeout(()=>{if(g2===S.gen)move(choose(pl,S.die,legal(pl,S.die)))},600)}}}
   else{const k=ROOM.seats.findIndex(x=>x.id===id);if(k>=0)ROOM.seats[k]={kind:'open'};showRoom();sendLobby();toast(`${name} left the room.`)}}
-function startRoomGame(){const list=lobbyList();ROOM.owners=list.map(x=>x.kind==='host'?'host':x.kind==='guest'?'g:'+x.id:'cpu');ROOM.pnames=list.map(x=>x.name||'');for(const w in wins)delete wins[w];newGame();showRoom();sfx('good')}
+function startRoomGame(){ROOM.seats.forEach((x,k)=>{if(k<ROOM.n&&x.kind==='open')x.kind='cpu'});const list=lobbyList();ROOM.owners=list.map(x=>x.kind==='host'?'host':x.kind==='guest'?'g:'+x.id:'cpu');ROOM.pnames=list.map(x=>x.name||'');for(const w in wins)delete wins[w];newGame();showRoom();sfx('good')}
 function joinRoom(code){if(!window.P2P||!P2P.joinRoom){ROOM.err='Online play needs p2p.js.';showRoom();return}store.set('parlor-name',($('rname')&&$('rname').value.trim())||myName());
   ROOM.err='';ROOM.joining=true;showRoom();
   ROOM.hub=P2P.joinRoom({game:'Ludo',code,onError(m){ROOM.joining=false;ROOM.err=m;showRoom()},
@@ -423,6 +425,13 @@ function renderTags(){if(!S)return;const myPl=S.owner?S.owner.indexOf(ROOM.me):0
   $('svg').style.transform=S.owner?`rotate(${turn*90}deg)`:'';
   $('tags').innerHTML=[...Array(S.n).keys()].map(pl=>{const k=S.seats[pl],p=(k+turn)%4,off=S.owner&&S.owner[pl].startsWith('g:')&&ROOM.role==='host'&&!ROOM.guests.has(S.owner[pl].slice(2));
     return`<div class="tag${pl===S.turn&&!S.over?' now':''}${off?' off':''}" data-p="${p}"><i style="background:${COL[k][0]}"></i><span>${esc(nameOf(pl))}</span>${isCpu(pl)&&S.owner?'<em>CPU</em>':''}</div>`}).join('')}
+// until an online game starts, cover the board with what to do next and hide the dice
+function updateCover(){const c=$('waitcover');if(!c)return;const waiting=cfg.players==='net'&&!(S&&S.owner);c.hidden=!waiting;
+  ['tray','tray2'].forEach(id=>{const t=$(id);if(t)t.style.visibility=waiting?'hidden':''});if(!waiting)return;
+  const code=ROOM.code?ROOM.code.slice(0,3)+' '+ROOM.code.slice(3):'';
+  c.innerHTML=ROOM.role==='host'?`<div>Waiting to start<small>${code?`Share the code ${code}, then tap Start above`:'Getting a game code…'}</small></div>`:
+    ROOM.role==='guest'?'<div>Waiting for the host to start<small>The game begins on every device at once</small></div>':
+    ROOM.joining?'<div>Joining the room…</div>':'<div>Online room<small>Host a room or join one with a code above ↑</small></div>'}
 function fillHumans(){if(cfg.players==='net'){$('humans').innerHTML='';return}const n=+cfg.players;$('humans').innerHTML=[...Array(n).keys()].map(k=>{const h=k+1;return `<option value="${h}">${h===1?'You vs computers':h===n?`${h} people, no computer`:`${h} people + ${n-h} computer${n-h>1?'s':''}`}</option>`}).join('');
   if(+cfg.humans>n)cfg.humans=n;$('humans').value=cfg.humans}
 function sync(){$('players').value=String(cfg.players);fillHumans();$('level').value=cfg.level;$('auto').checked=cfg.auto;$('fast').checked=cfg.fast;const net=cfg.players==='net';$('humans').hidden=net;$('level').hidden=!net&&+cfg.humans>=+cfg.players;$('newgame').hidden=net&&ROOM.role!=='host'&&!(S&&S.owner);showRoom()}
