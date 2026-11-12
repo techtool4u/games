@@ -466,10 +466,13 @@ const GAMES=[
   feats:['New puzzles in three sizes, from 3 friends up to 5 friends and 4 things','Every puzzle solvable by logic alone, with no spare clues','Auto ✗, mistake check, undo, and hints that point to the next useful clue']}
 ];
 // Games hidden from the home page for now. The pages still work if opened directly; take an id out of this list to show it again.
-const HIDDEN=new Set(['backgammon','mancala','hexgame','shogi','xiangqi','pig','farkle','rummy',
-  'fivedice','liars','shutbox','shipcap','bunco',
-  'klondike','spider','hearts','eights','freecell','pyramid','spades','cribbage','gin','gofish','war','euchre',
-  'nonogram','tt','pool3d','minigolf','market','blaster','carrom3d']);
+const HIDDEN=new Set(['hexhaven','backgammon','reversi','go','mancala','morris','fivedice','liars','klondike','spider','hearts',
+  'eights','wordtiles','hangman','ladder','mines','labyrinth','ultimate','pegs','pig','farkle','nim','rummy',
+  'hexgame','shogi','xiangqi','starcheck','codebreaker','mahjong','dominoes','freecell','pyramid','spades',
+  'cribbage','gin','gofish','holdem','war','euchre','shutbox','shipcap','bunco','horses','wordsearch','wordguess',
+  'jumble','crossword','lettergrid','nonogram','lightsoff','boxpush','bridges','crosssums','gomoku','tafl',
+  'foxgeese','hockey','minigolf','coil','market','slice','blaster','darts','tt','carrom3d','pool3d','ur',
+  'whodunit','logicgrid']);
 for(let i=GAMES.length-1;i>=0;i--)if(HIDDEN.has(GAMES[i].id))GAMES.splice(i,1);
 const GENRES=['Strategy','Classic board','Cards','Dice','Word','Puzzle','Deduction','Arcade','Race','Party & kids'];
 const PLAYERS_LBL={solo:'Solo',cpu:'Vs computer',two:'2 players',group:'3+ players'};
@@ -819,7 +822,7 @@ function finish(){const e=$('end');
 function updateCount(){$('count').innerHTML=list.length?`Showing <b>${shown}</b> of <b>${list.length}</b> games${list.length<GAMES.length?` · filtered from ${GAMES.length}`:''}`:'No results'}
 function activeFilters(){return (S.q?1:0)+S.genres.size+(S.players!=='any')+(S.len!=='any')+(S.diff!=='any')+S.playable+S.fav}
 function renderChips(){const base=GAMES.filter(g=>matches(g,'genres'));
-  $('genres').innerHTML=`<button class="chip" data-g="" aria-pressed="${S.genres.size===0}">All genres <small>${base.length}</small></button>`+GENRES.map(x=>{const n=base.filter(g=>g.genres.includes(x)).length;return `<button class="chip" data-g="${x}" aria-pressed="${S.genres.has(x)}" ${n||S.genres.has(x)?'':'disabled'}>${x} <small>${n}</small></button>`}).join('');
+  $('genres').innerHTML=`<button class="chip" data-g="" aria-pressed="${S.genres.size===0}">All genres <small>${base.length}</small></button>`+GENRES.filter(x=>GAMES.some(g=>g.genres.includes(x))).map(x=>{const n=base.filter(g=>g.genres.includes(x)).length;return `<button class="chip" data-g="${x}" aria-pressed="${S.genres.has(x)}" ${n||S.genres.has(x)?'':'disabled'}>${x} <small>${n}</small></button>`}).join('');
   const a=activeFilters();$('clear').hidden=!a;$('fbtn').textContent=a?`Filters · ${a}`:'Filters'}
 function refresh(){gen++;loading=false;shown=0;list=compute();renderChips();container();skeleton(false);$('end').hidden=true;
   document.querySelectorAll('#layouts button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===S.layout));updateCount();loadMore()}
