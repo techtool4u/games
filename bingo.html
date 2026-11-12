@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <script src="sound.js"></script>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 <script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
@@ -74,6 +76,19 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
 .board b{font-family:var(--display);color:var(--c);display:grid;place-items:center;font-size:16px}
 .board i{font-style:normal;display:grid;place-items:center;aspect-ratio:1;border-radius:50%;background:var(--chip);font-weight:800;color:var(--muted)}
 .board i.on{background:var(--c);color:#fff}
+.room{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.room h3{margin:0;font-size:17px}.room p{margin:0;color:var(--muted);font-size:14px}
+.room .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.room input[type=text]{font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:inherit;min-width:0;flex:1}
+.room .code{font:700 30px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.14em}
+.room .mini{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.room .mini b{flex:1;min-width:0}
+.room .err{color:#c62b2b;font-weight:700}
+.plist{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.pl{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:var(--chip);font-weight:800;min-height:38px}
+.pl span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pl small{color:var(--muted);font-weight:700;flex:none}.pl .ok{color:#1f8a4c}
+.waitbox{background:var(--panel);border:2px dashed var(--line);border-radius:18px;padding:34px 18px;text-align:center;font-weight:800;font-size:17px}
+.waitbox small{display:block;color:var(--muted);font-weight:700;font-size:14px;margin-top:6px}
+.rv.human span:first-child::after{content:' ●';color:#1f8a4c;font-size:11px}
 .row2{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;align-items:center}
 @media (max-width:760px){.game{grid-template-columns:1fr}.rivals{flex-direction:row;flex-wrap:wrap}.rv{flex:1 1 140px}.board{grid-template-columns:auto repeat(15,1fr);font-size:10px}.board b{font-size:12px}}
 @media (max-height:520px) and (orientation:landscape){.wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:14px;padding-block:8px;align-items:start}.wrap>*{grid-column:2}.game{grid-column:1;grid-row:1/span 6;grid-template-columns:1fr}.card{max-width:calc(100vh - 150px);padding:6px;gap:4px}.big{margin-top:6px}.big .btn{min-height:42px}.ball{width:64px;height:64px}.ball span{width:44px;height:44px;font-size:18px}h1{font-size:28px}}
@@ -86,13 +101,14 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
       <h1>Bingo</h1>
     </div>
     <div class="controls">
-      <select id="mode" aria-label="Mode"><option value="play">Play a card</option><option value="call">Be the caller for a room</option></select>
+      <select id="mode" aria-label="Mode"><option value="play">Play a card</option><option value="net">Online room: 2 to 8 players</option><option value="call">Be the caller for a room</option></select>
       <select id="pattern" aria-label="Pattern"><option value="line">Any line</option><option value="corners">Four corners</option><option value="x">The X</option><option value="full">Full card</option></select>
-      <select id="rivals" aria-label="Rivals"><option value="1">1 rival</option><option value="3">3 rivals</option><option value="5">5 rivals</option></select>
+      <select id="rivals" aria-label="Rivals"><option value="0" id="rv0">No computers</option><option value="1">1 rival</option><option value="3">3 rivals</option><option value="5">5 rivals</option></select>
       <select id="speed" aria-label="Calling speed"><option value="4500">Slow calls</option><option value="3000">Normal calls</option><option value="1800">Fast calls</option><option value="0">Call by hand</option></select>
       <button class="btn primary" id="newgame">New game</button>
     </div>
   </header>
+  <div class="room" id="room" hidden></div>
   <div class="caller"><div class="ball" id="ball" style="--c:var(--muted)"><span>–</span></div><div class="recent" id="recent"></div><div class="info" id="info"></div></div>
   <div class="game" id="game"></div>
   <div class="panel"><div class="row2"><label><input type="checkbox" id="auto"> Daub my card for me</label><span id="tally"></span></div></div>
@@ -103,6 +119,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
         <li>Numbers 1 to 75 are called at random: B is 1 to 15, I 16 to 30, N 31 to 45, G 46 to 60, O 61 to 75.</li>
         <li>When a number on your card is called, tap it to daub it. The middle square is free.</li>
         <li>Complete the pattern (any line across, down or diagonally; the four corners; both diagonals; or the whole card), then press <b>BINGO!</b> quickly, before a rival does. A wrong call sits you out for the next three numbers.</li>
+        <li><b>Online room</b>: 2 to 8 people each play their own card on their own phone. One player hosts and shares a game code; the host's phone calls the numbers and can add computer rivals. The first good BINGO! wins for everyone.</li>
         <li><b>Be the caller</b> turns the screen into a caller for a room playing on paper cards: it shows each number big and keeps the board of everything called, so you can check a winner's card.</li>
       </ul>
     </details>
@@ -117,6 +134,7 @@ const rand=n=>Math.floor(Math.random()*n);
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let toastT=0;function toast(t,ms=1800){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$('toast').hidden=true,ms)}
 function modal(html){$('modal').innerHTML=html;$('overlay').hidden=false;const b=$('modal').querySelector('.primary');if(b)b.focus()}
 const closeModal=()=>{$('overlay').hidden=true};
@@ -125,55 +143,171 @@ const cfg=Object.assign({mode:'play',pattern:'line',rivals:3,speed:3000,auto:fal
 const tally=store.get('parlor-bingo-tally',{w:0,p:0});
 let S=null,timer=0;
 const letterOf=n=>Math.floor((n-1)/15);
+const NET=()=>cfg.mode==='net';
+const freshDaub=()=>{const d=new Array(25).fill(false);d[12]=true;return d};
 function makeCard(){const cols=[0,1,2,3,4].map(c=>shuffle([...Array(15)].map((_,k)=>c*15+k+1)).slice(0,5));const g=[];for(let r=0;r<5;r++)for(let c=0;c<5;c++)g.push(r===2&&c===2?0:cols[c][r]);return g}
 const LINES=(()=>{const L=[];for(let r=0;r<5;r++)L.push([0,1,2,3,4].map(c=>r*5+c));for(let c=0;c<5;c++)L.push([0,1,2,3,4].map(r=>r*5+c));L.push([0,6,12,18,24],[4,8,12,16,20]);return L})();
-function winCells(daub){const p=cfg.pattern;if(p==='line'){const l=LINES.find(l=>l.every(i=>daub[i]));return l||null}
+// In an online room the host's pattern counts, so it travels with the game.
+function winCells(daub){const p=(S&&S.pattern)||cfg.pattern;if(p==='line'){const l=LINES.find(l=>l.every(i=>daub[i]));return l||null}
   const need=p==='corners'?[0,4,20,24]:p==='x'?[0,6,12,18,24,4,8,16,20]:[...Array(25).keys()];return need.every(i=>daub[i])?need:null}
-function newGame(){closeModal();clearTimeout(timer);const bag=shuffle([...Array(75)].map((_,k)=>k+1));
-  S={bag,called:[],me:{card:makeCard(),daub:new Array(25).fill(false)},rivals:[...Array(+cfg.rivals)].map((_,k)=>({name:NAMES[k],card:makeCard(),daub:new Array(25).fill(false),speed:600+rand(1400)})),over:false,penalty:0,newBall:false};
-  S.me.daub[12]=true;S.rivals.forEach(r=>r.daub[12]=true);render();if(+cfg.speed)timer=setTimeout(call,1200)}
-function call(){if(S.over||!S.bag.length)return;const n=S.bag.pop();S.called.push(n);S.newBall=true;if(S.penalty)S.penalty--;sfx('pop');
-  if(cfg.auto&&cfg.mode==='play'){const i=S.me.card.indexOf(n);if(i>=0)S.me.daub[i]=true}
+// only squares that were actually called count
+const goodDaub=(card,daub)=>daub.map((d,i)=>!!d&&(i===12||S.called.includes(card[i])));
+const left=()=>75-S.called.length;
+
+/* ---------- online room ----------
+ * The host's page runs the game: it deals every guest a card, calls the numbers, checks each BINGO! claim against
+ * the card it dealt, and tells everyone who won. Guests daub their own card and send their daubs so everyone can see
+ * how close the others are. Messages: hello/daub/bingo from a guest; welcome/lobby/start/call/prog/nope/over/full/bye from the host. */
+const MAXP=8;
+const ROOM={role:null,me:'host',hub:null,link:null,code:'',guests:new Map(),lobby:[],err:'',joining:false,
+  send(m){for(const g of this.guests.values())try{g.link.send(m)}catch(e){}}};
+const myName=()=>store.get('parlor-name','')||'';
+const roomCode=()=>ROOM.code?ROOM.code.slice(0,3)+' '+ROOM.code.slice(3):'';
+function lobbyList(){return[{id:'host',name:myName()||'Host',host:true},...[...ROOM.guests].map(([id,g])=>({id,name:g.name}))]}
+function sendLobby(){ROOM.send({t:'lobby',code:ROOM.code,players:lobbyList(),playing:!!(S&&S.net&&!S.over)})}
+function progList(){if(!S||!S.net)return[];return[{id:'host',name:myName()||'Host',daub:S.me.daub,human:1},
+  ...[...ROOM.guests].filter(([,g])=>g.card).map(([id,g])=>({id,name:g.name,daub:g.daub,human:1})),
+  ...S.rivals.map((r,k)=>({id:'cpu'+k,name:r.name,daub:r.daub}))]}
+function sendProg(){if(ROOM.role==='host')ROOM.send({t:'prog',list:progList()})}
+function showRoom(){const el=$('room');el.hidden=!NET();if(el.hidden)return;
+  if(!ROOM.role&&!ROOM.joining){el.innerHTML=`<h3>Online room</h3><p>Play Bingo with 2 to 8 people, each on their own phone with their own card. One player hosts and gets a game code; friends join with it.</p>
+      <div class="row"><input type="text" id="rname" maxlength="14" placeholder="Your name" value="${esc(myName())}" aria-label="Your name"></div>
+      <div class="row"><button class="btn primary" id="rhost">Host a room</button><input type="text" id="rcode" maxlength="8" placeholder="Game code" aria-label="Game code" style="text-transform:uppercase;max-width:9em"><button class="btn" id="rjoin">Join</button></div>${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}`;
+    $('rname').onchange=e=>store.set('parlor-name',e.target.value.trim());$('rhost').onclick=hostRoom;$('rjoin').onclick=()=>joinRoom($('rcode').value);$('rcode').onkeydown=e=>{if(e.key==='Enter')joinRoom($('rcode').value)};return}
+  if(ROOM.joining&&!ROOM.role){el.innerHTML=`<h3>Joining…</h3><p>Connecting to the room.</p><div class="row"><button class="btn" id="rleave">Cancel</button></div>`;$('rleave').onclick=()=>leaveRoom();return}
+  const host=ROOM.role==='host',list=host?lobbyList():ROOM.lobby;
+  if(S&&S.net&&!S.over){el.innerHTML=`<div class="mini"><b>Online room ${roomCode()} · ${list.length} player${list.length>1?'s':''}</b>${host&&ROOM.code?'<button class="btn" id="rcopy">Copy code</button>':''}<button class="btn" id="rleave">Leave</button></div>`;
+    $('rleave').onclick=()=>leaveRoom();if($('rcopy'))$('rcopy').onclick=copyCode;return}
+  el.innerHTML=`<h3>${host?'Your room':'In the room'}</h3>
+    <div class="row"><span class="code">${roomCode()||'······'}</span>${host&&ROOM.code?`<button class="btn" id="rcopy">Copy code</button>${navigator.share?'<button class="btn" id="rshare">Share</button>':''}`:''}</div>
+    <p>${host?(ROOM.code?'Send this code to your friends. They choose Online room, type it and tap Join.':'Getting a game code…'):'Waiting for the host to start the game.'}</p>
+    <div class="plist">${list.map(x=>`<div class="pl"><span>${esc(x.name||'Friend')}${!host&&x.id===ROOM.me?' (you)':''}</span>${x.host?'<small>host</small>':'<small class="ok">● joined</small>'}</div>`).join('')}</div>
+    <div class="row">${host?`<button class="btn primary" id="rstart">${S&&S.net?'Start next game':'Start game'}</button>`:''}<button class="btn" id="rleave">${host?'Close room':'Leave'}</button></div>
+    ${host?`<p>${list.length>1?`${list.length-1} friend${list.length>2?'s have':' has'} joined.`:'No friends have joined yet: share the code first.'} Computer rivals: ${+cfg.rivals||'none'} (change above). Up to ${MAXP} players.</p>`:''}${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}`;
+  $('rleave').onclick=()=>leaveRoom();
+  if(host){$('rstart').onclick=()=>{newGame();sfx('good')};if($('rcopy'))$('rcopy').onclick=copyCode;
+    if($('rshare'))$('rshare').onclick=()=>navigator.share({title:'Bingo room',text:`Join my Bingo game in Game Parlor. Code: ${ROOM.code}`}).catch(()=>{})}}
+async function copyCode(){try{await navigator.clipboard.writeText(ROOM.code)}catch(e){}toast('Code copied')}
+function hostRoom(){if(!window.P2P||!P2P.hostRoom){ROOM.err='Online play needs p2p.js.';showRoom();return}store.set('parlor-name',($('rname')&&$('rname').value.trim())||myName());
+  Object.assign(ROOM,{role:'host',me:'host',code:'',err:'',guests:new Map()});S=null;render();
+  ROOM.hub=P2P.hostRoom({game:'Bingo',onReady(code){ROOM.code=code;showRoom()},onError(m){ROOM.err=m;leaveRoom(true)},
+    onConn(link){const id=link.id;
+      link.onmessage=m=>fromGuest(id,m);link.onclose=()=>guestLeft(id);
+      if(ROOM.guests.size>=MAXP-1){link.send({t:'full'});setTimeout(()=>link.close(),300);return}
+      ROOM.guests.set(id,{link,name:'Friend',card:null,daub:null});link.send({t:'welcome',id});showRoom();sendLobby();sfx('select')}})}
+function fromGuest(id,m){const g=ROOM.guests.get(id);if(!g||!m)return;
+  if(m.t==='hello'){g.name=String(m.name||'Friend').slice(0,14)||'Friend';showRoom();sendLobby();if(S&&S.net&&!S.over)g.link.send({t:'wait'});return}
+  if(!S||!S.net||!g.card)return;
+  if(m.t==='daub'&&Array.isArray(m.daub)&&!S.over){g.daub=m.daub.slice(0,25).map(Boolean);g.daub[12]=true;render();sendProg();return}
+  if(m.t==='bingo'&&Array.isArray(m.daub)&&!S.over){const w=winCells(goodDaub(g.card,m.daub.slice(0,25)));if(w){g.daub=m.daub.slice(0,25).map(Boolean);endRound(id,g.name,w)}else g.link.send({t:'nope'})}}
+function guestLeft(id){const g=ROOM.guests.get(id);if(!g)return;ROOM.guests.delete(id);toast(`${g.name} left the room.`);render();sendLobby();sendProg()}
+function joinRoom(code){if(!window.P2P||!P2P.joinRoom){ROOM.err='Online play needs p2p.js.';showRoom();return}store.set('parlor-name',($('rname')&&$('rname').value.trim())||myName());
+  ROOM.err='';ROOM.joining=true;showRoom();
+  ROOM.hub=P2P.joinRoom({game:'Bingo',code,onError(m){ROOM.joining=false;ROOM.err=m;showRoom()},
+    onOpen(link){ROOM.joining=false;Object.assign(ROOM,{role:'guest',link,me:(link.peer&&link.peer.id)||ROOM.me,code:String(code).toUpperCase().replace(/[\s-]+/g,''),lobby:[]});S=null;clearTimeout(timer);timer=0;link.send({t:'hello',name:myName()||'Friend'});
+      link.onmessage=fromHost;link.onclose=()=>{if(ROOM.role==='guest'){toast('The host closed the room.',3000);leaveRoom(true)}};render()}})}
+function fromHost(m){if(!m)return;
+  if(m.t==='welcome'){ROOM.me=m.id;return}
+  if(m.t==='full'){ROOM.err='That room is full.';leaveRoom(true);return}
+  if(m.t==='bye'){toast('The host closed the room.',3000);leaveRoom(true);return}
+  if(m.t==='lobby'){ROOM.lobby=m.players||[];ROOM.code=m.code||ROOM.code;showRoom();return}
+  if(m.t==='wait'){toast('A game is already on. You\'ll get a card in the next one.',3200);return}
+  if(m.t==='start'){closeModal();S={net:true,called:[],me:{card:m.card,daub:freshDaub()},rivals:[],prog:m.prog||[],pattern:m.pattern,over:false,penalty:0,newBall:false,win:null};sfx('good');render();return}
+  if(!S||!S.net)return;
+  if(m.t==='call'){const n=+m.n;if(S.called.includes(n))return;S.called.push(n);S.newBall=true;if(S.penalty)S.penalty--;sfx('pop');
+    if(cfg.auto){const i=S.me.card.indexOf(n);if(i>=0&&!S.me.daub[i]){S.me.daub[i]=true;ROOM.link.send({t:'daub',daub:S.me.daub})}}render();S.newBall=false;return}
+  if(m.t==='prog'){S.prog=m.list||[];render();return}
+  if(m.t==='nope'){S.penalty=3;sfx('error');toast('Not a bingo yet! You sit out the next 3 calls.');render();return}
+  if(m.t==='over'){showOver(m);return}}
+function leaveRoom(quiet){if(ROOM.role==='host'){ROOM.send({t:'bye'});for(const g of ROOM.guests.values())try{g.link.close()}catch(e){}}if(ROOM.link)try{ROOM.link.close()}catch(e){}if(ROOM.hub)ROOM.hub.close();
+  const err=ROOM.err;Object.assign(ROOM,{role:null,me:'host',hub:null,link:null,code:'',guests:new Map(),lobby:[],joining:false,err:quiet===true?err:''});
+  clearTimeout(timer);timer=0;S=null;closeModal();render()}
+// the host ends a round for everyone
+function endRound(id,name,cells){if(S.over)return;S.over=true;clearTimeout(timer);timer=0;
+  const m={t:'over',id,name,count:S.called.length,cells};ROOM.send(m);sendLobby();showOver(m)}
+function showOver(m){S.over=true;
+  if(!m.id){render();modal(`<h2>All 75 called</h2><p>No one finished the pattern this time.</p>${ROOM.role==='host'?'':'<p>The host starts the next game.</p>'}<div class="row"><button class="btn primary" id="mok">OK</button></div>`);$('mok').onclick=closeModal;return}
+  const me=ROOM.role==='host'?'host':ROOM.me,won=m.id===me;tally.p++;if(won)tally.w++;store.set('parlor-bingo-tally',tally);
+  if(won)S.win=m.cells;render();sfx(won?'win':'lose');
+  const again=ROOM.role==='host'?'<button class="btn primary" id="mnew">Play again</button>':'<button class="btn primary" id="mok">OK</button>';
+  const tail=ROOM.role==='host'?'':'<p>The host starts the next game.</p>';
+  setTimeout(()=>{if(!S||!S.over)return;modal(won?`<h2>BINGO!</h2><p>You won after ${m.count} numbers.</p><p>You've won ${tally.w} of ${tally.p}.</p>${tail}<div class="row">${again}</div>`:
+    `<h2>${esc(m.name)} wins</h2><p>${esc(m.name)} called Bingo after ${m.count} numbers.${winCells(goodDaub(S.me.card,S.me.daub))?' You had it too: be quicker on the button!':''}</p>${tail}<div class="row">${again}</div>`);
+    if($('mnew'))$('mnew').onclick=newGame;if($('mok'))$('mok').onclick=closeModal},won?500:0)}
+
+function newGame(){if(NET()){if(ROOM.role==='guest'){toast('Only the host can start a new game.');return}if(ROOM.role!=='host'){closeModal();clearTimeout(timer);timer=0;S=null;render();return}}
+  closeModal();clearTimeout(timer);timer=0;const bag=shuffle([...Array(75)].map((_,k)=>k+1));
+  S={bag,called:[],me:{card:makeCard(),daub:freshDaub()},rivals:[...Array(+cfg.rivals)].map((_,k)=>({name:NAMES[k],card:makeCard(),daub:freshDaub(),speed:600+rand(1400)})),over:false,penalty:0,newBall:false,pattern:cfg.pattern,net:NET(),win:null};
+  if(S.net){for(const g of ROOM.guests.values()){g.card=makeCard();g.daub=freshDaub()}const prog=progList();
+    for(const g of ROOM.guests.values())g.link.send({t:'start',card:g.card,pattern:S.pattern,prog});sendLobby()}
+  render();if(+cfg.speed)timer=setTimeout(call,1200)}
+function call(){timer=0;if(!S||S.over||!S.bag||!S.bag.length)return;const n=S.bag.pop();S.called.push(n);S.newBall=true;if(S.penalty)S.penalty--;sfx('pop');
+  if(S.net)ROOM.send({t:'call',n});
+  if(cfg.auto&&cfg.mode!=='call'){const i=S.me.card.indexOf(n);if(i>=0)S.me.daub[i]=true}
   // rivals daub, and call bingo after a reaction time
-  if(cfg.mode==='play')for(const r of S.rivals){const i=r.card.indexOf(n);if(i>=0)r.daub[i]=true;if(!r.claim&&winCells(r.daub)){r.claim=true;const g=S.called.length;setTimeout(()=>{if(!S.over)rivalWins(r)},r.speed)}}
-  render();S.newBall=false;
-  if(!S.bag.length){S.over=true;modal('<h2>All 75 called</h2><p>No one finished the pattern this time.</p><div class="row"><button class="btn primary" id="mnew">New game</button></div>');$('mnew').onclick=newGame;return}
+  if(cfg.mode!=='call')for(const r of S.rivals){const i=r.card.indexOf(n);if(i>=0)r.daub[i]=true;if(!r.claim&&winCells(r.daub)){r.claim=true;const my=S;setTimeout(()=>{if(S===my&&!S.over)rivalWins(r)},r.speed)}}
+  render();S.newBall=false;if(S.net)sendProg();
+  if(!S.bag.length){S.over=true;if(S.net){ROOM.send({t:'over',id:'',name:'Nobody',count:75,cells:null});sendLobby()}
+    modal(`<h2>All 75 called</h2><p>No one finished the pattern this time.</p><div class="row"><button class="btn primary" id="mnew">New game</button></div>`);$('mnew').onclick=newGame;return}
   if(+cfg.speed)timer=setTimeout(call,+cfg.speed)}
-function rivalWins(r){if(S.over)return;S.over=true;clearTimeout(timer);tally.p++;store.set('parlor-bingo-tally',tally);sfx('lose');render();
+function rivalWins(r){if(S.over)return;if(S.net){endRound('cpu'+S.rivals.indexOf(r),r.name,null);return}
+  S.over=true;clearTimeout(timer);tally.p++;store.set('parlor-bingo-tally',tally);sfx('lose');render();
   modal(`<h2>${r.name} wins</h2><p>${r.name} called Bingo after ${S.called.length} numbers.${winCells(S.me.daub)?' You had it too: be quicker on the button!':''}</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);$('mnew').onclick=newGame}
-function claim(){if(S.over||cfg.mode!=='play')return;if(S.penalty){toast(`Sitting out: ${S.penalty} more call${S.penalty>1?'s':''}.`);return}
-  // only squares that were actually called count
-  const ok=S.me.daub.map((d,i)=>d&&(i===12||S.called.includes(S.me.card[i])));const w=winCells(ok);
+function claim(){if(!S||S.over||cfg.mode==='call')return;if(S.penalty){toast(`Sitting out: ${S.penalty} more call${S.penalty>1?'s':''}.`);return}
+  if(S.net&&ROOM.role==='guest'){ROOM.link.send({t:'bingo',daub:S.me.daub});return}
+  const w=winCells(goodDaub(S.me.card,S.me.daub));
+  if(w&&S.net){endRound('host',myName()||'Host',w);return}
   if(w){S.over=true;S.win=w;clearTimeout(timer);tally.p++;tally.w++;store.set('parlor-bingo-tally',tally);render();sfx('win');setTimeout(()=>{modal(`<h2>BINGO!</h2><p>You won after ${S.called.length} numbers.</p><p>You've won ${tally.w} of ${tally.p}.</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);$('mnew').onclick=newGame},500)}
   else{S.penalty=3;sfx('error');toast('Not a bingo yet! You sit out the next 3 calls.');render()}}
-function daub(i){if(S.over||i===12)return;const n=S.me.card[i];if(!S.called.includes(n)){sfx('error');toast(`${L[letterOf(n)]}-${n} hasn't been called.`);return}S.me.daub[i]=!S.me.daub[i];sfx(S.me.daub[i]?'tap':'slide');render()}
-function render(){const last=S.called[S.called.length-1];
+function daub(i){if(!S||S.over||i===12)return;const n=S.me.card[i];if(!S.called.includes(n)){sfx('error');toast(`${L[letterOf(n)]}-${n} hasn't been called.`);return}S.me.daub[i]=!S.me.daub[i];sfx(S.me.daub[i]?'tap':'slide');
+  if(S.net){if(ROOM.role==='guest')ROOM.link.send({t:'daub',daub:S.me.daub});else sendProg()}render()}
+// everyone else's progress: computer rivals offline; in a room, every other player
+function others(){if(!S)return[];if(!S.net)return S.rivals.map(r=>({name:r.name,daub:r.daub}));
+  if(ROOM.role==='host')return progList().filter(x=>x.id!=='host');return(S.prog||[]).filter(x=>x.id!==ROOM.me)}
+function render(){showRoom();
+  const guest=NET()&&ROOM.role==='guest',host=NET()&&ROOM.role==='host';
+  $('rivals').hidden=cfg.mode==='call'||guest;$('pattern').hidden=cfg.mode==='call'||guest;$('speed').hidden=guest;$('newgame').hidden=NET()&&!host;$('rv0').hidden=!NET();
+  $('auto').parentElement.hidden=cfg.mode==='call';$('auto').checked=cfg.auto;
+  document.querySelector('.caller').hidden=!S;
+  if(!S){$('ball').style.setProperty('--c','var(--muted)');$('ball').className='ball';$('ball').innerHTML='<span>–</span>';$('recent').innerHTML='';$('info').textContent='';$('game').style.gridTemplateColumns='1fr';
+    $('game').innerHTML=`<div class="waitbox">${host?`Waiting to start<small>${ROOM.code?`Share the code ${roomCode()}, then tap Start game above`:'Getting a game code…'}</small>`:guest?'Waiting for the host to start<small>You get your card when the game begins</small>':ROOM.joining?'Joining the room…':'Online room<small>Host a room, or join one with a code, above ↑</small>'}</div>`;
+    $('tally').textContent='';return}
+  const last=S.called[S.called.length-1];
   $('ball').style.setProperty('--c',last?COL[letterOf(last)]:'var(--muted)');$('ball').className='ball'+(S.newBall?' new':'');$('ball').innerHTML=last?`<span><div><small>${L[letterOf(last)]}</small>${last}</div></span>`:'<span>–</span>';
   $('recent').innerHTML=S.called.slice(-7,-1).reverse().map(n=>`<i style="--c:${COL[letterOf(n)]}">${n}</i>`).join('');
-  $('info').textContent=`${S.called.length} called · ${S.bag.length} left${S.penalty?` · sitting out ${S.penalty}`:''}`;
+  $('info').textContent=`${S.called.length} called · ${left()} left${S.penalty?` · sitting out ${S.penalty}`:''}`;
   if(cfg.mode==='call'){$('game').style.gridTemplateColumns='1fr';
     $('game').innerHTML=`<div class="board">${[0,1,2,3,4].map(l=>`<b style="--c:${COL[l]}">${L[l]}</b>`+[...Array(15)].map((_,k)=>{const n=l*15+k+1;return`<i class="${S.called.includes(n)?'on':''}" style="--c:${COL[l]}">${n}</i>`}).join('')).join('')}</div><div class="big"><button class="btn primary" id="next">${+cfg.speed?'Pause':'Call next number'}</button><button class="btn" id="check">Check a card</button></div>`;
     $('next').onclick=()=>{if(+cfg.speed){if(timer){clearTimeout(timer);timer=0;$('next').textContent='Resume'}else{call()}}else call()};
     $('check').onclick=()=>{const v=prompt('Type the numbers on the winning line (or the card), separated by spaces:');if(!v)return;const ns=v.split(/[^0-9]+/).filter(Boolean).map(Number);const miss=ns.filter(n=>!S.called.includes(n));modal(`<h2>${miss.length?'Not yet':'All called!'}</h2><p>${miss.length?`Not called yet: ${miss.join(', ')}`:`Every one of those ${ns.length} numbers has been called.`}</p><div class="row"><button class="btn primary" id="mok">OK</button></div>`);$('mok').onclick=closeModal};
-    $('auto').parentElement.hidden=true;$('rivals').hidden=true;$('pattern').hidden=true;$('tally').textContent='';return}
-  $('game').style.gridTemplateColumns='';$('auto').parentElement.hidden=false;$('rivals').hidden=false;$('pattern').hidden=false;
-  const ok=new Set(S.called);
+    $('tally').textContent='';return}
+  $('game').style.gridTemplateColumns='';
+  const ok=new Set(S.called),list=others(),handCall=!+cfg.speed&&!guest;
   $('game').innerHTML=`<div><div class="card">${[0,1,2,3,4].map(l=>`<div class="h" style="--c:${COL[l]}">${L[l]}</div>`).join('')}${S.me.card.map((n,i)=>`<div class="c${S.me.daub[i]?' d':''}${S.win&&S.win.includes(i)?' win':''}${!S.me.daub[i]&&ok.has(n)&&cfg.auto===false&&S.called[S.called.length-1]===n?' hint':''}${i===12?' free':''}" data-i="${i}" role="button" aria-label="${i===12?'free':n}${S.me.daub[i]?', daubed':''}">${i===12?'FREE':n}</div>`).join('')}</div>
-    <div class="big"><button class="btn bingo" id="bingo"${S.over?' disabled':''}>BINGO!</button>${+cfg.speed?'':'<button class="btn primary" id="next">Call next</button>'}</div></div>
-    <div class="rivals">${S.rivals.map(r=>`<div class="rv"><span>${r.name}<br><small>${r.daub.filter(Boolean).length-1} daubed</small></span><span class="mini">${r.daub.map(d=>`<i class="${d?'d':''}"></i>`).join('')}</span></div>`).join('')}</div>`;
+    <div class="big"><button class="btn bingo" id="bingo"${S.over?' disabled':''}>BINGO!</button>${handCall?'<button class="btn primary" id="next">Call next</button>':''}</div></div>
+    <div class="rivals">${list.length?list.map(r=>`<div class="rv${r.human?' human':''}"><span>${esc(r.name)}<br><small>${(r.daub||[]).filter(Boolean).length-1} daubed</small></span><span class="mini">${(r.daub||[]).map(d=>`<i class="${d?'d':''}"></i>`).join('')}</span></div>`).join(''):S.net?'<div class="rv"><span>Just you<br><small>Invite friends with the code</small></span></div>':''}</div>`;
   $('bingo').onclick=claim;const nx=$('next');if(nx)nx.onclick=call;
-  $('tally').textContent=tally.p?`You've won ${tally.w} of ${tally.p}`:'';$('auto').checked=cfg.auto}
+  $('tally').textContent=tally.p?`You've won ${tally.w} of ${tally.p}`:''}
 $('game').addEventListener('click',e=>{const c=e.target.closest('.card .c');if(c)daub(+c.dataset.i)});
-document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;if((e.key==='b'||e.key==='Enter')&&cfg.mode==='play'){e.preventDefault();claim()}else if(e.key===' '&&!+cfg.speed){e.preventDefault();call()}});
-function setCfg(k,v){cfg[k]=v;store.set('parlor-bingo',cfg);newGame()}
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;if((e.key==='b'||e.key==='Enter')&&cfg.mode!=='call'){e.preventDefault();claim()}else if(e.key===' '&&!+cfg.speed&&!(NET()&&ROOM.role!=='host')){e.preventDefault();call()}});
+function setCfg(k,v){if(k==='mode'&&v!=='net'&&ROOM.role)leaveRoom(true);cfg[k]=v;if(k==='mode'&&v!=='net'&&!+cfg.rivals)cfg.rivals=3;$('rivals').value=String(cfg.rivals);store.set('parlor-bingo',cfg);
+  if(NET()&&ROOM.role!=='host'){clearTimeout(timer);timer=0;if(k==='mode')S=null;render();return}
+  if(NET()&&S&&S.net&&!S.over&&k!=='mode'){toast('Changes apply from the next game.');render();return}
+  if(k==='mode'&&NET()){clearTimeout(timer);timer=0;S=null;render();return}
+  newGame()}
 $('mode').onchange=e=>setCfg('mode',e.target.value);$('pattern').onchange=e=>setCfg('pattern',e.target.value);$('rivals').onchange=e=>setCfg('rivals',+e.target.value);
-$('speed').onchange=e=>{cfg.speed=+e.target.value;store.set('parlor-bingo',cfg);clearTimeout(timer);timer=0;if(+cfg.speed&&!S.over)timer=setTimeout(call,800);render()};
-$('auto').onchange=e=>{cfg.auto=e.target.checked;store.set('parlor-bingo',cfg);if(cfg.auto)S.me.card.forEach((n,i)=>{if(S.called.includes(n))S.me.daub[i]=true});render()};
+$('speed').onchange=e=>{cfg.speed=+e.target.value;store.set('parlor-bingo',cfg);clearTimeout(timer);timer=0;if(+cfg.speed&&S&&!S.over&&S.bag)timer=setTimeout(call,800);render()};
+$('auto').onchange=e=>{cfg.auto=e.target.checked;store.set('parlor-bingo',cfg);if(cfg.auto&&S){S.me.card.forEach((n,i)=>{if(S.called.includes(n))S.me.daub[i]=true});if(S.net){if(ROOM.role==='guest')ROOM.link.send({t:'daub',daub:S.me.daub});else sendProg()}}render()};
 $('newgame').onclick=newGame;
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&timer){clearTimeout(timer);timer=0}else if(!document.hidden&&!timer&&S&&!S.over&&+cfg.speed&&cfg.mode==='play')timer=setTimeout(call,1500)});
+// Offline games pause while the page is hidden; an online room keeps calling so friends aren't left waiting.
+document.addEventListener('visibilitychange',()=>{if(S&&S.net)return;if(document.hidden&&timer){clearTimeout(timer);timer=0}else if(!document.hidden&&!timer&&S&&!S.over&&+cfg.speed&&cfg.mode==='play')timer=setTimeout(call,1500)});
 window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
-for(const[k,ok]of[['mode',['play','call']],['pattern',['line','corners','x','full']],['rivals',[1,3,5]],['speed',[4500,3000,1800,0]]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+for(const[k,ok]of[['mode',['play','net','call']],['pattern',['line','corners','x','full']],['rivals',[0,1,3,5]],['speed',[4500,3000,1800,0]]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+if(cfg.mode!=='net'&&!+cfg.rivals){cfg.rivals=3;$('rivals').value='3'}
+const joinCode=window.P2P&&P2P.takeJoin&&P2P.takeJoin();
+if(joinCode){cfg.mode='net';$('mode').value='net'}
 newGame();
+if(joinCode)joinRoom(joinCode);
 </script>
 </body>
 </html>
