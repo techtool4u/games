@@ -2,11 +2,11 @@
 # CI smoke test, run on an Android emulator: install the APK, launch it, check the library page
 # loaded inside the app, press Back, and save a screenshot. Usage: scripts/android-smoke-test.sh app.apk
 set -u
-APK="$1"; PKG=com.techtool4u.gameparlor; fail=0
+APK="$1"; PKG=com.GameParlor; fail=0
 
 adb install -r "$APK" || exit 1
 adb logcat -c
-adb shell am start -W -n "$PKG/.MainActivity"
+adb shell am start -W -n "$PKG/com.techtool4u.gameparlor.MainActivity"
 sleep 25
 
 adb exec-out screencap -p > smoke-index.png
