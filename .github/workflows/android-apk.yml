@@ -75,11 +75,35 @@ jobs:
       - name: Name the APK
         run: mv android/app/build/outputs/apk/debug/app-debug.apk "GameParlor-1.0.${{ github.run_number }}.apk"
 
+      # The file to upload to Google Play. Only built when the signing secrets are set, because Play
+      # needs every upload signed with the same upload key.
+      - name: Build release bundle (.aab) for Google Play
+        if: env.ANDROID_KEYSTORE_PATH != ''
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew bundleRelease --no-daemon --stacktrace
+          mv app/build/outputs/bundle/release/app-release.aab "../GameParlor-1.0.${{ github.run_number }}.aab"
+          jarsigner -verify ../GameParlor-*.aab | tail -1
+          keytool -printcert -jarfile ../GameParlor-*.aab | grep -m1 "SHA256:"
+
+      - uses: actions/upload-artifact@v4
+        if: env.ANDROID_KEYSTORE_PATH != ''
+        with:
+          name: GameParlor-play-bundle-1.0.${{ github.run_number }}
+          path: GameParlor-*.aab
+          if-no-files-found: error
+
       - name: Inspect the APK
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           "$BT/aapt2" dump badging GameParlor-*.apk | grep -E "^(package|sdkVersion|targetSdkVersion|application-label|launchable-activity)"
-          "$BT/apksigner" verify --print-certs GameParlor-*.apk | head -3
+          # Only the fingerprint: the certificate's name fields would show in public logs.
+          "$BT/apksigner" verify --print-certs GameParlor-*.apk | grep -m1 "SHA-256"
           echo "Bundled web files:"; unzip -l GameParlor-*.apk 'assets/public/*' | awk '{print $4}' | grep -E "\.(html|js|css)$"
           echo "Font files: $(unzip -l GameParlor-*.apk 'assets/public/fonts/*.woff2' | grep -c woff2)"
 

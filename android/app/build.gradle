@@ -18,13 +18,15 @@ android {
         }
     }
     // When the ANDROID_KEYSTORE_* repository secrets are set, the workflow signs with that key, so every
-    // build can be installed over the last one. Without them Gradle uses a throwaway debug key.
+    // build can be installed over the last one, and the release bundle (.aab) is ready for Google Play.
+    // Without them Gradle uses a throwaway debug key and no bundle is built.
     signingConfigs {
         ci {
             if (System.getenv("ANDROID_KEYSTORE_PATH")) {
                 storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                // trim(): a stray space or line break pasted into a secret would otherwise break signing.
                 storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")?.trim()
                 keyPassword System.getenv("ANDROID_KEY_PASSWORD")
             }
         }
@@ -34,6 +36,7 @@ android {
             if (System.getenv("ANDROID_KEYSTORE_PATH")) signingConfig signingConfigs.ci
         }
         release {
+            if (System.getenv("ANDROID_KEYSTORE_PATH")) signingConfig signingConfigs.ci
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
