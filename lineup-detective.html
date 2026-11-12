@@ -133,11 +133,14 @@ select{border:1px solid var(--line);background:var(--panel);padding:8px 10px;bor
 }
 @media (pointer:coarse){.chip{min-height:36px}}
 @media (prefers-reduced-motion:reduce){.card,.rival i{transition:none}.turn.cpu .dot{animation:none}}
+.homelink{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;display:inline-block;padding:10px 0;margin:-10px 0}
+.homelink:hover{color:var(--accent)}
 </style>
 
 <div class="wrap">
   <header>
     <div>
+      <a class="homelink" href="index.html">← Game Parlor</a>
       <h1>Lineup <span>Detective</span></h1>
       <p class="sub">Ask yes-or-no questions, flip down the suspects who don't fit, and name your rival's person first.</p>
     </div>

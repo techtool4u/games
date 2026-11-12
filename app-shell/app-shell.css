@@ -3,3 +3,8 @@ html.in-app body{-webkit-tap-highlight-color:transparent;-webkit-user-select:non
 html.in-app input,html.in-app textarea{-webkit-user-select:text;user-select:text}
 /* The app already runs full screen. */
 html.in-app #bFull{display:none!important}
+/* In the app the "← Game Parlor" link at the top of every game is drawn as a clear back button. */
+html.in-app a.back,html.in-app a.homelink{display:inline-flex!important;align-items:center;gap:6px;margin:0 0 8px!important;padding:8px 16px 8px 12px!important;
+  border-radius:999px;background:#fff!important;border:1px solid rgba(0,0,0,.14);box-shadow:0 1px 3px rgba(0,0,0,.12);
+  color:#1d2233!important;font:700 15px/1.2 system-ui,sans-serif!important;text-decoration:none!important;opacity:1!important;min-height:40px;box-sizing:border-box}
+html.in-app a.back:active,html.in-app a.homelink:active{transform:scale(.97);background:#f1f1f4!important}
