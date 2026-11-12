@@ -4,7 +4,8 @@ android {
     namespace = "com.techtool4u.gameparlor"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.techtool4u.gameparlor"
+        // Google Play package name. The Java code stays in com.techtool4u.gameparlor (namespace above).
+        applicationId "com.GameParlor"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes the workflow run number so every APK installs as an update over the previous one.
