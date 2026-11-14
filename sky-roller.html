@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sky Roller</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap">
+<style>:root{color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<script src="sound.js"></script>
+<script>window.sfx=window.sfx||function(){}</script>
+</head>
+<body>
+<style>
+/* Layout: a slim header (back link, title, sound, speed and New run), then the 3D view filling the rest of the screen.
+   Score and best sit on the view; start, pause and game-over cards float over it. Steering: hold the left or right half
+   of the view, drag sideways, or use the arrow keys / A and D. */
+:root{--bg:#1d1640;--fg:#fff7ec;--muted:#cdbfe6;--accent:#ff7a59;--panel:rgba(30,22,64,.82);--line:rgba(255,255,255,.16);
+  --display:"Baloo 2","Arial Rounded MT Bold",system-ui,sans-serif}
+html,body{height:100%}
+body{background:linear-gradient(#2a1d5c,#1d1640);color:var(--fg);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;touch-action:none}
+.app{height:100%;display:flex;flex-direction:column;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);box-sizing:border-box}
+header{display:flex;align-items:center;gap:10px;padding:8px 14px;flex-wrap:wrap}
+.back{color:var(--muted);text-decoration:none;font-weight:700;font-size:13.5px;padding:10px 0;margin:-10px 0}
+h1{font-family:var(--display);font-weight:800;font-size:26px;line-height:1;margin:0;flex:1;letter-spacing:.01em}
+h1 span{color:var(--accent)}
+select,button{font:inherit;color:inherit}
+select{border:1px solid var(--line);background:rgba(255,255,255,.08);padding:6px 10px;border-radius:999px;min-height:38px}
+select option{color:#222}
+.btn{border:1px solid var(--line);background:rgba(255,255,255,.1);padding:6px 16px;border-radius:999px;cursor:pointer;font-weight:800;min-height:38px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#2a1238}
+.view{position:relative;flex:1;min-height:0;margin:0 10px 10px;border-radius:18px;overflow:hidden;background:#3a2a6e}
+canvas{display:block;width:100%;height:100%}
+.hud{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;padding:12px 14px;pointer-events:none;font-family:var(--display);text-shadow:0 2px 6px rgba(0,0,0,.35)}
+.hud b{display:block;font-size:34px;line-height:1}.hud small{font-size:13px;color:var(--muted);font-weight:600}
+.hud .r{text-align:right}
+.pause{pointer-events:auto;position:absolute;right:12px;top:58px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.25);color:#fff;font-weight:900;cursor:pointer}
+.card{position:absolute;inset:0;display:grid;place-items:center;padding:16px;background:rgba(20,12,45,.35)}
+.card>div{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px;max-width:340px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;gap:10px;backdrop-filter:blur(6px)}
+.card h2{font-family:var(--display);font-weight:800;font-size:34px;margin:0;line-height:1.05}
+.card p{margin:0;color:var(--muted)}
+.card .big{font-family:var(--display);font-size:44px;line-height:1;color:var(--fg)}
+.keys{font-size:13px;color:var(--muted)}
+.hint{position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:space-between;padding:0 16px;pointer-events:none;font-weight:800;color:rgba(255,255,255,.55);font-size:22px;transition:opacity .6s}
+</style>
+<div class="app">
+  <header>
+    <a class="back" href="index.html">← Game Parlor</a>
+    <h1>Sky <span>Roller</span></h1>
+    <span data-sound></span>
+    <select id="level" aria-label="Speed"><option value="easy">Chill</option><option value="normal" selected>Normal</option><option value="hard">Wild</option></select>
+  </header>
+  <div class="view" id="view">
+    <canvas id="c"></canvas>
+    <div class="hud"><div><b id="score">0</b><small>metres</small></div><div class="r"><b id="gems">0</b><small>gems · best <span id="best">0</span></small></div></div>
+    <button class="pause" id="pause" aria-label="Pause">II</button>
+    <div class="hint" id="hint"><span>◀ hold</span><span>hold ▶</span></div>
+    <div class="card" id="card"></div>
+  </div>
+</div>
+<script src="three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const cfg=Object.assign({level:'normal'},store.get('parlor-skyroller',{}));
+const best=store.get('parlor-skyroller-best',{easy:0,normal:0,hard:0});
+const LV={easy:{v0:13,acc:.18,vmax:30,steer:9},normal:{v0:16,acc:.28,vmax:40,steer:10.5},hard:{v0:20,acc:.4,vmax:52,steer:12}};
+const R=.5,G=34,DROP=.22; // ball radius, gravity, base downhill slope (height lost per metre)
+
+/* ---------- scene ---------- */
+const canvas=$('c'),renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));renderer.outputEncoding=THREE.sRGBEncoding;
+const scene=new THREE.Scene();
+const sky=(()=>{const c=document.createElement('canvas');c.width=4;c.height=256;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,256);
+  gr.addColorStop(0,'#2b1f63');gr.addColorStop(.45,'#7a3f8f');gr.addColorStop(.72,'#ff8a6b');gr.addColorStop(1,'#ffd39a');g.fillStyle=gr;g.fillRect(0,0,4,256);
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t})();
+scene.background=sky;scene.fog=new THREE.Fog(0xf39a86,60,170);
+const camera=new THREE.PerspectiveCamera(62,1,.1,400);
+scene.add(new THREE.HemisphereLight(0xffe2c8,0x4a2f7a,.6));
+const sun=new THREE.DirectionalLight(0xfff0e0,.75);sun.position.set(-6,14,6);scene.add(sun);
+// a low sun disc and far-off floating islands for depth
+const sunDisc=new THREE.Mesh(new THREE.CircleGeometry(16,40),new THREE.MeshBasicMaterial({color:0xffe6a8,fog:false}));scene.add(sunDisc);
+const islands=new THREE.Group();scene.add(islands);
+const islandMat=[0x8f5fb8,0xb36aa6,0x6d4fa8].map(c=>new THREE.MeshStandardMaterial({color:c,flatShading:true,roughness:1}));
+const grassMat=new THREE.MeshStandardMaterial({color:0x7fd6a8,flatShading:true,roughness:1});
+function makeIsland(){const g=new THREE.Group(),s=2+Math.random()*5;
+  const rock=new THREE.Mesh(new THREE.ConeGeometry(s,s*1.8,6),islandMat[Math.random()*3|0]);rock.rotation.x=Math.PI;rock.position.y=-s*.9;g.add(rock);
+  const top=new THREE.Mesh(new THREE.CylinderGeometry(s,s*.96,s*.3,6),grassMat);g.add(top);return g}
+
+/* ---------- track ----------
+ * The track is a list of tiles running away from the camera (forward distance s, sideways x). Each tile has a top
+ * height at its start and end, so ramps and drops are just tiles with different ends. Obstacles stand on tiles,
+ * gems float above them. Chunks are generated ahead of the ball and dropped once they are behind it. */
+// tiles carry a soft square pattern so speed shows as the squares rush past
+const tileTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,64,64);
+  g.fillStyle='rgba(0,0,0,.10)';g.fillRect(0,0,64,3);g.fillRect(0,0,3,64);g.fillStyle='rgba(255,255,255,.0)';
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;return t})();
+const tileMats=[[0xffa982,0xff8f6e],[0x6fd3c6,0x52c0b3],[0xae95ff,0x9479f2]].map(p=>p.map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.8,map:tileTex})));
+function uvScale(geo,w,l){const uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*w/1.5,uv.getY(i)*l/1.5);uv.needsUpdate=true;return geo}
+const edgeMat=new THREE.MeshStandardMaterial({color:0xff7a59,roughness:.5,emissive:0x5a1a10});
+const rampMat=new THREE.MeshStandardMaterial({color:0xffc94d,roughness:.6,emissive:0x3a2600});
+const blockMat=new THREE.MeshStandardMaterial({color:0x5b3fd1,roughness:.4,emissive:0x1a0e50});
+const gemMat=new THREE.MeshStandardMaterial({color:0x4fe3c1,roughness:.2,metalness:.3,emissive:0x0f6d5a});
+const gemGeo=new THREE.OctahedronGeometry(.42);
+let tiles=[],obst=[],gems=[],endS=0,endY=0,chunkN=0,theme=0;
+const trackGroup=new THREE.Group();scene.add(trackGroup);
+function addTile(s0,len,x0,x1,y0,y1,kind){const t={s0,s1:s0+len,x0,x1,y0,y1,kind,mesh:null};
+  const L=Math.hypot(len,y1-y0),w=x1-x0,th=.7,mat=kind==='ramp'?rampMat:tileMats[theme][chunkN%2];
+  const m=new THREE.Mesh(kind==='ramp'?new THREE.BoxGeometry(w,th,L):uvScale(new THREE.BoxGeometry(w,th,L),w,L),mat);
+  m.position.set((x0+x1)/2,(y0+y1)/2-th/2,-(s0+len/2));m.rotation.x=Math.atan2(y1-y0,len);
+  if(kind!=='ramp'){for(const ex of [x0,x1]){const e=new THREE.Mesh(new THREE.BoxGeometry(.14,th+.04,L),edgeMat);e.position.set(ex-(x0+x1)/2,0.02,0);m.add(e)}}
+  trackGroup.add(m);t.mesh=m;tiles.push(t);return t}
+function addBlock(s,x,w,len,h,move){const t=tileAt(s,x),y=t?groundOf(t,s):endY;const o={s0:s-len/2,s1:s+len/2,x,w,h,y,move,ph:Math.random()*6.3,mesh:null};
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,len),blockMat);m.position.set(x,y+h/2,-s);trackGroup.add(m);o.mesh=m;obst.push(o)}
+function addGem(s,x,lift=1){const t=tileAt(s,x),y=(t?groundOf(t,s):endY)+lift;const m=new THREE.Mesh(gemGeo,gemMat);m.position.set(x,y,-s);trackGroup.add(m);gems.push({s,x,y,mesh:m})}
+const groundOf=(t,s)=>t.y0+(t.y1-t.y0)*((s-t.s0)/(t.s1-t.s0));
+function tileAt(s,x,pad=0){let hit=null,hy=-1e9;for(const t of tiles)if(s>=t.s0&&s<=t.s1&&x>=t.x0-pad&&x<=t.x1+pad){const y=groundOf(t,s);if(y>hy){hy=y;hit=t}}return hit}
+const W=6; // full track width
+function flat(len,x0=-W/2,x1=W/2){addTile(endS,len,x0,x1,endY,endY-len*DROP);endS+=len;endY-=len*DROP}
+function chunk(){const d=Math.min(1,endS/1500),r=Math.random();chunkN++;if(chunkN%9===0)theme=(theme+1)%3;
+  if(endS<60){flat(60);for(let i=0;i<5;i++)addGem(20+i*7,0);return}
+  const pick=r<.16?'blocks':r<.3?'gap':r<.42?'narrow':r<.54?'split':r<.66?'movers':r<.76?'step':r<.88?'zig':'ramp';
+  const s=endS;
+  if(pick==='blocks'){flat(34);const n=2+Math.round(d*3);for(let i=0;i<n;i++){const x=(Math.random()*2-1)*(W/2-.8);addBlock(s+8+i*(26/n),x,1.4,1.4,1.4)}for(let i=0;i<3;i++)addGem(s+6+i*9,(Math.random()*2-1)*2)}
+  else if(pick==='gap'){flat(14);addTile(endS,7,-W/2,W/2,endY,endY+1.6,'ramp');endS+=7;endY+=1.6;const gap=6+d*5;addGem(endS+gap/2,0,1.8);endS+=gap;endY-=gap*DROP+2.2;flat(18)}
+  else if(pick==='narrow'){const w=2.6-d*.8,x=(Math.random()*2-1)*1.2;flat(8);flat(30,x-w/2,x+w/2);for(let i=0;i<4;i++)addGem(s+12+i*6,x);flat(6)}
+  else if(pick==='split'){flat(6);const a=endS;flat(30,-W/2,-.9);endS=a;endY+=30*DROP;flat(30,.9,W/2);for(let i=0;i<3;i++)addGem(a+6+i*9,i%2?2:-2);flat(6)}
+  else if(pick==='movers'){flat(36);const n=2+Math.round(d*2);for(let i=0;i<n;i++)addBlock(s+8+i*(28/n),0,1.6,1.2,1.2,{amp:2.1,spd:1.4+d*1.4})}
+  else if(pick==='step'){for(let i=0;i<3;i++){flat(10);endY-=1.4;endS+=1.2}addGem(endS-14,0,.8);flat(8)}
+  else if(pick==='zig'){const w=3;let x=0;for(let i=0;i<4;i++){x=(i%2?1:-1)*1.4;flat(9,x-w/2,x+w/2);addGem(endS-4.5,x)}flat(6)}
+  else{flat(10);addTile(endS,6,-1.4,1.4,endY,endY+2.2,'ramp');endS+=6;endY+=2.2;const gap=9+d*4;endS+=gap;endY-=gap*DROP+3;flat(10);for(let i=-1;i<=1;i++)addGem(endS-14+i*2,0,2.4)}}
+
+/* ---------- game state ---------- */
+let S=null,ball,trail=[],last=0,steerIn=0,dragX=null;
+const ballMesh=new THREE.Mesh(new THREE.SphereGeometry(R,32,20),new THREE.MeshStandardMaterial({color:0xff5f7e,roughness:.25,metalness:.15,emissive:0x40101c}));
+const stripe=new THREE.Mesh(new THREE.TorusGeometry(R*1.003,.06,8,40),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.4}));ballMesh.add(stripe);
+scene.add(ballMesh);
+const shadow=new THREE.Mesh(new THREE.CircleGeometry(R*.95,24),new THREE.MeshBasicMaterial({color:0x2a1240,transparent:true,opacity:.28,depthWrite:false}));shadow.rotation.x=-Math.PI/2;scene.add(shadow);
+const trailMat=new THREE.MeshBasicMaterial({color:0xffb3a0,transparent:true,opacity:.5,depthWrite:false});
+for(let i=0;i<14;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(R*.6,10,8),trailMat.clone());scene.add(m);trail.push(m)}
+
+function reset(){for(const m of [...trackGroup.children])trackGroup.remove(m);tiles=[];obst=[];gems=[];endS=0;endY=0;chunkN=0;theme=0;
+  while(islands.children.length)islands.remove(islands.children[0]);
+  for(let i=0;i<14;i++){const g=makeIsland();g.position.set((Math.random()<.5?-1:1)*(16+Math.random()*40),-14-Math.random()*22,-Math.random()*160);islands.add(g)}
+  while(endS<160)chunk();
+  const lv=LV[cfg.level];S={s:2,x:0,y:R,vy:0,vx:0,v:lv.v0,gems:0,state:'ready',spin:0,air:false,fall:0,t:0};
+  ballMesh.position.set(0,R,-2);trail.forEach(m=>m.position.copy(ballMesh.position));updateHud();placeCamera(1)}
+function start(){if(S.state!=='ready'&&S.state!=='paused')return;S.state='run';$('card').hidden=true;last=performance.now();sfx('select');setTimeout(()=>$('hint').style.opacity=0,2500)}
+function crash(why){if(S.state!=='run')return;S.state='over';sfx('lose');const m=Math.floor(S.s);
+  const nb=m>(best[cfg.level]||0);if(nb){best[cfg.level]=m;store.set('parlor-skyroller-best',best)}updateHud();
+  setTimeout(()=>card(`<h2>${why}</h2><div class="big">${m} m</div><p>${S.gems} gem${S.gems===1?'':'s'}${nb?' · new best!':` · best ${best[cfg.level]} m`}</p><button class="btn primary" id="again">Roll again</button>`),why==='Fell off!'?700:350)}
+function card(html){$('card').innerHTML=`<div>${html}</div>`;$('card').hidden=false;const b=$('card').querySelector('.primary');if(b){b.onclick=e=>{e.stopPropagation();if(S.state==='over'){reset();start()}else start()};b.focus()}}
+function readyCard(){card(`<h2>Sky Roller</h2><p>Roll down the floating track as far as you can. Steer around blocks, ride the yellow ramps over gaps, and grab gems.</p><button class="btn primary" id="go">Tap to roll</button><p class="keys">Hold the left or right side to steer · or drag · or ← → keys</p>`)}
+function updateHud(){$('score').textContent=Math.floor(S.s);$('gems').textContent=S.gems;$('best').textContent=best[cfg.level]||0}
+
+/* ---------- physics ---------- */
+function step(dt){const lv=LV[cfg.level];S.t+=dt;
+  S.v=Math.min(lv.vmax,S.v+lv.acc*dt*(S.v<lv.vmax?1:0));
+  const want=steerIn*lv.steer;S.vx+=(want-S.vx)*Math.min(1,dt*10);
+  const s0=S.s;S.s+=S.v*dt;S.x+=S.vx*dt;
+  const t=tileAt(S.s,S.x,0);
+  if(S.fall){S.vy-=G*dt;S.y+=S.vy*dt;S.fall+=dt;if(S.fall>.9)crash('Fell off!');return}
+  if(t){const gy=groundOf(t,S.s)+R,slope=(t.y1-t.y0)/(t.s1-t.s0);
+    if(S.y<=gy+.05&&S.y>gy-1.2){if(S.air&&S.vy<-6)sfx('tap');S.y=gy;S.vy=slope*S.v;S.air=false}
+    else{S.vy-=G*dt;S.y+=S.vy*dt;S.air=true;if(S.y<gy-1.2)S.fall=dt}
+  }else{S.vy-=G*dt;S.y+=S.vy*dt;S.air=true;
+    // nothing under the ball: it is only falling for good once it is below every bit of track around and just ahead
+    let low=1e9;for(const q of tiles)if(q.s1>=S.s-2&&q.s0<=S.s+14)low=Math.min(low,q.y0,q.y1);if(S.y<low-1.5)S.fall=dt}
+  // obstacles
+  for(const o of obst){if(S.s+R<o.s0||S.s-R>o.s1)continue;const ox=o.mesh.position.x;if(Math.abs(S.x-ox)<o.w/2+R*.85&&S.y-R<o.y+o.h-.05){crash('Bonk!');return}}
+  for(let i=gems.length-1;i>=0;i--){const g=gems[i];if(Math.abs(g.s-S.s)<.9&&Math.abs(g.x-S.x)<.95&&Math.abs(g.y-S.y)<1.4){trackGroup.remove(g.mesh);gems.splice(i,1);S.gems++;sfx('coin');updateHud()}}
+  S.spin+=S.v*dt/R;if(Math.floor(S.s)!==Math.floor(s0))updateHud();
+  while(endS<S.s+170)chunk();
+  // drop what is behind
+  const cut=S.s-25;tiles=tiles.filter(q=>{if(q.s1<cut){trackGroup.remove(q.mesh);q.mesh.geometry.dispose();return false}return true});
+  obst=obst.filter(o=>{if(o.s1<cut){trackGroup.remove(o.mesh);return false}return true});
+  gems=gems.filter(g=>{if(g.s<cut){trackGroup.remove(g.mesh);return false}return true})}
+/* ---------- drawing ---------- */
+const camPos=new THREE.Vector3(),look=new THREE.Vector3();
+function placeCamera(snap){const target=new THREE.Vector3(S.x*.5,S.y+4.6,-(S.s-8.5)),lk=new THREE.Vector3(S.x*.7,S.y-2.2,-(S.s+16));
+  // falling off: the camera stops and watches the ball drop away
+  if(S.fall){look.lerp(new THREE.Vector3(S.x,S.y,-S.s),.15)}else if(snap){camPos.copy(target);look.copy(lk)}else{camPos.lerp(target,.12);look.lerp(lk,.18)}
+  camera.position.copy(camPos);camera.lookAt(look);
+  sunDisc.position.set(camPos.x-30,camPos.y+6,camPos.z-200);sunDisc.lookAt(camPos);
+  for(const g of islands.children){if(g.position.z>camPos.z+20){g.position.z-=180;g.position.y=camPos.y-18-Math.random()*22}}}
+function draw(){ballMesh.position.set(S.x,S.y,-S.s);ballMesh.rotation.set(-S.spin,0,-S.x*.08);stripe.rotation.y=Math.PI/2;
+  const t=tileAt(S.s,S.x);shadow.visible=!!t&&!S.fall;if(t){shadow.position.set(S.x,groundOf(t,S.s)+.02,-S.s);const h=S.y-groundOf(t,S.s)-R;shadow.scale.setScalar(Math.max(.4,1-h*.12));shadow.material.opacity=.28*Math.max(.2,1-h*.15)}
+  for(let i=trail.length-1;i>0;i--)trail[i].position.copy(trail[i-1].position);trail[0].position.copy(ballMesh.position);
+  trail.forEach((m,i)=>{m.scale.setScalar(1-i/trail.length);m.material.opacity=.42*(1-i/trail.length);m.visible=S.state==='run'||S.state==='over'});
+  for(const o of obst)if(o.move)o.mesh.position.x=o.x+Math.sin(S.t*o.move.spd+o.ph)*o.move.amp;
+  for(const g of gems){g.mesh.rotation.y+=.04;g.mesh.position.y=g.y+Math.sin(S.t*3+g.s)*.12}
+  placeCamera(false);renderer.render(scene,camera)}
+function loop(now){requestAnimationFrame(loop);const dt=Math.min(.033,(now-last)/1000||0);last=now;if(S.state==='run'||(S.state==='over'&&S.fall)){let n=Math.ceil(dt/.008);for(let i=0;i<n;i++)if(S.state==='run'||S.fall)stepSafe(dt/n)}draw()}
+function stepSafe(dt){if(S.state==='over'){S.vy-=G*dt;S.y+=S.vy*dt;S.s+=S.v*dt*.5;return}step(dt)}
+function resize(){const v=$('view'),w=v.clientWidth,h=v.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w<h?72:60;camera.updateProjectionMatrix()}
+
+/* ---------- input ---------- */
+const keys=new Set();
+function keySteer(){steerIn=(keys.has('r')?1:0)-(keys.has('l')?1:0)}
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select'))return;const k=e.key;
+  if(k==='ArrowLeft'||k==='a'||k==='A'){keys.add('l');keySteer();e.preventDefault()}else if(k==='ArrowRight'||k==='d'||k==='D'){keys.add('r');keySteer();e.preventDefault()}
+  else if(k===' '||k==='Enter'){e.preventDefault();if(S.state==='run')pause();else if(S.state==='over'){reset();start()}else start()}else if(k==='Escape'||k==='p')pause()});
+document.addEventListener('keyup',e=>{const k=e.key;if(k==='ArrowLeft'||k==='a'||k==='A')keys.delete('l');if(k==='ArrowRight'||k==='d'||k==='D')keys.delete('r');keySteer()});
+const view=$('view');let ptr=null;
+view.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;if(S.state!=='run'){if(S.state!=='over')start();return}ptr={id:e.pointerId,x0:e.clientX,drag:false};view.setPointerCapture(e.pointerId);touchSteer(e)});
+view.addEventListener('pointermove',e=>{if(!ptr||e.pointerId!==ptr.id)return;if(Math.abs(e.clientX-ptr.x0)>14)ptr.drag=true;touchSteer(e)});
+const endPtr=e=>{if(ptr&&e.pointerId===ptr.id){ptr=null;steerIn=0}};view.addEventListener('pointerup',endPtr);view.addEventListener('pointercancel',endPtr);
+function touchSteer(e){const r=view.getBoundingClientRect();if(ptr.drag){steerIn=Math.max(-1,Math.min(1,(e.clientX-ptr.x0)/(r.width*.18)))}else steerIn=e.clientX<r.left+r.width/2?-1:1}
+function pause(){if(S.state!=='run')return;S.state='paused';card(`<h2>Paused</h2><div class="big">${Math.floor(S.s)} m</div><button class="btn primary">Keep rolling</button>`)}
+$('pause').onclick=e=>{e.stopPropagation();if(S.state==='run')pause();else if(S.state==='paused')start()};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
+$('level').value=cfg.level;$('level').onchange=e=>{cfg.level=e.target.value;store.set('parlor-skyroller',cfg);reset();readyCard();e.target.blur()};
+window.onAppBack=()=>{if(S.state==='run'){pause();return true}return false};
+window.addEventListener('resize',resize);
+resize();reset();readyCard();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
