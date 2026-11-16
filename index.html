@@ -117,6 +117,8 @@ h1 span{color:var(--accent)}
 .tile .nm{font-weight:800;font-size:14px;line-height:1.2;overflow-wrap:anywhere}
 .tile.soon .cv svg{filter:saturate(.45) brightness(.92)}
 .tile.soon .nm{color:var(--muted);font-weight:700}
+.onb{position:absolute;left:8px;bottom:8px;display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;letter-spacing:.03em;color:#fff;background:linear-gradient(135deg,#2f80ff,#8a4dff);border-radius:999px;padding:2px 8px 2px 6px;box-shadow:0 2px 8px -2px rgba(60,80,255,.6);pointer-events:none}
+.onbtn{display:inline-flex;align-items:center;gap:6px;color:#fff!important;background:linear-gradient(135deg,#2f80ff,#8a4dff)!important;border-color:transparent!important;white-space:nowrap}.onbtn svg{width:15px;height:15px;flex:none}.onbtn[aria-pressed="true"]{background:linear-gradient(135deg,#17a864,#1fc28a)!important;box-shadow:0 0 0 3px rgba(30,170,110,.3)}
 .tile .soonb{position:absolute;left:8px;top:8px;font-size:10.5px;font-weight:800;letter-spacing:.04em;background:rgba(23,26,44,.72);color:#fff;border-radius:999px;padding:2px 8px}
 /* The "ready to play" strip only made sense while most games were "coming soon"; now every game is playable it duplicated the whole catalog and pushed the search/layout bar far down. */
 .readywrap{display:none}
@@ -227,6 +229,7 @@ tbody tr:last-child td{border-bottom:0}
       <button data-l="table" aria-pressed="false" title="Table"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="24" height="3.5" rx="1" fill="currentColor"/><rect x="1" y="7" width="5" height="3" rx=".8" fill="currentColor" opacity=".7"/><rect x="8" y="7.5" width="17" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="1" y="12.5" width="5" height="3" rx=".8" fill="currentColor" opacity=".7"/><rect x="8" y="13" width="17" height="2" rx="1" fill="currentColor" opacity=".55"/></svg><span>Table</span></button>
       <button data-l="scroll" aria-pressed="false" title="Scroll"><svg viewBox="0 0 26 18" aria-hidden="true"><rect x="1" y="1" width="15" height="10" rx="2" fill="currentColor"/><rect x="18" y="2" width="7" height="2" rx="1" fill="currentColor" opacity=".7"/><rect x="18" y="5.5" width="5" height="1.6" rx=".8" fill="currentColor" opacity=".5"/><rect x="1" y="13" width="15" height="5" rx="1.5" fill="currentColor" opacity=".45"/><rect x="18" y="13.5" width="7" height="2" rx="1" fill="currentColor" opacity=".45"/></svg><span>Scroll</span></button>
     </div>
+    <button class="btn onbtn" id="onlineBtn" aria-pressed="false" title="Show games you can play online with friends"></button>
     <button class="btn fbtn" id="fbtn" aria-expanded="false">Filters</button>
   </div>
 </div>
@@ -236,7 +239,7 @@ tbody tr:last-child td{border-bottom:0}
     <div class="chips" id="genres"></div>
     <div class="frow">
       <select class="sel" id="players" aria-label="Players">
-        <option value="any">Any players</option><option value="solo">Solo</option><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="group">3+ players</option>
+        <option value="any">Any players</option><option value="solo">Solo</option><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="group">3+ players</option><option value="online">Play online</option>
       </select>
       <select class="sel" id="len" aria-label="Length">
         <option value="any">Any length</option><option value="quick">Under 10 min</option><option value="mid">10 to 30 min</option><option value="long">Over 30 min</option>
@@ -285,8 +288,8 @@ const GAMES=[
   feats:['Classic Kalah rules: extra turns and captures','Play the computer at three levels, or a friend on one device','Hover a pit to see where the last seed lands','3 to 6 seeds per pit, undo and a move log']},
  {id:'morris',name:'Nine Men\'s Morris',genres:['Classic board','Strategy'],p:['two','cpu'],plabel:'2 players or vs computer',mins:15,diff:2,motif:'morris',pal:['#e6d2a8','#5b3b22','#c23b2b'],blurb:'Form mills of three to take your opponent\'s pieces. Older than chess.',url:'morris.html',
   feats:['You against the computer (easy, medium, hard) or 2 players','Placing, moving and flying phases','Mills highlighted; tap the piece to remove','Draws by repetition or 50 moves without a capture']},
- {id:'dots',name:'Dots and Boxes',genres:['Puzzle','Party & kids'],p:['two','group','cpu'],plabel:'2 to 4 players or vs computer',mins:10,diff:1,motif:'dots',pal:['#fbf7ea','#2c58c4','#f0532f'],blurb:'Draw lines between dots and claim every box you close.',url:'dots-and-boxes.html',
-  feats:['You against 1 or 3 computers (easy, medium, hard) or 2 to 4 players','Boards from 3×3 to 7×7 boxes','Hard computer knows the double-dealing endgame trick','Undo and keyboard play']},
+ {id:'dots',name:'Dots and Boxes',genres:['Puzzle','Party & kids'],p:['two','group','cpu'],plabel:'2 to 4 players, vs computer or online',mins:10,diff:1,motif:'dots',pal:['#fbf7ea','#2c58c4','#f0532f'],blurb:'Draw lines between dots and claim every box you close.',url:'dots-and-boxes.html',
+  feats:['New: play a friend online on their own device','You against 1 or 3 computers (easy, medium, hard) or 2 to 4 players','Boards from 3×3 to 7×7 boxes','Hard computer knows the double-dealing endgame trick','Undo and keyboard play']},
  {id:'fleet',name:'Fleet Hunt',genres:['Deduction'],p:['two','cpu'],plabel:'2 players or vs computer',mins:15,diff:1,motif:'sea',pal:['#1c4f7a','#7fb6dd','#e2362f'],blurb:'Hide your ships, call shots on a grid, and sink the enemy fleet first.',url:'fleet-hunt.html',
   feats:['New: play a friend online with just a game code','You against the computer (easy, medium, hard) or 2 players with a hand-over screen','Arrange your fleet by tapping, or shuffle it','Optional rule: hits earn another shot','Shot and hit counts, sunk ships revealed']},
  {id:'fivedice',name:'Five Dice',genres:['Dice'],p:['solo','two','group','cpu'],plabel:'1 to 4 players or vs computers',mins:20,diff:1,motif:'dice',v:'five',pal:['#c2362f','#fbf6ea','#1d1d22'],blurb:'Roll five dice three times a turn and fill a scorecard of combos.',url:'five-dice.html',
@@ -353,8 +356,8 @@ const GAMES=[
   feats:['New: online rooms for 2 to 4 people, each on their own device','2 to 4 players, any mix of people and computers','Safe squares, captures and bonus rolls','Computer at three levels','Pawns step around the board one square at a time']},
  {id:'ladders',name:'Snakes and Ladders',genres:['Race','Party & kids'],p:['two','group','cpu'],plabel:'2 to 4 players, online or vs computers',mins:20,diff:1,motif:'ladders',pal:['#f6efe0','#fde3a7','#bfe3c8'],blurb:'Climb ladders, slide down snakes, and reach square 100 first.',url:'snakes-and-ladders.html',
   feats:['New: online rooms for 2 to 4 people, each on their own device','Three boards: Classic, Jungle and Tricky','2 to 4 players, any mix of people and computers','Exact-roll finish can be turned off','Animated climbs and slides, with a move log']},
- {id:'twenty',name:'Twenty Questions',genres:['Deduction','Party & kids'],p:['two','group','cpu'],plabel:'Vs computer, or 2 or more players',mins:10,diff:1,motif:'question',pal:['#ffcf3f','#1b1d3a','#ffffff'],blurb:'Guess what someone is thinking of in twenty yes-or-no questions.',url:'twenty-questions.html',
-  feats:['The computer guesses what you are thinking of','Or question the computer and guess its secret','Party tracker counts down twenty for a group','Teach it things that stump it; it remembers them']},
+ {id:'twenty',name:'Twenty Questions',genres:['Deduction','Party & kids'],p:['two','group','cpu'],plabel:'Vs computer, 2+ players or online',mins:10,diff:1,motif:'question',pal:['#ffcf3f','#1b1d3a','#ffffff'],blurb:'Guess what someone is thinking of in twenty yes-or-no questions.',url:'twenty-questions.html',
+  feats:['New: online with a friend: one thinks, the other asks','The computer guesses what you are thinking of','Or question the computer and guess its secret','Party tracker counts down twenty for a group','Teach it things that stump it; it remembers them']},
  {id:'codebreaker',name:'Code Breaker',genres:['Deduction','Puzzle'],p:['solo','two'],plabel:'Solo or 2 players',mins:10,diff:2,motif:'pegs',v:'code',pal:['#2a2f3c','#3b4252','#e9edf3'],blurb:'Crack a hidden color code using black and white clue pegs.',url:'code-breaker.html',
   feats:['Easy, classic and hard codes, with or without repeats','2 players: one sets the code, one cracks it','Watch the computer crack your code','Color letters for color-blind play, plus your stats']},
  {id:'mahjong',name:'Mahjong Solitaire',genres:['Puzzle'],p:['solo'],plabel:'Solo',mins:15,diff:2,motif:'mahjong',pal:['#1d5b4f'],blurb:'Match free tiles in pairs to clear the whole stacked layout.',url:'mahjong-solitaire.html',
@@ -421,8 +424,8 @@ const GAMES=[
   feats:['Play the fox or the 13 geese','Chains of jumps, with the fox winning at 6 captures','Three computer levels, or 2 players']},
  {id:'breakout',name:'Brick Breaker',genres:['Arcade'],p:['solo'],plabel:'Solo',mins:5,diff:1,motif:'arcade',v:'brick',pal:['#141432','#ff5a5f','#ffd84a'],blurb:'Bounce the ball off your paddle and smash every brick in the wall.',url:'brick-breaker.html',
   feats:['8 levels with tough silver and gold bricks','Power-ups: wide paddle, multi-ball, slow ball, extra ball','Drag, mouse or keyboard control, with best score']},
- {id:'paddle',name:'Paddle Ball',genres:['Arcade','Party & kids'],p:['solo','two','cpu'],plabel:'1 or 2 players',mins:5,diff:1,motif:'arcade',v:'pong',pal:['#0b0b0f','#f4f4f4','#59d36b'],blurb:'Tennis for two on one screen. Keep the ball in play and slip it past your rival.',url:'paddle-ball.html',
-  feats:['Vs a three-level computer, or 2 players on one screen','Angle shots off the paddle; rallies speed up','Games to 5, 7 or 11']},
+ {id:'paddle',name:'Paddle Ball',genres:['Arcade','Party & kids'],p:['solo','two','cpu'],plabel:'1 or 2 players, or online',mins:5,diff:1,motif:'arcade',v:'pong',pal:['#0b0b0f','#f4f4f4','#59d36b'],blurb:'Tennis for two on one screen. Keep the ball in play and slip it past your rival.',url:'paddle-ball.html',
+  feats:['New: neon look, and online play against a friend on their own device','Vs a three-level computer, or 2 players on one screen','Angle shots off the paddle; rallies speed up','Games to 5, 7 or 11']},
  {id:'bubbles',name:'Bubble Pop',genres:['Arcade','Puzzle'],p:['solo'],plabel:'Solo',mins:10,diff:1,motif:'arcade',v:'bubble',pal:['#1b2a4a','#ffd84a','#ff5a8a'],blurb:'Aim and fire bubbles. Match three of a color to pop them before the ceiling drops.',url:'bubble-pop.html',
   feats:['Aim with a guide line and bounce shots off the walls','Pop groups of 3 and drop hanging clusters for bonus points','4, 5 or 6 colors, levels, and a row that pushes down every few shots']},
  {id:'hockey',name:'Air Hockey',genres:['Arcade','Party & kids'],p:['two','cpu'],plabel:'2 players or vs computer',mins:5,diff:1,motif:'arcade',v:'hockey',pal:['#d6ebf7','#2c58c4','#e2362f'],blurb:'Two players, one screen. Slide your mallet and smash the puck into the other goal.',url:'air-hockey.html',
@@ -461,8 +464,8 @@ const GAMES=[
   feats:['Four pyramid dice, rosettes for extra rolls and a safe middle square','Knock rival pieces back to the start','Vs a three-level computer, or 2 players']},
  {id:'bingo',name:'Bingo',genres:['Party & kids'],p:['solo','cpu','group'],plabel:'Vs computer or online, 2 to 8',mins:15,diff:1,motif:'bingo',pal:['#ff8a3d','#ffffff','#2c58c4'],blurb:'Mark numbers as they are called. First to complete a line shouts Bingo!',url:'bingo.html',
   feats:['New: online room for 2 to 8 players, each with their own card','Play your card against 1, 3 or 5 computer rivals','Line, four corners, X or full-card patterns','Caller mode: run a bingo night for a room with paper cards']},
- {id:'rps',name:'Rock Paper Scissors',genres:['Party & kids'],p:['two','cpu'],plabel:'2 players or vs computer',mins:2,diff:1,motif:'rps',pal:['#ffcf3f','#1b1d3a','#ffffff'],blurb:'Best of five against a computer that slowly learns your habits.',url:'rock-paper-scissors.html',
-  feats:['A computer that learns your habits, or one that plays pure chance','Shows how well it\'s reading you, with a Forget me button','Best of 3, 5 or 7, or 2 players picking in secret']},
+ {id:'rps',name:'Rock Paper Scissors',genres:['Party & kids'],p:['two','cpu'],plabel:'2 players, vs computer or online',mins:2,diff:1,motif:'rps',pal:['#ffcf3f','#1b1d3a','#ffffff'],blurb:'Best of five against a computer that slowly learns your habits.',url:'rock-paper-scissors.html',
+  feats:['New: play a friend online, each picking in secret on their own device','A computer that learns your habits, or one that plays pure chance','Shows how well it\'s reading you, with a Forget me button','Best of 3, 5 or 7, or 2 players picking in secret']},
  {id:'whodunit',name:'Whodunit',genres:['Deduction','Party & kids'],p:['cpu','group'],plabel:'You vs 2 to 5 computer detectives',mins:30,diff:2,motif:'faces',pal:['#4a2a3a'],blurb:'Move from room to room, suggest a suspect, weapon and room, and name the culprit before anyone else.',url:'whodunit.html',
   feats:['Original cast: 6 suspects, 6 items and 9 rooms in the manor','2 to 5 rival detectives who deduce from every card shown','A notebook that fills in your deductions automatically']},
  {id:'logicgrid',name:'Logic Grid',genres:['Deduction','Puzzle'],p:['solo'],plabel:'Solo',mins:15,diff:3,motif:'nono',v:'logic',pal:['#f6f1e4','#2a2a3a','#1d9a62'],blurb:'Read the clues, mark yes and no in the grid, and work out who owns which pet.',url:'logic-grid.html',
@@ -477,8 +480,14 @@ const HIDDEN=new Set(['hexhaven','backgammon','reversi','go','mancala','morris',
   'foxgeese','hockey','minigolf','coil','market','slice','blaster','darts','tt','carrom3d','pool3d','ur',
   'whodunit','logicgrid']);
 for(let i=GAMES.length-1;i>=0;i--)if(HIDDEN.has(GAMES[i].id))GAMES.splice(i,1);
+// Games that can be played with friends on their own devices: they get an Online badge and the Play online filter.
+const ONLINE=new Set(['lineup','chess','checkers','four','dots','fleet','memory','ttt','ludo','ladders','twenty','paddle','carrom','pool','bingo','rps']);
+GAMES.forEach(g=>{if(ONLINE.has(g.id)&&!g.p.includes('online'))g.p=[...g.p,'online']});
+const isOnline=g=>g.p.includes('online');
+const GLOBE='<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"/></svg>';
+const onlineBadge=g=>isOnline(g)?`<span class="onb">${GLOBE}Online</span>`:'';
 const GENRES=['Strategy','Classic board','Cards','Dice','Word','Puzzle','Deduction','Arcade','Race','Party & kids'];
-const PLAYERS_LBL={solo:'Solo',cpu:'Vs computer',two:'2 players',group:'3+ players'};
+const PLAYERS_LBL={solo:'Solo',cpu:'Vs computer',two:'2 players',group:'3+ players',online:'Play online'};
 const DIFF_LBL={1:'Easy',2:'Medium',3:'Hard'};
 GAMES.forEach((g,i)=>g.order=i);
 
@@ -798,11 +807,11 @@ const diffDots=d=>`<span class="diff" title="${DIFF_LBL[d]}">${[1,2,3].map(i=>`<
 const favBtn=g=>`<button class="fav" data-fav="${g.id}" aria-pressed="${favs.has(g.id)}" aria-label="${favs.has(g.id)?'Remove from':'Add to'} favorites">${heart}</button>`;
 const badge=g=>g.url?'<span class="badge ok">Play now</span>':'<span class="badge">Coming soon</span>';
 const playBtn=(g,cls='')=>g.url?`<a class="btn play ${cls}" href="${g.url}" data-stop>Play now</a>`:`<span class="btn ${cls}" aria-disabled="true">Coming soon</span>`;
-function tileItem(g){const inner=`<div class="cv">${cover(g)}${g.url?'':'<span class="soonb">Soon</span>'}</div><span class="nm">${hl(g.name)}</span>`;
+function tileItem(g){const inner=`<div class="cv">${cover(g)}${g.url?'':'<span class="soonb">Soon</span>'}${onlineBadge(g)}</div><span class="nm">${hl(g.name)}</span>`;
   return g.url?`<a class="tile" href="${g.url}" data-stop aria-label="Play ${esc(g.name)}">${inner}</a>`:`<button class="tile soon" data-open="${g.id}" aria-label="${esc(g.name)}, coming soon">${inner}</button>`}
-function gridItem(g){return `<article class="card ${g.url?'':'soon'}" data-open="${g.id}" tabindex="0" aria-label="${esc(g.name)}"><div class="cv">${cover(g)}${badge(g)}${favBtn(g)}</div><div class="bd"><h3>${hl(g.name)}</h3><div class="tags">${g.genres.map(x=>`<span>${x}</span>`).join('')}</div><div class="meta"><span>${g.plabel.replace('or vs computer','· vs CPU')}</span><span>${g.mins} min</span>${diffDots(g.diff)}</div></div></article>`}
+function gridItem(g){return `<article class="card ${g.url?'':'soon'}" data-open="${g.id}" tabindex="0" aria-label="${esc(g.name)}"><div class="cv">${cover(g)}${badge(g)}${onlineBadge(g)}${favBtn(g)}</div><div class="bd"><h3>${hl(g.name)}</h3><div class="tags">${g.genres.map(x=>`<span>${x}</span>`).join('')}</div><div class="meta"><span>${g.plabel.replace('or vs computer','· vs CPU')}</span><span>${g.mins} min</span>${diffDots(g.diff)}</div></div></article>`}
 function rowItem(g){return `<tr data-open="${g.id}" tabindex="0"><td><div class="tname"><div class="tthumb cv">${cover(g)}</div><span>${hl(g.name)}</span></div></td><td>${g.genres.join(', ')}</td><td>${esc(g.plabel)}</td><td class="num">${g.mins} min</td><td>${diffDots(g.diff)} <span class="note">${DIFF_LBL[g.diff]}</span></td><td><span class="pill ${g.url?'ok':'soon'}">${g.url?'Playable':'Coming soon'}</span></td><td style="text-align:right">${g.url?playBtn(g,'sm'):`<button class="btn sm" data-open="${g.id}">Details</button>`}</td></tr>`}
-function bigItem(g,i){return `<article class="big" data-open="${g.id}" tabindex="0" aria-label="${esc(g.name)}"><div class="cv">${cover(g)}${badge(g)}${favBtn(g)}</div><div class="bd"><span class="idx">${String(i+1).padStart(2,'0')} / ${String(list.length).padStart(2,'0')}</span><h3>${hl(g.name)}</h3><div class="tags">${g.genres.map(x=>`<span>${x}</span>`).join('')}</div><p>${esc(g.blurb)}</p><div class="stats"><div><small>Players</small><b>${esc(g.plabel.replace(' or vs computer',' / CPU'))}</b></div><div><small>Length</small><b>${g.mins} min</b></div><div><small>Level</small><b>${DIFF_LBL[g.diff]}</b></div></div><div class="mrow">${playBtn(g)}<button class="btn" data-open="${g.id}">Details</button></div></div></article>`}
+function bigItem(g,i){return `<article class="big" data-open="${g.id}" tabindex="0" aria-label="${esc(g.name)}"><div class="cv">${cover(g)}${badge(g)}${onlineBadge(g)}${favBtn(g)}</div><div class="bd"><span class="idx">${String(i+1).padStart(2,'0')} / ${String(list.length).padStart(2,'0')}</span><h3>${hl(g.name)}</h3><div class="tags">${g.genres.map(x=>`<span>${x}</span>`).join('')}</div><p>${esc(g.blurb)}</p><div class="stats"><div><small>Players</small><b>${esc(g.plabel.replace(' or vs computer',' / CPU'))}</b></div><div><small>Length</small><b>${g.mins} min</b></div><div><small>Level</small><b>${DIFF_LBL[g.diff]}</b></div></div><div class="mrow">${playBtn(g)}<button class="btn" data-open="${g.id}">Details</button></div></div></article>`}
 
 /* ---------- rendering + infinite scroll ---------- */
 function container(){const r=$('results');document.body.classList.toggle('tiles-view',S.layout==='tiles');
@@ -832,7 +841,7 @@ function activeFilters(){return (S.q?1:0)+S.genres.size+(S.players!=='any')+(S.l
 function renderChips(){const base=GAMES.filter(g=>matches(g,'genres'));
   $('genres').innerHTML=`<button class="chip" data-g="" aria-pressed="${S.genres.size===0}">All genres <small>${base.length}</small></button>`+GENRES.filter(x=>GAMES.some(g=>g.genres.includes(x))).map(x=>{const n=base.filter(g=>g.genres.includes(x)).length;return `<button class="chip" data-g="${x}" aria-pressed="${S.genres.has(x)}" ${n||S.genres.has(x)?'':'disabled'}>${x} <small>${n}</small></button>`}).join('');
   const a=activeFilters();$('clear').hidden=!a;$('fbtn').textContent=a?`Filters · ${a}`:'Filters'}
-function refresh(){gen++;loading=false;shown=0;list=compute();renderChips();container();skeleton(false);$('end').hidden=true;
+function refresh(){gen++;loading=false;shown=0;list=compute();renderChips();paintOnline();container();skeleton(false);$('end').hidden=true;
   document.querySelectorAll('#layouts button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===S.layout));updateCount();loadMore()}
 function renderTop(){const ready=GAMES.filter(g=>g.url);
   $('tally').innerHTML=`<span><b>${ready.length}</b> ready to play</span>${GAMES.length>ready.length?`<span><b>${GAMES.length-ready.length}</b> coming soon</span>`:''}<span><b>${GENRES.filter(x=>GAMES.some(g=>g.genres.includes(x))).length}</b> genres</span>`;
@@ -872,6 +881,8 @@ $('sort').onchange=e=>{S.sort=e.target.value;refresh()};
 $('playable').onchange=e=>{S.playable=e.target.checked;refresh()};
 $('favs').onchange=e=>{S.fav=e.target.checked;refresh()};
 $('genres').addEventListener('click',e=>{const c=e.target.closest('[data-g]');if(!c||c.disabled)return;const g=c.dataset.g;if(!g)S.genres.clear();else S.genres.has(g)?S.genres.delete(g):S.genres.add(g);refresh()});
+function paintOnline(){const b=$('onlineBtn'),on=S.players==='online';b.setAttribute('aria-pressed',on);b.innerHTML=`${GLOBE}${on?'Online games ✓':'Play online'}`}
+$('onlineBtn').onclick=()=>{S.players=S.players==='online'?'any':'online';$('players').value=S.players;refresh()};
 $('layouts').addEventListener('click',e=>{const b=e.target.closest('[data-l]');if(!b)return;S.layout=b.dataset.l;store.set('parlor-layout-v2',S.layout);refresh()});
 $('fbtn').onclick=()=>{const f=$('filters');f.classList.toggle('open');$('fbtn').setAttribute('aria-expanded',f.classList.contains('open'))};
 $('clear').onclick=clearAll;

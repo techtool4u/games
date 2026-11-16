@@ -127,13 +127,13 @@
   const routeText=r=>`Wi-Fi address: ${r.wifi?'yes':r.hidden?'hidden':'none'} · internet address: ${r.net?'yes':'none'}`;
 
   /* ---------- the pairing dialog ---------- */
-  const css=`.p2p-ov{position:fixed;inset:0;background:rgba(10,10,20,.6);display:grid;padding:14px;z-index:5000;overflow:auto}
+  const css=`.p2p-play{display:inline-flex;align-items:center;gap:7px;font:inherit;font-weight:800;font-size:15px;min-height:40px;padding:7px 16px 7px 13px;border-radius:999px;border:0;cursor:pointer;color:#fff;background:linear-gradient(135deg,#2f80ff,#8a4dff);box-shadow:0 4px 14px -4px rgba(70,90,255,.7);white-space:nowrap}.p2p-play:active{transform:scale(.97)}.p2p-play.on{background:linear-gradient(135deg,#17a864,#1fc28a);box-shadow:0 4px 14px -4px rgba(30,170,110,.7)}.p2p-play svg{flex:none;width:18px!important;height:18px!important;max-width:none;display:block;margin:0}.p2p-play span{white-space:nowrap}.p2p-ov{position:fixed;inset:0;background:rgba(10,10,20,.6);display:grid;padding:14px;z-index:5000;overflow:auto}
 .p2p{margin:auto;background:var(--panel,#fff);color:var(--fg,#1d1d22);border-radius:18px;padding:18px;width:100%;max-width:400px;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;font-family:var(--body,system-ui,sans-serif);box-shadow:0 20px 40px rgba(0,0,0,.35)}
 .p2p h2{margin:0;font-family:var(--display,inherit);font-size:26px;line-height:1.15}
 .p2p p{margin:0;color:var(--muted,#666);font-size:14px;line-height:1.4}
 .p2p .row{display:flex;gap:8px;flex-wrap:wrap}
 .p2p .row>*{flex:1 1 auto}
-.p2p button{font:inherit;font-weight:800;border-radius:999px;padding:10px 14px;min-height:44px;border:1px solid var(--line,#ddd);background:var(--chip,#f1f1f4);color:inherit;cursor:pointer}
+.p2p button{font:inherit;font-weight:800;border-radius:999px;padding:10px 14px;min-height:44px;border:1px solid var(--line,#ddd);background:var(--chip,rgba(127,127,140,.18));color:inherit;cursor:pointer}
 .p2p button.pri{background:var(--accent,#2f6fd6);color:var(--accent-ink,#fff);border-color:var(--accent,#2f6fd6)}
 .p2p button:disabled{opacity:.45;cursor:not-allowed}
 .p2p textarea{font:12.5px/1.35 ui-monospace,Menlo,Consolas,monospace;width:100%;box-sizing:border-box;border-radius:10px;border:1px solid var(--line,#ccc);padding:8px;background:var(--bg,#fafafa);color:inherit;resize:none;word-break:break-all}
@@ -153,7 +153,7 @@
 .p2p-bar>i{width:10px;height:10px;border-radius:50%;background:#2bb36a;flex:none}
 .p2p-bar.off>i{background:#c62b2b}
 .p2p-bar>span{flex:1;min-width:0;font-weight:700}
-.p2p-bar>button{font:inherit;font-weight:800;border-radius:999px;padding:5px 14px;min-height:36px;border:1px solid var(--line,#ddd);background:var(--chip,#f1f1f4);color:inherit;cursor:pointer}
+.p2p-bar>button{font:inherit;font-weight:800;border-radius:999px;padding:5px 14px;min-height:36px;border:1px solid var(--line,#ddd);background:var(--chip,rgba(127,127,140,.18));color:inherit;cursor:pointer}
 .p2p-bar.off>span{flex:0 0 auto}
 .p2p-bar>button{margin-left:auto}
 @media (max-width:440px){.p2p-bar>select{order:9;flex-basis:100%}.p2p-bar.off>span{flex:1 1 auto}}
@@ -373,5 +373,22 @@
     if(o.conn){o.conn.innerHTML='<option value="code">Use a game code</option><option value="direct">Use two codes</option>';o.conn.value=connPref();o.conn.setAttribute('aria-label','How to connect');
       o.conn.onchange=()=>{setConnPref(o.conn.value);if(o.active()&&!N.online()){if(N.ui){N.ui.close();N.ui=null}N.start()}}}
     return N}
+  /* ---------- "Play online" button ----------
+   Every game that can be played online has an online choice ("net") in one of its menus. That is easy to miss, so a
+   bold Play online button is added next to the menus: it switches the game to online play and opens the host/join
+   step straight away (the pairing card, or the room box for room games). */
+  function playButton(){const opt=document.querySelector('select option[value="net"]');if(!opt||document.querySelector('.p2p-play'))return;
+    const sel=opt.parentElement,box=sel.parentElement;addStyle();
+    const b=document.createElement('button');b.type='button';b.className='p2p-play';
+    b.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"/></svg><span>Play online</span>';
+    box.insertBefore(b,box.firstChild);
+    const live=()=>!!document.querySelector('.p2p-bar:not(.off)')||!!document.querySelector('#room .code, #room .mini');
+    const upd=()=>{const on=sel.value==='net';b.classList.toggle('on',on);const t=on&&live()?'Playing online':'Play online',sp=b.querySelector('span');if(sp.textContent!==t)sp.textContent=t;b.setAttribute('aria-pressed',on)};
+    b.onclick=()=>{if(sel.value!=='net'){sel.value='net';sel.dispatchEvent(new Event('change',{bubbles:true}))}
+      setTimeout(()=>{upd();if(document.querySelector('.p2p-ov'))return;
+        const c=document.querySelector('.p2p-bar [data-connect]');if(c){c.click();return}
+        const room=document.getElementById('room');if(room&&!room.hidden){room.scrollIntoView({behavior:'smooth',block:'center'});const f=room.querySelector('#rhost');if(f)f.focus({preventScroll:true})}},60)};
+    sel.addEventListener('change',()=>setTimeout(upd,0));new MutationObserver(upd).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden']});upd()}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(playButton,0));else setTimeout(playButton,0);
   window.P2P={hostRoom,joinRoom,net,connPref,setConnPref,takeJoin,note,open,_compact:compact,_expand:expand};
 })();

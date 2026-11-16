@@ -10,6 +10,8 @@
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <script src="sound.js"></script>
 <script>window.sfx=window.sfx||function(){}</script>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 </head>
 <body>
 <style>
@@ -76,12 +78,14 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
       <h1>Rock Paper Scissors</h1>
     </div>
     <div class="controls">
-      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option></select>
+      <select id="mode" aria-label="Opponent"><option value="cpu">Vs computer</option><option value="two">2 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
       <select id="level" aria-label="Computer"><option value="random">Computer: pure chance</option><option value="learn">Computer: learns your habits</option></select>
       <select id="len" aria-label="Match"><option value="3">Best of 3</option><option value="5">Best of 5</option><option value="7">Best of 7</option></select>
       <button class="btn primary" id="newgame">New match</button>
     </div>
   </header>
+  <div id="netbar" hidden></div>
   <div class="score"><div id="s0">0<small>You</small></div><span class="dash">–</span><div id="s1">0<small>Computer</small></div></div>
   <div class="arena" aria-live="polite"><div><div class="hand" id="h0">✊</div><div class="who" id="w0">You</div></div><div class="res" id="res">Make your pick</div><div><div class="hand l" id="h1">✊</div><div class="who" id="w1">Computer</div></div></div>
   <div class="picks" id="picks"></div>
@@ -116,8 +120,16 @@ const beats=(a,b)=>(a-b+3)%3===1;
 const cfg=Object.assign({mode:'cpu',level:'learn',len:5},store.get('parlor-rps',{}));
 const mem=store.get('parlor-rps-memory',{hist:[],guessed:0,rounds:0});
 const tally=store.get('parlor-rps-tally',{w:0,l:0});
-let S=null;
-function newGame(){closeModal();S={score:[0,0],busy:false,p1:null,keys:{},over:false};$('res').textContent=cfg.mode==='cpu'?'Make your pick':'Player 1, pick in secret';$('res').className='res';$('h0').textContent=$('h1').textContent='✊';render()}
+let S=null,net=null;
+const NETM=()=>cfg.mode==='net',online=()=>NETM()&&!!net&&net.online();
+const solo=()=>cfg.mode!=='two'; // vs computer and online both show "You" on the left
+const foe=()=>cfg.mode==='net'?'Your friend':'Computer';
+function newGame(from){closeModal();
+  if(NETM()&&!from&&online()&&net.role==='guest'){net.send({t:'again'});net.note('Asked your friend for a new match.');return}
+  S={score:[0,0],busy:false,p1:null,keys:{},over:false,mine:null,theirs:null,round:0};
+  if(NETM()&&online()&&net.role==='host'&&!from)net.send({t:'new',len:+cfg.len});
+  if(NETM()&&!online()&&!from&&net)net.start();
+  $('res').textContent=NETM()?(online()?'Make your pick':'Not connected'):cfg.mode==='cpu'?'Make your pick':'Player 1, pick in secret';$('res').className='res';$('h0').textContent=$('h1').textContent='✊';render()}
 // The learning computer keeps counts of what you threw after each (your last throw, how it went) and after your last two throws.
 function predict(){const h=mem.hist;if(cfg.level==='random'||h.length<3)return null;const n=h.length,cnt=[0,0,0];
   const last=h[n-1],prev=h[n-2];
@@ -128,35 +140,51 @@ function cpuPick(){const g=predict();S.guess=g;if(g==null)return rand(3);// some
 function throwHands(a,b){S.busy=true;const h0=$('h0'),h1=$('h1');h0.textContent=h1.textContent='✊';h0.classList.add('shake');h1.classList.add('shake');$('res').textContent='Rock… paper… scissors…';$('res').className='res';sfx('shake');render();
   setTimeout(()=>{h0.classList.remove('shake');h1.classList.remove('shake');h0.textContent=H[a];h1.textContent=H[b];const r=a===b?0:beats(a,b)?1:-1;
     if(cfg.mode==='cpu'){const out=r>0?'w':r<0?'l':'t';mem.hist.push({me:a,out});if(mem.hist.length>200)mem.hist.shift();mem.rounds++;if(S.guess===a)mem.guessed++;store.set('parlor-rps-memory',mem)}
-    if(r)S.score[r>0?0:1]++;const nm=k=>cfg.mode==='cpu'?(k?'Computer':'You'):`Player ${k+1}`;
-    $('res').textContent=!r?'Tie!':`${N[r>0?a:b]} wins`;$('res').className='res'+(cfg.mode==='cpu'&&r?r>0?' win':' lose':'');
-    sfx(!r?'draw':cfg.mode==='cpu'?(r>0?'good':'bad'):'score');
+    if(r)S.score[r>0?0:1]++;const nm=k=>solo()?(k?foe():'You'):`Player ${k+1}`;
+    $('res').textContent=!r?'Tie!':`${N[r>0?a:b]} wins`;$('res').className='res'+(solo()&&r?r>0?' win':' lose':'');
+    sfx(!r?'draw':solo()?(r>0?'good':'bad'):'score');
     const need=Math.ceil(+cfg.len/2),w=S.score.findIndex(x=>x>=need);S.busy=false;S.p1=null;render();
     if(w>=0){S.over=true;const sc=S.score.slice();if(cfg.mode==='cpu'){if(w===0)tally.w++;else tally.l++;store.set('parlor-rps-tally',tally)}
-      setTimeout(()=>{modal(`<h2>${cfg.mode==='cpu'?(w===0?'You win the match!':'Computer wins the match'):`${nm(w)} wins!`}</h2><p>${sc[0]} – ${sc[1]}${cfg.mode==='cpu'?` · Matches: you ${tally.w}, computer ${tally.l}`:''}</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);$('mnew').onclick=newGame},700)}
-    else if(cfg.mode==='two')setTimeout(()=>{if(!S.over){$('res').textContent='Player 1, pick in secret';render()}},1400)},800)}
+      setTimeout(()=>{modal(`<h2>${solo()?(w===0?'You win the match!':`${foe()} wins the match`):`${nm(w)} wins!`}</h2><p>${sc[0]} – ${sc[1]}${cfg.mode==='cpu'?` · Matches: you ${tally.w}, computer ${tally.l}`:''}</p><div class="row"><button class="btn primary" id="mnew">Play again</button></div>`);$('mnew').onclick=()=>newGame()},700)}
+    else if(cfg.mode==='two')setTimeout(()=>{if(!S.over){$('res').textContent='Player 1, pick in secret';render()}},1400);
+    else if(NETM())setTimeout(()=>{if(!S.over&&S.mine==null){$('res').textContent=S.theirs!=null?'Your friend has picked':'Pick again';render()}},1400)},800)}
 function pick(k,who){if(S.busy||S.over)return;
   if(cfg.mode==='cpu'){throwHands(k,cpuPick());return}
+  if(NETM()){if(!online()){net.note('Not connected yet. Tap Connect to play a friend.');return}if(S.mine!=null)return;
+    S.mine=k;sfx('tap');net.send({t:'pick',k,r:S.round});if(S.theirs!=null)reveal();else{$('res').textContent='Waiting for your friend…';render()}return}
   if(who===1||S.p1!=null&&who!==0){if(S.p1==null)return;throwHands(S.p1,k);return}
   S.p1=k;sfx('tap');$('res').textContent='Player 2, your pick';render()}
-function render(){$('s0').innerHTML=`${S.score[0]}<small>${cfg.mode==='cpu'?'You':'Player 1'}</small>`;$('s1').innerHTML=`${S.score[1]}<small>${cfg.mode==='cpu'?'Computer':'Player 2'}</small>`;
-  $('w0').textContent=cfg.mode==='cpu'?'You':'Player 1';$('w1').textContent=cfg.mode==='cpu'?'Computer':'Player 2';
+function render(){$('s0').innerHTML=`${S.score[0]}<small>${solo()?'You':'Player 1'}</small>`;$('s1').innerHTML=`${S.score[1]}<small>${solo()?(NETM()?'Friend':'Computer'):'Player 2'}</small>`;
+  $('w0').textContent=solo()?'You':'Player 1';$('w1').textContent=solo()?foe():'Player 2';
   const who=cfg.mode==='two'&&S.p1!=null?'Player 2':cfg.mode==='two'?'Player 1':'';
-  $('picks').innerHTML=H.map((h,k)=>`<button class="pick" data-k="${k}"${S.busy||S.over?' disabled':''}><span>${h}</span>${N[k]}${who?` · ${who}`:''}<kbd>${cfg.mode==='cpu'?'RPS'[k]:(S.p1==null?'ASD':'JKL')[k]}</kbd></button>`).join('');
+  $('picks').innerHTML=H.map((h,k)=>`<button class="pick" data-k="${k}"${S.busy||S.over||(NETM()&&(S.mine!=null||!online()))?' disabled':''}${NETM()&&S.mine===k?' style="border-color:var(--accent)"':''}><span>${h}</span>${N[k]}${who?` · ${who}`:''}<kbd>${solo()?'RPS'[k]:(S.p1==null?'ASD':'JKL')[k]}</kbd></button>`).join('');
   $('level').hidden=cfg.mode!=='cpu';
   if(cfg.mode==='cpu'){const h=mem.hist,c=[0,1,2].map(k=>h.filter(x=>x.me===k).length),t=h.length||1;
     $('learn').innerHTML=cfg.level==='learn'?(mem.rounds>=6?`It has watched you for <b>${mem.rounds}</b> rounds and read your next throw <b>${Math.round(100*mem.guessed/mem.rounds)}%</b> of the time (chance is 33%). You throw rock ${Math.round(100*c[0]/t)}%, paper ${Math.round(100*c[1]/t)}%, scissors ${Math.round(100*c[2]/t)}%. <button class="btn" id="forget" style="margin-left:6px;min-height:32px;padding:4px 10px">Forget me</button>`:'The computer is still learning your habits.'):'The computer picks at random: nobody can beat it in the long run, and it can\'t beat you either.';
     const f=$('forget');if(f)f.onclick=()=>{mem.hist=[];mem.guessed=0;mem.rounds=0;store.set('parlor-rps-memory',mem);render()}}
-  else $('learn').textContent=S.p1!=null?'Player 1 has picked. Player 2, your turn.':'Each player picks in secret.'}
+  else if(NETM())$('learn').textContent=!online()?'Connect to a friend\'s device to play: one of you hosts, the other joins with the code.':S.mine!=null?(S.theirs!=null?'Both picked!':'You have picked. Waiting for your friend…'):S.theirs!=null?'Your friend has picked. Your turn!':'You each pick on your own device. Neither sees the other\'s pick until both have chosen.';
+  else $('learn').textContent=S.p1!=null?'Player 1 has picked. Player 2, your turn.':'Each player picks in secret.';
+  $('len').disabled=NETM()&&online()&&net.role==='guest';if(net)net.render()}
 $('picks').addEventListener('click',e=>{const b=e.target.closest('.pick');if(b)pick(+b.dataset.k)});
 document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('select,input'))return;const k=e.key.toLowerCase();
-  if(cfg.mode==='cpu'){const m={r:0,p:1,s:2,'1':0,'2':1,'3':2}[k];if(m!=null)pick(m)}
+  if(solo()){const m={r:0,p:1,s:2,'1':0,'2':1,'3':2}[k];if(m!=null)pick(m)}
   else{const a={a:0,s:1,d:2}[k],b={j:0,k:1,l:2}[k];if(a!=null&&!S.busy&&!S.over){S.p1=a;S.keys.a=true;sfx('tap');render();if(S.keys.b!=null){const bb=S.keys.b;S.keys={};throwHands(a,bb)}}
     else if(b!=null&&!S.busy&&!S.over){if(S.p1!=null&&S.keys.a){S.keys={};throwHands(S.p1,b)}else{S.keys.b=b;sfx('tap')}}}});
-function setCfg(k,v){cfg[k]=v;store.set('parlor-rps',cfg);newGame()}
-$('mode').onchange=e=>setCfg('mode',e.target.value);$('level').onchange=e=>setCfg('level',e.target.value);$('len').onchange=e=>setCfg('len',+e.target.value);$('newgame').onclick=newGame;
+function setCfg(k,v){if(k==='mode'&&v!=='net'&&net&&net.online())net.leave();cfg[k]=v;store.set('parlor-rps',Object.assign({},cfg,{mode:cfg.mode==='net'?'cpu':cfg.mode}));newGame()}
+/* ---------- online play ----------
+   Each device sends its own pick for the round; both throw the hands once both picks are in, so neither can peek.
+   The host sets the match length and starts each match. */
+function reveal(){const a=S.mine,b=S.theirs;S.mine=S.theirs=null;S.round++;throwHands(a,b)}
+net=P2P.net({game:'Rock Paper Scissors',bar:$('netbar'),conn:$('conn'),active:()=>NETM(),
+  onOpen(role){if(role==='host'){newGame();net.note('Connected! Make your pick.')}else{newGame(true);$('res').textContent='Waiting for the host…';render();net.note('Connected!')}},
+  onMessage(m){if(m.t==='pick'&&S&&!S.over&&m.r===S.round&&S.theirs==null){S.theirs=m.k;if(S.mine!=null&&!S.busy)reveal();else{if(S.mine==null&&!S.busy)$('res').textContent='Your friend has picked';render()}return}
+    if(m.t==='new'&&net.role==='guest'){cfg.len=m.len;$('len').value=String(m.len);newGame(true);$('res').textContent='Make your pick';render();return}
+    if(m.t==='again'&&net.role==='host')newGame()},
+  onLeave(){cfg.mode='cpu';$('mode').value='cpu';newGame()},onDrop(){render()}});
+$('mode').onchange=e=>setCfg('mode',e.target.value);$('level').onchange=e=>setCfg('level',e.target.value);$('len').onchange=e=>setCfg('len',+e.target.value);$('newgame').onclick=()=>newGame();
 window.onAppBack=()=>{if(!$('overlay').hidden){closeModal();return true}return false};
-for(const[k,ok]of[['mode',['cpu','two']],['level',['learn','random']],['len',[3,5,7]]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
+if(net.join)cfg.mode='net';
+for(const[k,ok]of[['mode',['cpu','two','net']],['level',['learn','random']],['len',[3,5,7]]]){if(!ok.includes(cfg[k]))cfg[k]=ok[0];$(k).value=cfg[k]}
 newGame();
 </script>
 </body>
