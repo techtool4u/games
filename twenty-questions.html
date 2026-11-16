@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;600;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <script src="sound.js"></script>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 <script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
@@ -101,11 +103,13 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;
       <p class="sub">Think of an animal, a food or an everyday thing, and the computer will try to guess it. Or turn the tables and question the computer.</p>
     </div>
     <div class="controls">
-      <select id="mode" aria-label="Mode"><option value="cpu">Computer guesses yours</option><option value="solo">You guess the computer's</option><option value="group">Party tracker (2 or more)</option></select>
+      <select id="mode" aria-label="Mode"><option value="cpu">Computer guesses yours</option><option value="solo">You guess the computer's</option><option value="group">Party tracker (2 or more)</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
       <button class="btn primary" id="newgame">New round</button>
     </div>
   </header>
 
+  <div id="netbar" hidden></div>
   <div class="game">
     <section class="card" id="card" aria-live="polite"></section>
     <aside class="side">
@@ -271,7 +275,9 @@ const $=id=>document.getElementById(id);
 const rand=n=>Math.floor(Math.random()*n);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const cfg=Object.assign({mode:'cpu',helper:false},store.get('parlor-twenty',{}));
-const tally={cpu:{won:0,lost:0},solo:{won:0,lost:0},group:{won:0,lost:0}};
+const tally={cpu:{won:0,lost:0},solo:{won:0,lost:0},group:{won:0,lost:0},net:{won:0,lost:0}};
+let net=null,netRound=0;
+const online=()=>cfg.mode==='net'&&!!net&&net.online();
 let ITEMS=[],S=null,toastT=0;
 // Things you taught it, stored as {name: {attr: value}} and blended into the built-in list.
 function loadItems(){ITEMS=parseKB();const learned=store.get('parlor-twenty-learned',{});
@@ -315,13 +321,54 @@ function consistent(){return ITEMS.filter((it,i)=>!it.learned&&S.hist.every(h=>h
 function partyAnswer(code){if(S.phase!=='ask')return;sfx('tap');S.hist.push({a:code,party:true});if(S.hist.length>=20){S.phase='lost';tally.group.lost++}render()}
 
 /* ---------- round flow and drawing ---------- */
-function newRound(){const m=cfg.mode;S={mode:m,hist:[],wrong:new Set(),phase:m==='cpu'?'intro':'ask',cur:null,secret:m==='solo'?pickSecret():-1};render()}
+function newRound(){const m=cfg.mode;if(m==='net'){netNew();return}S={mode:m,hist:[],wrong:new Set(),phase:m==='cpu'?'intro':'ask',cur:null,secret:m==='solo'?pickSecret():-1};render()}
+/* ---------- online: two devices ----------
+   One friend thinks of something and types it (only their device knows it); the other asks questions from the list or
+   makes guesses; the thinker answers each one. Both devices keep the same list of questions and answers. Roles swap
+   every round: the host thinks first. */
+function netNew(r){if(r==null){if(online()){netRound++;net.send({t:'round',r:netRound})}r=netRound}else netRound=r;
+  const think=online()&&((net.role==='host')===(r%2===0));
+  S={mode:'net',hist:[],wrong:new Set(),phase:!online()?'off':think?'pick':'waitpick',role:think?'think':'ask',cur:null,secret:-1,word:'',pending:null};render()}
+function netLock(txt){txt=txt.trim();if(!txt||S.phase!=='pick')return;S.word=txt;S.phase='waitq';sfx('good');net.send({t:'ready'});render()}
+function netAsk(q){if(S.phase!=='ask')return;S.pending=q;S.phase='waita';sfx('tap');net.send({t:'q',q});render()}
+function netAnswer(a){if(S.phase!=='answer'||!S.pending)return;const q=S.pending;S.pending=null;net.send({t:'a',a});netRecord(q,a)}
+function netRecord(q,a){S.hist.push(q.k?{k:q.k,a,net:1}:{guessText:q.g,a:a==='y'?'y':'n'});
+  const won=!!q.g&&a==='y',out=!won&&S.hist.length>=20;
+  if(won||out){S.phase='done';S.winner=won?'ask':'think';const iWon=S.role===S.winner;tally.net[iWon?'won':'lost']++;sfx(iWon?'win':'lose');
+    if(S.role==='think')net.send({t:'reveal',word:S.word});render();return}
+  if(S.role==='ask'){S.phase='ask';sfx(a==='y'?'good':a==='n'?'bad':'tap')}else S.phase='waitq';render()}
+function netMsg(m){if(m.t==='round'){netNew(m.r);return}if(!S||S.mode!=='net')return;
+  if(m.t==='ready'&&S.role==='ask'&&S.phase==='waitpick'){S.phase='ask';sfx('select');render()}
+  else if(m.t==='q'&&S.role==='think'&&S.phase==='waitq'){S.pending=m.q;S.phase='answer';sfx('pop');render()}
+  else if(m.t==='a'&&S.role==='ask'&&S.phase==='waita'&&S.pending){const q=S.pending;S.pending=null;netRecord(q,m.a)}
+  else if(m.t==='reveal'&&S.role==='ask'){S.word=m.word;render()}}
+function netCard(){const n=S.hist.length,last=S.hist[n-1],ansTxt=a=>a==='y'?'Yes':a==='n'?'No':'Sometimes';
+  const lastTxt=!last?'':last.k?`${esc(Q[last.k])} <b>${ansTxt(last.a)}</b>`:`Is it ${esc(last.guessText)}? <b>${last.a==='y'?'Yes!':'No'}</b>`;
+  if(S.phase==='off')return`${lights()}<p class="qnum">Online</p><p class="q">Play a friend on their own device.</p><p class="cardhint">One of you hosts and gets a game code; the other joins with it. Then one thinks of something and the other has twenty questions to work it out.</p>`;
+  if(S.phase==='pick')return`${lights()}<p class="qnum">You're the thinker</p><p class="q">Think of an <em>animal</em>, a <em>food</em>, a <em>plant</em> or an <em>everyday thing</em>, and type it here.</p><p class="cardhint">Only your device sees it. Your friend gets twenty questions.</p>
+    <div class="ask"><input type="text" id="wordIn" list="names" placeholder="e.g. penguin, toaster…" autocomplete="off" maxlength="40"><button class="btn" id="lockBtn">Lock it in</button></div>${datalist()}`;
+  if(S.phase==='waitpick')return`${lights()}<p class="qnum">You're asking this round</p><p class="q">Your friend is choosing something…</p><p class="cardhint">You'll get twenty questions to work out what it is.</p>`;
+  if(S.phase==='waitq')return`${lights()}<p class="qnum">You're the thinker · ${20-n} left</p><p class="q">${n?lastTxt:'Waiting for your friend\'s first question…'}</p><p class="cardhint">Your secret: <b>${esc(S.word)}</b></p>`;
+  if(S.phase==='answer'){const q=S.pending;return`${lights()}<p class="qnum">Question ${n+1} of 20 · your secret: ${esc(S.word)}</p><p class="q">${q.k?esc(Q[q.k]):`Is it ${esc(q.g)}?`}</p>
+    <div class="answers">${q.g?'<button class="ans y" data-na="y">Yes, that\'s it!</button><button class="ans n" data-na="n">No</button>':'<button class="ans y" data-na="y">Yes</button><button class="ans n" data-na="n">No</button><button class="ans m" data-na="s">Sometimes</button>'}</div>`}
+  if(S.phase==='ask'||S.phase==='waita'){const asked=new Set(S.hist.filter(x=>x.k).map(x=>x.k));
+    return`${lights()}<p class="qnum">Your friend is thinking of something · ${20-n} question${20-n===1?'':'s'} left</p><p class="q">${S.phase==='waita'?`${S.pending.k?esc(Q[S.pending.k]):`Is it ${esc(S.pending.g)}?`} <span style="opacity:.6">waiting for the answer…</span>`:n?lastTxt:'Ask a question from the list, or make a guess.'}</p>
+      <div class="ask"><select id="qsel" aria-label="Pick a question"${S.phase==='waita'?' disabled':''}><option value="">Pick a question…</option>${KEYS.filter(k=>!asked.has(k)).map(k=>`<option value="${k}">${esc(Q[k])}</option>`).join('')}</select><button class="btn" id="naskBtn"${S.phase==='waita'?' disabled':''}>Ask</button></div>
+      <div class="ask"><input type="text" id="nguessIn" list="names" placeholder="Your guess: a dog? a pizza?" autocomplete="off" maxlength="40"${S.phase==='waita'?' disabled':''}><button class="btn alt" id="nguessBtn"${S.phase==='waita'?' disabled':''}>Guess</button></div>${datalist()}`}
+  const iWon=S.role===S.winner,word=S.word?esc(S.word):'…';
+  return`${lights()}<p class="qnum">${iWon?'You win!':'Your friend wins'}</p><p class="q">${S.winner==='ask'?(S.role==='ask'?`Yes! It was <em>${word}</em>, in ${n}.`:`Your friend guessed <em>${word}</em> in ${n}.`):(S.role==='ask'?`Out of questions. It was <em>${word}</em>.`:`Twenty questions and they didn't get <em>${word}</em>.`)}</p><div class="answers"><button class="ans y" id="again">Next round: swap roles</button></div>`}
+function netWire(){const on=(id,f)=>{const el=$(id);if(el)el.onclick=f};
+  on('lockBtn',()=>netLock($('wordIn').value));const wi=$('wordIn');if(wi){wi.focus();wi.onkeydown=e=>{if(e.key==='Enter')netLock(wi.value)}}
+  document.querySelectorAll('[data-na]').forEach(b=>b.onclick=()=>netAnswer(b.dataset.na));
+  on('naskBtn',()=>{const k=$('qsel').value;if(k)netAsk({k})});
+  const go=()=>{const t=$('nguessIn').value.trim().replace(/^(a|an|the)\s+/i,'');if(t)netAsk({g:t})};on('nguessBtn',go);const gi=$('nguessIn');if(gi)gi.onkeydown=e=>{if(e.key==='Enter')go()}}
 function pickSecret(){const pool=ITEMS.map((it,i)=>it.learned?-1:i).filter(i=>i>=0);return pool[rand(pool.length)]}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function lights(){const L=[...Array(20)].map((_,i)=>{const h=S.hist[i];if(!h)return i===S.hist.length&&S.phase==='ask'?'<i class="now"></i>':'<i></i>';
   const c=h.guess!==undefined||h.guessText?'g':h.a==='y'?'y':h.a==='n'?'n':'m';return `<i class="${c}"></i>`});return `<div class="lights" aria-label="${S.hist.length} of 20 questions used">${L.join('')}</div>`}
-function render(){if(!S)return;const c=$('card'),n=S.hist.length;let h='';
-  if(S.mode==='cpu'){
+function render(){if(!S)return;const c=$('card'),n=S.hist.length;let h='';if(net)net.render();
+  if(S.mode==='net'){h=netCard()}
+  else if(S.mode==='cpu'){
     if(S.phase==='intro')h=`${lights()}<p class="qnum">Get ready</p><p class="q">Think of an <em>animal</em>, a <em>food</em>, a <em>plant</em> or an <em>everyday thing</em>.</p><p class="cardhint">Keep it in your head. The computer gets twenty questions to work it out.</p><div class="answers"><button class="ans y" id="ready">I've got one!</button></div>`;
     else if(S.phase==='ask'&&S.cur){const q=S.cur.guess!==undefined?`Is it ${/^[aeiou]/i.test(ITEMS[S.cur.guess].name)?'an':'a'} <em>${esc(ITEMS[S.cur.guess].name)}</em>?`:esc(Q[S.cur.k]);
       h=`${lights()}<p class="qnum">${S.cur.guess!==undefined?'My guess · ':''}Question ${n+1} of 20</p><p class="q">${q}</p>
@@ -349,10 +396,10 @@ function render(){if(!S)return;const c=$('card'),n=S.hist.length;let h='';
     if(x.party){q=`Question ${i+1}`;a=x.a==='y'?'Yes':x.a==='n'?'No':'Maybe';cls=x.a==='y'?'y':x.a==='n'?'n':'m'}
     else if(x.guess!==undefined){q=`Guess: ${ITEMS[x.guess]?ITEMS[x.guess].name:'?'}`;a=x.a==='y'?'Right':'No';cls='g'}
     else if(x.guessText){q=`Guess: ${x.guessText}`;a=x.a==='y'?'Right':'No';cls='g'}
-    else{q=Q[x.k];a=S.mode==='solo'?(x.a==='y'?'Yes':x.a==='n'?'No':'Sometimes'):ANS[x.a][0];cls=x.a==='y'?'y':x.a==='n'?'n':x.a==='u'?'u':'m'}
+    else{q=Q[x.k];a=S.mode==='solo'||x.net?(x.a==='y'?'Yes':x.a==='n'?'No':'Sometimes'):ANS[x.a][0];cls=x.a==='y'?'y':x.a==='n'?'n':x.a==='u'?'u':'m'}
     return `<li><span class="k">${i+1}</span><span>${esc(q)}</span><span class="a ${cls}">${a}</span></li>`}).join('');
   $('histEmpty').hidden=S.hist.length>0;$('hist').scrollTop=1e5;
-  const t=tally[S.mode],labels=S.mode==='cpu'?['You stumped it','It guessed']:S.mode==='solo'?['You solved','Out of questions']:['Guessed','Stumped'];
+  const t=tally[S.mode],labels=S.mode==='cpu'?['You stumped it','It guessed']:S.mode==='solo'?['You solved','Out of questions']:S.mode==='net'?['You won','Your friend won']:['Guessed','Stumped'];
   $('tally').innerHTML=`<span>${labels[0]} <b>${t.won}</b></span><span>${labels[1]} <b>${t.lost}</b></span>`;
   wire()}
 function datalist(){return `<datalist id="names">${ITEMS.map(x=>`<option value="${esc(x.name)}">`).join('')}</datalist>`}
@@ -365,14 +412,19 @@ function wire(){const on=(id,f)=>{const el=$(id);if(el)el.onclick=f};
   const ti=$('teachIn');if(ti){ti.focus();ti.onkeydown=e=>{if(e.key==='Enter')teach(ti.value)}}
   on('askBtn',()=>soloAsk($('qsel').value));const qs=$('qsel');if(qs)qs.onchange=()=>{};
   on('guessBtn',()=>soloGuess($('guessIn').value));const gi=$('guessIn');if(gi)gi.onkeydown=e=>{if(e.key==='Enter')soloGuess(gi.value)};
-  const hp=$('helper');if(hp)hp.onchange=()=>{cfg.helper=hp.checked;store.set('parlor-twenty',cfg);render()}}
+  const hp=$('helper');if(hp)hp.onchange=()=>{cfg.helper=hp.checked;store.set('parlor-twenty',cfg);render()}
+  if(S.mode==='net')netWire()}
 document.addEventListener('keydown',e=>{if(e.target.closest('select,input')||!S)return;const k=e.key.toLowerCase();
   if(S.mode==='cpu'&&S.phase==='ask'&&S.cur){const map={y:'y',n:'n',m:'m',u:'u',p:'p'};if(map[k]&&(S.cur.guess===undefined||k==='y'||k==='n')){e.preventDefault();answer(map[k])}}
   else if(S.mode==='cpu'&&S.phase==='intro'&&(k==='enter'||k===' ')&&!e.target.closest('button')){e.preventDefault();S.phase='ask';cpuNext()}
   else if(S.mode==='group'&&S.phase==='ask'&&['y','n','m'].includes(k)){partyAnswer(k)}});
-$('mode').onchange=e=>{cfg.mode=e.target.value;store.set('parlor-twenty',cfg);newRound()};
-$('newgame').onclick=newRound;
-if(!['cpu','solo','group'].includes(cfg.mode))cfg.mode='cpu';$('mode').value=cfg.mode;
+$('mode').onchange=e=>{if(e.target.value!=='net'&&net&&net.online())net.leave();cfg.mode=e.target.value;store.set('parlor-twenty',Object.assign({},cfg,{mode:cfg.mode==='net'?'cpu':cfg.mode}));newRound();if(cfg.mode==='net'&&!online())net.start()};
+$('newgame').onclick=()=>newRound();
+net=P2P.net({game:'Twenty Questions',bar:$('netbar'),conn:$('conn'),active:()=>cfg.mode==='net',
+  onOpen(role){netRound=0;if(role==='host'){netNew(0);net.send({t:'round',r:0});net.note('Connected! You think of something first.')}else{netNew(0);net.note('Connected! You ask first.')}},
+  onMessage:netMsg,onLeave(){cfg.mode='cpu';$('mode').value='cpu';newRound()},onDrop(){if(S&&S.mode==='net'){S.phase='off';render()}}});
+if(net.join)cfg.mode='net';
+if(!['cpu','solo','group','net'].includes(cfg.mode))cfg.mode='cpu';$('mode').value=cfg.mode;
 loadItems();newRound();
 </script>
 </body>

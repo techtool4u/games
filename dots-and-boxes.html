@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Nunito:wght@400;700;800&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <script src="sound.js"></script>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 <script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
@@ -107,7 +109,8 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
       <p class="sub">Take turns joining two dots. Close the fourth side of a box to claim it and go again. Most boxes wins.</p>
     </div>
     <div class="controls">
-      <select id="players" aria-label="Players"><option value="c1">You vs computer</option><option value="c3">You vs 3 computers</option><option value="h2">2 players</option><option value="h3">3 players</option><option value="h4">4 players</option></select>
+      <select id="players" aria-label="Players"><option value="c1">You vs computer</option><option value="c3">You vs 3 computers</option><option value="h2">2 players</option><option value="h3">3 players</option><option value="h4">4 players</option><option value="net">Online: 2 devices</option></select>
+      <select id="conn" hidden></select>
       <select id="level" aria-label="Computer strength"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select>
       <select id="size" aria-label="Board size"><option value="3">3×3 boxes</option><option value="4">4×4 boxes</option><option value="5">5×5 boxes</option><option value="6">6×6 boxes</option><option value="7">7×7 boxes</option></select>
       <button class="btn primary" id="newgame">New game</button>
@@ -116,6 +119,7 @@ details ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:14px;di
 
   <div class="game">
     <section class="stage" aria-label="Board">
+      <div id="netbar" hidden style="grid-column:1/-1"></div>
       <div class="boardbox"><svg id="board" tabindex="0" role="application" aria-label="Board. Arrow keys pick a line, Enter draws it."></svg></div>
     </section>
     <aside class="side">
@@ -156,7 +160,11 @@ const $=id=>document.getElementById(id);
 const rand=n=>Math.floor(Math.random()*n);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const cfg=Object.assign({players:'c1',level:'medium',size:4},store.get('parlor-dots',{}));
-let G=null,S=null,cursor=0,kb=false;
+let G=null,S=null,cursor=0,kb=false,net=null,round=0;
+const NETM=()=>cfg.players==='net',online=()=>NETM()&&!!net&&net.online();
+const MY=()=>NETM()&&net&&net.role==='guest'?1:0; // the host is player 1, the guest player 2
+// may the person at this device draw now?
+const myMove=()=>!S.over&&!S.busy&&!cur().cpu&&(!NETM()||(online()&&S.turn===MY()));
 
 function geometry(n){const R=n,C=n,H=(R+1)*C,V=R*(C+1),E=H+V;
   const h=(r,c)=>r*C+c,v=(r,c)=>H+r*(C+1)+c;
@@ -206,23 +214,28 @@ function chooseLine(st){const lv=LEVELS[cfg.level],tk=takers(st),sf=safe(st),all
   return best[rand(best.length)]}
 
 /* ---------- game flow ---------- */
-function setup(){const m=cfg.players,n=+m[1];const cpu=m[0]==='c';
+function setup(){const m=cfg.players;if(m==='net')return[0,1].map(i=>({name:i===MY()?'You':'Your friend',cpu:false,color:COLORS[i]}));const n=+m[1];const cpu=m[0]==='c';
   return[...Array(cpu?n+1:n)].map((_,i)=>({name:cpu?(i===0?'You':n===1?'Computer':`Computer ${i}`):`Player ${i+1}`,cpu:cpu&&i>0,color:COLORS[i]}))}
-function newGame(){$('overlay').hidden=true;G=geometry(+cfg.size);
-  S={players:setup(),lines:new Array(G.E).fill(0),owner:new Array(G.boxes.length).fill(-1),turn:0,hist:[],last:-1,fresh:[],over:false,busy:false,gen:(S?S.gen:0)+1};
-  build();render();next()}
+function newGame(from){
+  if(NETM()&&!from&&online()&&net.role==='guest'){net.send({t:'again'});net.note('Asked your friend for a new game.');return}
+  $('overlay').hidden=true;G=geometry(+cfg.size);
+  const first=NETM()?(from&&from.first!=null?from.first:round%2):0;if(NETM()&&!from)round++;
+  S={players:setup(),lines:new Array(G.E).fill(0),owner:new Array(G.boxes.length).fill(-1),turn:first,first,hist:[],moves:[],last:-1,fresh:[],over:false,busy:false,gen:(S?S.gen:0)+1};
+  build();render();
+  if(NETM()){if(!online()&&!from)net.start();else if(online()&&net.role==='host'&&!from)net.send({t:'start',size:+cfg.size,first});return}
+  next()}
 const cur=()=>S.players[S.turn];
 function next(){render();if(S.over||!cur().cpu)return;S.busy=true;render();const g=S.gen;
   setTimeout(()=>{if(g!==S.gen)return;S.busy=false;play(chooseLine(S))},S.lastGot?380:620)}
-function play(e){if(S.over||S.lines[e])return;S.hist.push({lines:S.lines.slice(),owner:S.owner.slice(),turn:S.turn,last:S.last});
+function play(e,remote){if(S.over||S.lines[e])return;if(NETM()&&!remote){if(!myMove())return;net.send({t:'line',e,n:S.moves.length})}S.moves.push(e);S.hist.push({lines:S.lines.slice(),owner:S.owner.slice(),turn:S.turn,last:S.last});
   const got=draw(S,e,S.turn);sfx(got?'score':'tap');S.last=e;S.fresh=G.edgeBoxes[e].filter(b=>S.owner[b]===S.turn&&got);S.lastGot=got;
   if(!got)S.turn=(S.turn+1)%S.players.length;
   if(S.lines.every(x=>x)){S.over=true;render();finish();return}
   next()}
 function finish(){const sc=S.players.map((_,i)=>S.owner.filter(o=>o===i).length),top=Math.max(...sc),win=sc.map((v,i)=>v===top?i:-1).filter(i=>i>=0);
-  const title=win.length>1?'A tie!':S.players[win[0]].name==='You'?'You win!':`${S.players[win[0]].name} wins`;
+  const title=win.length>1?'A tie!':S.players[win[0]].name==='You'?'You win!':`${S.players[win[0]].name} wins`;sfx(NETM()?(win.length>1?'draw':S.players[win[0]].name==='You'?'win':'lose'):'end');
   setTimeout(()=>{$('modal').innerHTML=`<h2>${title}</h2><p>${S.players.map((p,i)=>`${p.name} ${sc[i]}`).join(' · ')}</p><div class="row"><button class="btn" id="mview">View board</button><button class="btn primary" id="magain">Play again</button></div>`;
-    $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=newGame},700)}
+    $('overlay').hidden=false;$('magain').focus();$('mview').onclick=()=>{$('overlay').hidden=true};$('magain').onclick=()=>newGame()},700)}
 // Undo returns to the last time a person was about to move (in all-human games, one line).
 function undo(){if(S.busy||!S.hist.length)return;S.over=false;$('overlay').hidden=true;
   const pop=()=>{const h=S.hist.pop();S.lines=h.lines;S.owner=h.owner;S.turn=h.turn;S.last=h.last};
@@ -239,43 +252,56 @@ function build(){const W=M*2+G.C*GAP,Hh=M*2+G.R*GAP;const b=$('board');b.setAttr
     h+=`<rect class="hit" data-e="${e}" x="${rx}" y="${ry}" width="${hz?GAP-28:36}" height="${hz?36:GAP-28}"/><line class="ghost" id="g${e}" x1="${X(x1)}" y1="${X(y1)}" x2="${X(x2)}" y2="${X(y2)}"/>`}
   h+='</g><g>';for(let r=0;r<=G.R;r++)for(let c=0;c<=G.C;c++)h+=`<circle class="dotc" cx="${X(c)}" cy="${X(r)}" r="7"/>`;h+='</g>';
   b.innerHTML=h}
-function render(){if(!S)return;const me=!S.over&&!S.busy&&!cur().cpu,col=`var(${cur().color})`;
+function render(){if(!S)return;const me=myMove(),col=`var(${cur().color})`;
   const lastOwner=S.hist.length?S.hist[S.hist.length-1].turn:-1;
   for(let e=0;e<G.E;e++){const l=$('e'+e);const on=!!S.lines[e];l.setAttribute('class',`edge${on?' on':''}${e===S.last?' new':''}`);
     l.style.stroke=on?(e===S.last?`var(${S.players[lastOwner].color})`:'var(--dot)'):'';
     const g=$('g'+e);g.style.stroke=col;g.classList.toggle('kb',kb&&me&&e===cursor&&!on);
     const hit=document.querySelector(`.hit[data-e="${e}"]`);hit.style.display=on||!me?'none':''}
   let bx='';G.boxes.forEach((b,i)=>{const o=S.owner[i];if(o<0)return;const r=Math.floor(i/G.C),c=i%G.C,pc=`var(${S.players[o].color})`;
-    bx+=`<rect class="box${S.fresh.includes(i)?' new':''}" x="${X(c)+4}" y="${X(r)+4}" width="${GAP-8}" height="${GAP-8}" rx="6" style="fill:${pc}"/><text class="ini" x="${X(c)+GAP/2}" y="${X(r)+GAP/2}" style="fill:${pc}">${S.players[o].name==='You'?'Y':S.players[o].name.startsWith('Computer')?'C'+(S.players.length>2?S.players[o].name.slice(-1):''):'P'+(o+1)}</text>`});
+    bx+=`<rect class="box${S.fresh.includes(i)?' new':''}" x="${X(c)+4}" y="${X(r)+4}" width="${GAP-8}" height="${GAP-8}" rx="6" style="fill:${pc}"/><text class="ini" x="${X(c)+GAP/2}" y="${X(r)+GAP/2}" style="fill:${pc}">${S.players[o].name==='You'?'Y':S.players[o].name==='Your friend'?'F':S.players[o].name.startsWith('Computer')?'C'+(S.players.length>2?S.players[o].name.slice(-1):''):'P'+(o+1)}</text>`});
   $('boxes').innerHTML=bx;
   const sc=S.players.map((_,i)=>S.owner.filter(o=>o===i).length);
   $('plist').innerHTML=S.players.map((p,i)=>`<div class="pl${i===S.turn&&!S.over?' cur':''}" style="--c:var(${p.color})"><i class="sw"></i><span>${p.name}${p.cpu?`<small>${cfg.level}</small>`:''}</span><b>${sc[i]}</b></div>`).join('');
   $('left').textContent=`${S.owner.filter(o=>o<0).length} of ${G.boxes.length} boxes left`;
   $('tsw').style.background=col;$('turn').classList.toggle('think',S.busy);
-  $('turnText').textContent=S.over?'Game over':cur().cpu?`${cur().name} is thinking…`:cur().name==='You'?'Your turn':`${cur().name}'s turn`;
-  $('hint').textContent=S.over?'Press New game or Play again for another round.':S.lastGot&&!S.busy?`${cur().name==='You'?'You':cur().name} closed a box: go again.`:me?'Tap between two dots to draw a line.':'';
-  $('undo').disabled=S.busy||!S.hist.length||!S.hist.some(h=>!S.players[h.turn].cpu)}
+  $('turnText').textContent=NETM()&&!online()?'Not connected':S.over?'Game over':cur().cpu?`${cur().name} is thinking…`:cur().name==='You'?'Your turn':`${cur().name}'s turn`;
+  $('hint').textContent=S.over?'Press New game or Play again for another round.':S.lastGot&&!S.busy?`${cur().name==='You'?'You':cur().name} closed a box: go again.`:me?'Tap between two dots to draw a line.':NETM()&&!online()?'Connect to a friend\'s device: one of you hosts, the other joins with the code.':NETM()?'Waiting for your friend to draw a line…':'';
+  $('undo').disabled=NETM()||S.busy||!S.hist.length||!S.hist.some(h=>!S.players[h.turn].cpu);$('size').disabled=online()&&net.role==='guest';if(net)net.render()}
 
 /* ---------- input & settings ---------- */
-$('board').addEventListener('click',e=>{const h=e.target.closest('.hit');if(!h||S.busy||S.over||cur().cpu)return;kb=false;play(+h.dataset.e)});
+$('board').addEventListener('click',e=>{const h=e.target.closest('.hit');if(!h||!myMove())return;kb=false;play(+h.dataset.e)});
 // Keyboard: arrows move to the nearest open line in that direction (by midpoint).
 const mid=e=>{const [[a,b],[c,d]]=G.ends[e];return[(a+c)/2,(b+d)/2]};
 $('board').addEventListener('keydown',e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];
   if(d){e.preventDefault();kb=true;const [x,y]=mid(cursor);let best=-1,bd=1e9;
     for(let k=0;k<G.E;k++){const [u,v]=mid(k);const along=(u-x)*d[0]+(v-y)*d[1],off=Math.abs((u-x)*d[1])+Math.abs((v-y)*d[0]);if(along<=0)continue;const s=along+off*2.2;if(s<bd){bd=s;best=k}}
     if(best>=0)cursor=best;render();return}
-  if((e.key==='Enter'||e.key===' ')&&!S.busy&&!S.over&&!cur().cpu){e.preventDefault();play(cursor)}});
+  if((e.key==='Enter'||e.key===' ')&&myMove()){e.preventDefault();play(cursor)}});
 $('board').addEventListener('focus',()=>{kb=true;render()});$('board').addEventListener('blur',()=>{kb=false;render()});
 document.addEventListener('keydown',e=>{if(e.target.closest('select,input'))return;if(e.key==='Escape'&&!$('overlay').hidden)$('overlay').hidden=true;else if((e.key==='u'||e.key==='U')&&!$('undo').disabled)undo()});
 window.onAppBack=()=>{if(!$('overlay').hidden){$('overlay').hidden=true;return true}return false};
 function sync(){$('players').value=cfg.players;$('level').value=cfg.level;$('size').value=cfg.size;$('level').hidden=cfg.players[0]!=='c'}
 const started=()=>S&&!S.over&&S.hist.length>1;
-function setCfg(k,v,restart){if(restart&&started()&&!confirm('Start a new game with this setting?')){sync();return}cfg[k]=v;store.set('parlor-dots',cfg);sync();if(restart)newGame();else render()}
+function setCfg(k,v,restart){if(restart&&started()&&!(NETM()&&k==='players')&&!confirm('Start a new game with this setting?')){sync();return}
+  if(k==='players'&&v!=='net'&&net&&net.online())net.leave();cfg[k]=v;store.set('parlor-dots',Object.assign({},cfg,{players:cfg.players==='net'?'c1':cfg.players}));sync();if(restart)newGame();else render()}
+/* ---------- online play ----------
+   Both devices keep the same board and send only the lines drawn. The host picks the size, starts each game
+   (who goes first alternates), and sends the whole game back if the two ever disagree. */
+const sendSync=()=>net.send({t:'sync',size:+cfg.size,first:S.first,moves:S.moves});
+net=P2P.net({game:'Dots and Boxes',bar:$('netbar'),conn:$('conn'),active:()=>NETM(),
+  onOpen(role){if(role==='host'){round=0;newGame();net.note('Connected! You go first.')}else{newGame({first:0});render();net.note('Connected! Waiting for the host…')}},
+  onMessage(m){
+    if(m.t==='line'){if(!S.over&&m.n===S.moves.length&&S.turn!==MY()&&!S.lines[m.e])play(m.e,true);else if(net.role==='host')sendSync();else net.send({t:'resync'});return}
+    if(net.role==='host'){if(m.t==='again')newGame();else if(m.t==='resync')sendSync();return}
+    if(m.t==='start'){cfg.size=m.size;$('size').value=String(m.size);newGame({first:m.first})}
+    else if(m.t==='sync'){cfg.size=m.size;$('size').value=String(m.size);newGame({first:m.first});m.moves.forEach(e=>play(e,true))}},
+  onLeave(){cfg.players='c1';sync();newGame()},onDrop(){render()}});
 $('players').onchange=e=>setCfg('players',e.target.value,true);
 $('level').onchange=e=>setCfg('level',e.target.value,false);
 $('size').onchange=e=>setCfg('size',+e.target.value,true);
-$('newgame').onclick=newGame;$('undo').onclick=undo;
-if(!['c1','c3','h2','h3','h4'].includes(cfg.players))cfg.players='c1';if(!LEVELS[cfg.level])cfg.level='medium';if(!(cfg.size>=3&&cfg.size<=7))cfg.size=4;
+$('newgame').onclick=()=>newGame();$('undo').onclick=undo;
+if(!['c1','c3','h2','h3','h4'].includes(cfg.players))cfg.players='c1';if(net.join)cfg.players='net';if(!LEVELS[cfg.level])cfg.level='medium';if(!(cfg.size>=3&&cfg.size<=7))cfg.size=4;
 sync();newGame();
 </script>
 </body>
