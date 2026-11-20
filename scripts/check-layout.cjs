@@ -6,7 +6,7 @@
 // Needs Playwright with Chromium (npm i -D playwright; npx playwright install chromium).
 const {chromium}=require('playwright');const fs=require('fs');const path=require('path');
 const ROOT=path.resolve(__dirname,'..');
-const ALLOW={'bingo.html':['.card'],'picture-cross.html':['#board'],'cross-sums.html':['#pad']};
+const ALLOW={'bingo.html':['.card'],'picture-cross.html':['#board'],'cross-sums.html':['#pad'],'tycoon-tour.html':['#board']};
 (async()=>{const only=process.argv.slice(2);
   const files=only.length?only.map(f=>f.endsWith('.html')?f:f+'.html'):fs.readdirSync(ROOT).filter(f=>f.endsWith('.html')&&f!=='index.html');
   const b=await chromium.launch();const problems=[];
