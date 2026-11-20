@@ -179,14 +179,14 @@ function showRoom(){const el=$('room');el.hidden=!NET();if(el.hidden)return;
   if(S&&S.net&&!S.over){el.innerHTML=`<div class="mini"><b>Online room ${roomCode()} · ${list.length} player${list.length>1?'s':''}</b>${host&&ROOM.code?'<button class="btn" id="rcopy">Copy code</button>':''}<button class="btn" id="rleave">Leave</button></div>`;
     $('rleave').onclick=()=>leaveRoom();if($('rcopy'))$('rcopy').onclick=copyCode;return}
   el.innerHTML=`<h3>${host?'Your room':'In the room'}</h3>
-    <div class="row"><span class="code">${roomCode()||'······'}</span>${host&&ROOM.code?`<button class="btn" id="rcopy">Copy code</button>${navigator.share?'<button class="btn" id="rshare">Share</button>':''}`:''}</div>
+    <div class="row"><span class="code">${roomCode()||'······'}</span>${host&&ROOM.code?`<button class="btn" id="rcopy">Copy code</button><button class="btn primary" id="rshare">Share code</button>`:''}</div>
     <p>${host?(ROOM.code?'Send this code to your friends. They choose Online room, type it and tap Join.':'Getting a game code…'):'Waiting for the host to start the game.'}</p>
     <div class="plist">${list.map(x=>`<div class="pl"><span>${esc(x.name||'Friend')}${!host&&x.id===ROOM.me?' (you)':''}</span>${x.host?'<small>host</small>':'<small class="ok">● joined</small>'}</div>`).join('')}</div>
     <div class="row">${host?`<button class="btn primary" id="rstart">${S&&S.net?'Start next game':'Start game'}</button>`:''}<button class="btn" id="rleave">${host?'Close room':'Leave'}</button></div>
     ${host?`<p>${list.length>1?`${list.length-1} friend${list.length>2?'s have':' has'} joined.`:'No friends have joined yet: share the code first.'} Computer rivals: ${+cfg.rivals||'none'} (change above). Up to ${MAXP} players.</p>`:''}${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}`;
   $('rleave').onclick=()=>leaveRoom();
   if(host){$('rstart').onclick=()=>{newGame();sfx('good')};if($('rcopy'))$('rcopy').onclick=copyCode;
-    if($('rshare'))$('rshare').onclick=()=>navigator.share({title:'Bingo room',text:`Join my Bingo game in Game Parlor. Code: ${ROOM.code}`}).catch(()=>{})}}
+    if($('rshare'))$('rshare').onclick=()=>P2P.share('Bingo',ROOM.code)}}
 async function copyCode(){try{await navigator.clipboard.writeText(ROOM.code)}catch(e){}toast('Code copied')}
 function hostRoom(){if(!window.P2P||!P2P.hostRoom){ROOM.err='Online play needs p2p.js.';showRoom();return}store.set('parlor-name',($('rname')&&$('rname').value.trim())||myName());
   Object.assign(ROOM,{role:'host',me:'host',code:'',err:'',guests:new Map()});S=null;render();

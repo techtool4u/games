@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;800;900&display=swap">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <script src="sound.js"></script>
+<script src="qrcode.js"></script>
+<script src="p2p.js"></script>
 <script>window.sfx=window.sfx||function(){}</script>
 </head>
 <body>
@@ -120,6 +122,16 @@ select{border:1px solid var(--line);background:var(--panel);padding:6px 10px;bor
 .cardpop small{font-weight:900;letter-spacing:.18em;font-size:11px;opacity:.9}
 .cardpop .btn{color:#1d2340;min-width:110px}
 .cardpop p{font-family:var(--display);font-size:21px;font-weight:600;margin:8px 0 16px;line-height:1.2}
+.room{position:absolute;inset:0;z-index:25;display:grid;place-items:center;padding:14px;background:rgba(15,20,45,.3)}
+.room>div{width:min(330px,100%);background:#fff;border-radius:18px;padding:16px;box-shadow:0 30px 60px -20px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:10px;animation:deedin .4s cubic-bezier(.2,1.3,.4,1)}
+.room h3{margin:0;font-family:var(--display);font-size:22px}.room p{margin:0;color:var(--muted);font-size:14px}
+.room .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.room input{font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0;flex:1}
+.room .code{font:800 30px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.14em}
+.room .err{color:#c62b2b;font-weight:800}
+.seat{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:#f1f3f9;font-weight:800;min-height:40px}
+.seat i{font-style:normal;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--c);font-size:15px;flex:none}
+.seat span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.seat small{color:var(--muted);font-weight:800}.seat .ok{color:#1f8a4c}
 .confetti{position:absolute;inset:0;pointer-events:none;z-index:40;overflow:hidden}
 .confetti i{position:absolute;top:-20px;width:9px;height:14px;border-radius:2px;animation:fall linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
@@ -131,7 +143,7 @@ select{border:1px solid var(--line);background:var(--panel);padding:6px 10px;bor
     <a class="back" href="index.html">← Game Parlor</a>
     <h1>Tycoon <span>Tour</span><span data-sound></span></h1>
     <select id="theme" aria-label="Board theme"><option value="world">🌍 World Tour</option><option value="wonders">🏛️ Wonders</option></select>
-    <select id="np" aria-label="Players"><option value="2">You + 1</option><option value="3">You + 2</option><option value="4" selected>You + 3</option></select>
+    <select id="np" aria-label="Players"><option value="2">You + 1</option><option value="3">You + 2</option><option value="4" selected>You + 3</option><option value="net">Online room (2–4)</option></select>
     <button class="btn" id="newgame" style="min-height:36px;padding:5px 14px">New game</button>
   </header>
   <div class="players" id="players"></div>
@@ -139,6 +151,7 @@ select{border:1px solid var(--line);background:var(--panel);padding:6px 10px;bor
     <div class="board" id="board"></div>
     <div class="dice" id="dice"><div class="die" id="d0"></div><div class="die" id="d1"></div></div>
     <div class="pop" id="pop" hidden></div>
+    <div class="room" id="room" hidden></div>
   </div>
   <div class="log" id="log"></div>
   <div class="bar"><button class="btn primary" id="roll">🎲 Roll</button><button class="btn gold" id="build">🏠 Build</button><button class="btn" id="end">End turn</button></div>
@@ -191,11 +204,22 @@ function buildSpaces(T){const seen={},mv=[0],ut=[0],tx=[0];return LAYOUT.map((k,
 /* ---------- state ---------- */
 let S=null,busy=false;
 const me=()=>S.players[S.turn];
-const human=p=>p.id===0;
-function newGame(){const T=THEMES[cfg.theme];SP=buildSpaces(T);document.body.className=T.cls;
-  const n=+cfg.np;S={T,players:[...Array(n)].map((_,k)=>({id:k,name:NAMES[k],av:AVATARS[k][0],c:AVATARS[k][1],cash:1500,pos:0,jail:0,free:0,out:false,doubles:0})),
-    own:{},lvl:{},mort:{},turn:0,phase:'roll',rolled:false,over:false};
-  buildBoard();renderPlayers();placeTokens();overview(true);log(`${T.name}: roll the dice to set off!`);sync()}
+// who decides for a player: 'local' (a person at this device), 'cpu', or 'g:<id>' (a friend in an online room, host side)
+const isLocal=p=>p.ctl==='local',isCpu=p=>p.ctl==='cpu',isRemote=p=>/^g:/.test(p.ctl||'');
+const human=p=>isLocal(p);
+const guest=()=>ROOM.role==='guest';
+function newGame(seats){if(NET()&&!seats){if(guest()){toast('Only the host can start a new game.');return}if(ROOM.role!=='host'){S=null;fresh(cfg.theme,[]);showRoom();return}if(!S||!S.net){showRoom();return}seats=S.seats.map(x=>/^g:/.test(x.ctl)&&!ROOM.guests.has(x.ctl.slice(2))?{name:x.name,ctl:'cpu'}:x)}
+  const T=THEMES[cfg.theme];
+  // seats: [{name,ctl}] in turn order; a plain game is you against computers
+  seats=seats||[...Array(+cfg.np)].map((_,k)=>({name:NAMES[k],ctl:k?'cpu':'local'}));
+  fresh(cfg.theme,seats);S.net=NET();S.seats=seats;closePop();busy=false;
+  if(S.net){ROOM.send({t:'start',theme:cfg.theme,seats:seats.map(x=>({name:x.name,ctl:x.ctl}))});ROOM.guests.forEach(g=>g.link.send({t:'seat',seat:seats.findIndex(x=>x.ctl==='g:'+g.id)}))}
+  log(`${T.name}: ${isLocal(me())?'roll the dice to set off!':me().name+' goes first'}`);sync();showRoom();if(isCpu(me()))setTimeout(cpuTurn,900)}
+// set up a fresh board and players (used by the host and, from the host's 'start', by guests)
+function fresh(theme,seats){const T=THEMES[theme];SP=buildSpaces(T);document.body.className=T.cls;
+  S={T,players:seats.map((x,k)=>({id:k,name:x.name,ctl:x.ctl,av:AVATARS[k][0],c:AVATARS[k][1],cash:1500,pos:0,jail:0,free:0,out:false,doubles:0})),
+    own:{},lvl:{},mort:{},turn:0,phase:'roll',over:false,mine:Math.max(0,seats.findIndex(x=>x.ctl==='local'))};
+  buildBoard();renderPlayers();placeTokens();overview(true)}
 
 /* ---------- board drawing ---------- */
 function rc(i){if(i===0)return[11,11];if(i<10)return[11,11-i];if(i===10)return[11,1];if(i<20)return[11-(i-10),1];if(i===20)return[1,1];if(i<30)return[1,1+(i-20)];if(i===30)return[1,11];return[1+(i-30),11]}
@@ -230,14 +254,14 @@ function follow(i,fast){const {w,h}=stageBox(),[x,y]=tileXY(i),s=Math.min(w,h)/9
 
 /* ---------- players strip, money ---------- */
 function renderPlayers(){const el=$('players');el.style.setProperty('--n',S.players.length);
-  el.innerHTML=S.players.map(p=>`<div class="pl${p.id===S.turn?' cur':''}${p.out?' out':''}" id="pl${p.id}" style="--c:${p.c}"><div class="av">${p.av}</div><div class="info"><b>${p.name}</b><span>$${p.cash.toLocaleString()}</span></div></div>`).join('')}
-function money(p,amt,why){p.cash+=amt;renderPlayers();const el=$('pl'+p.id);if(el){const f=document.createElement('div');f.className='float '+(amt>=0?'plus':'minus');f.textContent=(amt>=0?'+':'−')+'$'+Math.abs(amt);el.appendChild(f);setTimeout(()=>f.remove(),1500)}
+  el.innerHTML=S.players.map(p=>`<div class="pl${p.id===S.turn?' cur':''}${p.out?' out':''}" id="pl${p.id}" style="--c:${p.c}"><div class="av">${p.av}</div><div class="info"><b>${p.id===S.mine?'You':esc(p.name)}</b><span>$${p.cash.toLocaleString()}</span></div></div>`).join('')}
+function money(p,amt,why){fx({k:'money',id:p.id,amt});p.cash+=amt;renderPlayers();const el=$('pl'+p.id);if(el){const f=document.createElement('div');f.className='float '+(amt>=0?'plus':'minus');f.textContent=(amt>=0?'+':'−')+'$'+Math.abs(amt);el.appendChild(f);setTimeout(()=>f.remove(),1500)}
   if(amt)sfx(amt>0?'coin':'pay')}
-function flyCoins(from,to){const a=$('pl'+from.id),b=$('pl'+to.id);if(!a||!b)return;const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();
+function flyCoins(from,to){fx({k:'coins',f:from.id,t:to.id});const a=$('pl'+from.id),b=$('pl'+to.id);if(!a||!b)return;const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();
   for(let k=0;k<5;k++){const c=document.createElement('div');c.className='coin';c.textContent='🪙';c.style.left=ra.left+ra.width/2-11+'px';c.style.top=ra.top+ra.height/2-11+'px';document.body.appendChild(c);
     setTimeout(()=>{c.style.transform=`translate(${rb.left-ra.left+(k-2)*6}px,${rb.top-ra.top}px) scale(.8)`;c.style.opacity='.2'},30+k*80);setTimeout(()=>c.remove(),900+k*80)}}
 function pay(p,to,amt){money(p,-amt);if(to){money(to,amt);flyCoins(p,to)}}
-const log=t=>{$('log').textContent=t};
+const log=t=>{$('log').textContent=t;fx({k:'log',t})};
 
 /* ---------- dice ---------- */
 const FACE={1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
@@ -245,49 +269,52 @@ const ORDER=[1,6,3,4,2,5]; // face shown on each cube side: front, back, right, 
 const ROT={1:[0,0],6:[0,180],3:[0,-90],4:[0,90],2:[-90,0],5:[90,0]};
 function dieHTML(){return ORDER.map(n=>`<i>${[...Array(9)].map((_,k)=>FACE[n].includes(k+1)?'<b></b>':'<b style="visibility:hidden"></b>').join('')}</i>`).join('')}
 let spin=[0,0];
-async function rollDice(){const a=1+rand(6),b=1+rand(6);$('dice').classList.add('on');sfx('dice');
+async function rollDice(a=1+rand(6),b=1+rand(6)){fx({k:'dice',a,b});$('dice').classList.add('on');sfx('dice');
   [a,b].forEach((v,k)=>{spin[k]+=2;const [rx,ry]=ROT[v];$('d'+k).style.transform=`rotateX(${rx+360*spin[k]}deg) rotateY(${ry+360*(spin[k]+k)}deg)`});
   await wait(1100);setTimeout(()=>$('dice').classList.remove('on'),700);return[a,b]}
 
 /* ---------- turns ---------- */
-async function doRoll(){if(busy||S.over||S.phase!=='roll')return;busy=true;sync();const p=me();
+async function doRoll(){if(guest()){if(myTurn()&&S.phase==='roll'&&!S.busy)ROOM.link.send({t:'roll'});return}if(!S||busy||S.over||S.phase!=='roll')return;busy=true;sync();const p=me();
   const [a,b]=await rollDice(),dbl=a===b;log(`${p.name} rolled ${a} + ${b}${dbl?' · doubles!':''}`);
-  if(p.jail){if(dbl){p.jail=0;log(`${p.name} rolled doubles and is free!`)}else if(--p.jail===0||p.cash<50){pay(p,null,50);log(`${p.name} paid $50 to leave`)}else{log(`${p.name} stays put (${p.jail} more tr${p.jail>1?'ies':'y'})`);S.phase='end';busy=false;sync();if(!human(p))endTurn();return}}
-  else if(dbl&&++p.doubles===3){log(`${p.name} rolled three doubles: off to ${SP[10].nm}!`);await goJail(p);S.phase='end';busy=false;sync();if(!human(p))endTurn();return}
+  if(p.jail){if(dbl){p.jail=0;log(`${p.name} rolled doubles and is free!`)}else if(--p.jail===0||p.cash<50){pay(p,null,50);log(`${p.name} paid $50 to leave`)}else{log(`${p.name} stays put (${p.jail} more tr${p.jail>1?'ies':'y'})`);S.phase='end';busy=false;sync();if(isCpu(p))cpuEnd();return}}
+  else if(dbl&&++p.doubles===3){log(`${p.name} rolled three doubles: off to ${SP[10].nm}!`);await goJail(p);S.phase='end';busy=false;sync();if(isCpu(p))cpuEnd();return}
   await moveBy(p,a+b);await land(p,a+b);
   S.phase=dbl&&!p.jail&&!p.out?'roll':'end';if(!dbl)p.doubles=0;busy=false;sync();
-  if(!human(p)&&!S.over)setTimeout(()=>S.phase==='roll'?doRoll():cpuEnd(),700)}
+  if(isCpu(p)&&!S.over)setTimeout(()=>S.phase==='roll'?doRoll():cpuEnd(),700)}
 async function moveBy(p,n){const tok=$('k'+p.id);for(let k=0;k<n;k++){p.pos=(p.pos+1)%40;if(p.pos===0){money(p,200);log(`${p.name} passed ${SP[0].nm}: +$200`)}
-    follow(p.pos,true);placeTokens();tok.classList.remove('hop');void tok.offsetWidth;tok.classList.add('hop');sfx('tap');await wait(240)}
-  $('t'+p.pos).classList.add('flash');setTimeout(()=>$('t'+p.pos)&&$('t'+p.pos).classList.remove('flash'),900);await wait(250)}
+    fx({k:'hop',id:p.id,pos:p.pos});hop(p);await wait(240)}
+  fx({k:'flash',i:p.pos});$('t'+p.pos).classList.add('flash');setTimeout(()=>$('t'+p.pos)&&$('t'+p.pos).classList.remove('flash'),900);await wait(250)}
+function hop(p){const tok=$('k'+p.id);follow(p.pos,true);placeTokens();tok.classList.remove('hop');void tok.offsetWidth;tok.classList.add('hop');sfx('tap')}
 async function moveTo(p,i,collect=true){let n=(i-p.pos+40)%40;if(!collect){p.pos=i;follow(i);placeTokens();await wait(600);return}await moveBy(p,n)}
-async function goJail(p){p.pos=10;p.jail=3;p.doubles=0;follow(10);placeTokens();sfx('bad');await wait(700)}
+async function goJail(p){p.pos=10;p.jail=3;p.doubles=0;fx({k:'jail',id:p.id});follow(10);placeTokens();sfx('bad');await wait(700)}
 function rentOf(s,roll){const o=S.own[s.i];if(o==null||S.mort[s.i])return 0;const mine=SP.filter(x=>x.kind===s.kind&&S.own[x.i]===o&&(s.kind!=='prop'||x.g===s.g));
   if(s.kind==='move')return 25*2**(mine.length-1);if(s.kind==='util')return roll*(mine.length===2?10:4);
   const l=S.lvl[s.i]||0;if(l)return s.rent[l];const full=SP.filter(x=>x.kind==='prop'&&x.g===s.g).every(x=>S.own[x.i]===o);return s.rent[0]*(full?2:1)}
 async function land(p,roll){const s=SP[p.pos];
   if(s.kind==='prop'||s.kind==='move'||s.kind==='util'){const o=S.own[s.i];
-    if(o==null){if(p.cash>=s.price){if(human(p)){await deedPop(s,true)}else if(p.cash-s.price>=(s.kind==='prop'?120:200)||Math.random()<.3&&p.cash-s.price>40){buy(p,s);await deedFlash(s,p)}else log(`${p.name} passes on ${s.nm}`)}else log(`${p.name} can't afford ${s.nm}`)}
+    if(o==null){if(p.cash>=s.price){if(human(p)){await deedPop(s,true)}else if(isRemote(p)){if(await askRemote(p,s)){buy(p,s);fx({k:'confetti',n:20})}else log(`${p.name} passes on ${s.nm}`)}else if(p.cash-s.price>=(s.kind==='prop'?120:200)||Math.random()<.3&&p.cash-s.price>40){buy(p,s);await deedFlash(s,p)}else log(`${p.name} passes on ${s.nm}`)}else log(`${p.name} can't afford ${s.nm}`)}
     else if(o!==p.id){const r=rentOf(s,roll);if(r){log(`${p.name} pays ${S.players[o].name} $${r} rent for ${s.nm}`);pay(p,S.players[o],r);await wait(700);await settle(p,S.players[o])}}}
   else if(s.kind==='tax'){log(`${p.name} pays ${s.nm}: $${s.amt}`);pay(p,null,s.amt);await wait(500);await settle(p,null)}
   else if(s.kind==='cardA'||s.kind==='cardB')await drawCard(p,s.kind,roll);
   else if(s.kind==='gojail'){log(`${p.name}: ${s.nm}!`);await wait(400);await goJail(p)}
   else if(s.kind==='rest')log(`${p.name} relaxes at the ${s.nm}`);
-  overview();await wait(300)}
-function buy(p,s){S.own[s.i]=p.id;pay(p,null,s.price);paintTile(s);log(`${p.name} bought ${s.nm} for $${s.price}`);sfx('chips')}
+  fx({k:'overview'});overview();await wait(300)}
+function buy(p,s){S.own[s.i]=p.id;pay(p,null,s.price);paintTile(s);log(`${p.name} bought ${s.nm} for $${s.price}`);sfx('chips');push()}
 
 /* ---------- cards ---------- */
 const CARDS=[
   {t:'You win a photo contest!',f:p=>money(p,100)},{t:'Lost luggage: pay $50 for new clothes.',f:p=>pay(p,null,50)},
-  {t:'Your travel blog goes viral. Collect $150.',f:p=>money(p,150)},{t:'Go back 3 spaces.',f:async(p,r)=>{p.pos=(p.pos+37)%40;follow(p.pos);placeTokens();await wait(600);await land(p,r)}},
+  {t:'Your travel blog goes viral. Collect $150.',f:p=>money(p,150)},{t:'Go back 3 spaces.',f:async(p,r)=>{p.pos=(p.pos+37)%40;fx({k:'jump',id:p.id,pos:p.pos});follow(p.pos);placeTokens();await wait(600);await land(p,r)}},
   {t:'Advance to the start and collect $200.',f:async p=>{await moveTo(p,0)}},{t:'Missed your connection: go straight to the hold.',f:async p=>{await goJail(p)}},
   {t:'A free pass! Keep it to skip the hold once.',f:p=>{p.free++}},{t:'Treat everyone to dinner: pay each player $30.',f:p=>S.players.forEach(o=>{if(o!==p&&!o.out)pay(p,o,30)})},
   {t:'It\'s your birthday! Collect $20 from every player.',f:p=>S.players.forEach(o=>{if(o!==p&&!o.out)pay(o,p,20)})},{t:'Repairs: pay $25 for each house you own.',f:p=>{const n=Object.keys(S.lvl).filter(i=>S.own[i]===p.id).reduce((t,i)=>t+(S.lvl[i]===5?4:S.lvl[i]),0);pay(p,null,25*n)}},
   {t:'Bank error in your favour. Collect $75.',f:p=>money(p,75)},{t:'Speeding ticket: pay $40.',f:p=>pay(p,null,40)}];
-async function drawCard(p,deck,roll){const c=CARDS[rand(CARDS.length)],[ic,nm]=S.T[deck];sfx('card');
-  await new Promise(res=>{$('pop').innerHTML=`<div class="cardpop" style="background:${deck==='cardA'?'linear-gradient(135deg,#ff9f43,#ee5a24)':'linear-gradient(135deg,#48dbfb,#0a7bd3)'}"><small>${nm.toUpperCase()}</small><i>${ic}</i><p>${c.t}</p><button class="btn" id="cok">OK</button></div>`;$('pop').hidden=false;
-    const done=()=>{$('pop').hidden=true;res()};$('cok').onclick=done;if(!human(p))setTimeout(done,1600)});
+async function drawCard(p,deck,roll){const ci=rand(CARDS.length),c=CARDS[ci];fx({k:'card',deck,ci,id:p.id});await showCard(deck,ci,human(p));
   log(`${p.name}: ${c.t}`);if(c.t.includes('hold')&&p.free){p.free--;log(`${p.name} used a free pass`);return}await c.f(p,roll);await wait(300);await settle(p,null)}
+// show a card; with ok the player taps OK, otherwise it closes by itself
+function showCard(deck,ci,ok){const c=CARDS[ci],[ic,nm]=S.T[deck];sfx('card');
+  return new Promise(res=>{$('pop').innerHTML=`<div class="cardpop" style="background:${deck==='cardA'?'linear-gradient(135deg,#ff9f43,#ee5a24)':'linear-gradient(135deg,#48dbfb,#0a7bd3)'}"><small>${nm.toUpperCase()}</small><i>${ic}</i><p>${c.t}</p><button class="btn" id="cok">OK</button></div>`;$('pop').hidden=false;
+    let shut=false;const done=()=>{if(shut)return;shut=true;$('pop').hidden=true;res()};$('cok').onclick=done;if(!ok){$('cok').remove();setTimeout(done,2000)}})}
 
 /* ---------- deeds ---------- */
 function deedHTML(s,buyNow){const g=s.kind==='prop'?GROUPS[s.g]:s.kind==='move'?'#59607a':'#8a93b0',o=S.own[s.i],l=S.lvl[s.i]||0;
@@ -298,46 +325,152 @@ function deedHTML(s,buyNow){const g=s.kind==='prop'?GROUPS[s.g]:s.kind==='move'?
     <div class="row">${buyNow?`<button class="btn go" id="dbuy">Buy for $${s.price}</button><button class="btn" id="dno">Not now</button>`:'<button class="btn" id="dno">Close</button>'}</div></div>`}
 function deedPop(s,buyNow){return new Promise(res=>{$('pop').innerHTML=deedHTML(s,buyNow);$('pop').hidden=false;sfx('card');
   const close=()=>{$('pop').hidden=true;res()};$('dno').onclick=close;const b=$('dbuy');if(b)b.onclick=()=>{buy(me(),s);confetti(20);close()}})}
-async function deedFlash(s){$('pop').innerHTML=deedHTML(s,false);$('pop').hidden=false;$('dno').remove();await wait(1100);$('pop').hidden=true}
+async function deedFlash(s){fx({k:'deed',i:s.i});$('pop').innerHTML=deedHTML(s,false);$('pop').hidden=false;$('dno').remove();await wait(1100);$('pop').hidden=true}
+const closePop=()=>{$('pop').hidden=true};
 
 /* ---------- building, debts, the end ---------- */
 function buildable(p){return SP.filter(s=>s.kind==='prop'&&S.own[s.i]===p.id&&(S.lvl[s.i]||0)<5&&!S.mort[s.i]&&p.cash>=s.house&&
   SP.filter(x=>x.kind==='prop'&&x.g===s.g).every(x=>S.own[x.i]===p.id&&!S.mort[x.i]&&(S.lvl[x.i]||0)>=(S.lvl[s.i]||0)))}
-function buildOn(p,s){S.lvl[s.i]=(S.lvl[s.i]||0)+1;pay(p,null,s.house);paintTile(s);const el=$('t'+s.i);el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),900);sfx('good');log(`${p.name} built on ${s.nm}`)}
+function buildOn(p,s){S.lvl[s.i]=(S.lvl[s.i]||0)+1;pay(p,null,s.house);paintTile(s);push();fx({k:'flash',i:s.i});const el=$('t'+s.i);el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),900);sfx('good');log(`${p.name} built on ${s.nm}`)}
 async function settle(p,creditor){if(p.cash>=0)return;
   // raise money: sell buildings, then mortgage, else bankrupt
   for(const s of SP.filter(x=>S.own[x.i]===p.id&&S.lvl[x.i]).sort((a,b)=>b.house-a.house)){while(p.cash<0&&S.lvl[s.i]){S.lvl[s.i]--;money(p,s.house/2);paintTile(s)}}
   for(const s of SP.filter(x=>S.own[x.i]===p.id&&!S.mort[x.i])){if(p.cash>=0)break;S.mort[s.i]=1;money(p,Math.round(s.price/2));paintTile(s)}
   if(p.cash<0){p.out=true;log(`${p.name} is bankrupt!`);sfx('lose');for(const s of SP)if(S.own[s.i]===p.id){if(creditor){S.own[s.i]=creditor.id}else{delete S.own[s.i];delete S.lvl[s.i];delete S.mort[s.i]}paintTile(s)}
     if(creditor&&p.cash<0)creditor.cash+=p.cash;p.cash=0;renderPlayers();placeTokens();
-    const left=S.players.filter(x=>!x.out);if(left.length===1)await winner(left[0])}}
-async function winner(p){S.over=true;sync();confetti(80);sfx('win');await wait(400);$('pop').innerHTML=`<div class="cardpop" style="background:linear-gradient(135deg,${p.c},#1d2340)"><small>GAME OVER</small><i>${p.av}</i><p>${p.id===0?'You are the tycoon!':p.name+' is the tycoon!'}<br>$${p.cash.toLocaleString()}</p><button class="btn gold" id="cok">Play again</button></div>`;$('pop').hidden=false;$('cok').onclick=()=>{$('pop').hidden=true;newGame()}}
-function confetti(n){const c=document.createElement('div');c.className='confetti';const cols=['#ff6a3d','#3d7dff','#2fb35a','#f5cf2b','#e8559b'];
+    push();const left=S.players.filter(x=>!x.out);if(left.length===1)await winner(left[0])}}
+async function winner(p){S.over=true;sync();fx({k:'win',id:p.id});showWinner(p)}
+async function showWinner(p){confetti(80);sfx('win');await wait(400);const g=guest();$('pop').innerHTML=`<div class="cardpop" style="background:linear-gradient(135deg,${p.c},#1d2340)"><small>GAME OVER</small><i>${p.av}</i><p>${p.id===S.mine?'You are the tycoon!':esc(p.name)+' is the tycoon!'}<br>$${p.cash.toLocaleString()}</p><button class="btn gold" id="cok">${g?'OK':'Play again'}</button></div>`;$('pop').hidden=false;$('cok').onclick=()=>{$('pop').hidden=true;if(!g)newGame()}}
+function confetti(n){fx({k:'confetti',n});const c=document.createElement('div');c.className='confetti';const cols=['#ff6a3d','#3d7dff','#2fb35a','#f5cf2b','#e8559b'];
   for(let k=0;k<n;k++){const i=document.createElement('i');i.style.left=Math.random()*100+'%';i.style.background=cols[k%5];i.style.animationDuration=1.4+Math.random()*1.6+'s';i.style.animationDelay=Math.random()*.4+'s';c.appendChild(i)}
   $('stage').appendChild(c);setTimeout(()=>c.remove(),3600)}
-function endTurn(){if(busy||S.over)return;if(S.phase==='roll')return;const n=S.players.length;let t=S.turn;do t=(t+1)%n;while(S.players[t].out);S.turn=t;S.phase='roll';
-  renderPlayers();placeTokens();overview();sync();const p=me();log(`${p.name}'s turn${p.jail?` · at ${SP[10].nm}`:''}`);if(!human(p))setTimeout(cpuTurn,900)}
-async function cpuTurn(){if(S.over)return;const p=me();
+function endTurn(){if(guest()){if(myTurn()&&S.phase==='end'&&!S.busy)ROOM.link.send({t:'end'});return}if(!S||busy||S.over)return;if(S.phase==='roll')return;const n=S.players.length;let t=S.turn;do t=(t+1)%n;while(S.players[t].out);S.turn=t;S.phase='roll';
+  renderPlayers();placeTokens();fx({k:'overview'});overview();sync();const p=me();log(`${p.name}'s turn${p.jail?` · at ${SP[10].nm}`:''}`);if(isCpu(p))setTimeout(cpuTurn,900)}
+async function cpuTurn(){if(!S||S.over||!isCpu(me()))return;const p=me();
   // build on full groups, keeping a cushion of cash
   let b;while((b=buildable(p).filter(s=>p.cash-s.house>220))[0]){buildOn(p,b[0]);await wait(350)}
   doRoll()}
 function cpuEnd(){setTimeout(endTurn,500)}
-function sync(){const p=S&&me(),mine=p&&human(p)&&!S.over;$('roll').disabled=!mine||busy||S.phase!=='roll';$('end').disabled=!mine||busy||S.phase!=='end';
-  const can=mine&&!busy&&buildable(p).length>0;$('build').hidden=!can;$('roll').textContent=p&&p.jail&&mine?'🎲 Roll for doubles':'🎲 Roll'}
-async function doBuild(){const p=me();if(!human(p)||busy)return;const opts=buildable(p);if(!opts.length)return;
+const myTurn=()=>!!S&&!S.over&&S.turn===S.mine&&!!S.players[S.mine]&&!S.players[S.mine].out;
+function sync(){if(!S){['roll','end'].forEach(k=>$(k).disabled=true);$('build').hidden=true;return}const p=me(),b=guest()?S.busy:busy,mine=myTurn()&&(guest()||human(p));
+  $('roll').disabled=!mine||b||S.phase!=='roll';$('end').disabled=!mine||b||S.phase!=='end';
+  const can=mine&&!b&&buildable(p).length>0;$('build').hidden=!can;$('roll').textContent=p&&p.jail&&mine?'🎲 Roll for doubles':'🎲 Roll';
+  $('theme').disabled=guest();$('newgame').hidden=guest();push()}
+async function doBuild(){if(guest()){if(myTurn()&&!S.busy)ROOM.link.send({t:'build'});return}const p=me();if(!(human(p)||isRemote(p))||busy)return;const opts=buildable(p);if(!opts.length)return;
   // build where it's cheapest to level up first
   buildOn(p,opts.sort((a,b)=>(S.lvl[a.i]||0)-(S.lvl[b.i]||0)||a.house-b.house)[0]);renderPlayers();sync()}
 
+/* ---------- online room ----------
+ * The host's page runs the whole game. Friends' pages send what they tap (roll, buy or not, build, end turn) and
+ * the host sends back the game state and every animation (dice, hops, coins, cards) so all screens move together.
+ * Seats nobody takes are played by computers, and a computer takes over if a friend leaves. */
+const NET=()=>cfg.mode==='net';
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let toastT=0;function toast(t){log(t);clearTimeout(toastT)}
+const ROOM={role:null,hub:null,link:null,code:'',guests:new Map(),lobby:[],err:'',joining:false,n:4,ask:null,
+  send(m){for(const g of this.guests.values())try{g.link.send(m)}catch(e){}}};
+const myName=()=>store.get('parlor-name','')||'';
+const roomCode=()=>ROOM.code?ROOM.code.slice(0,3)+' '+ROOM.code.slice(3):'';
+// visual events: played here and, on the host, sent to every guest
+function fx(e){if(ROOM.role==='host'&&S&&S.net)ROOM.send({t:'fx',e})}
+let pushT=0;function push(){if(ROOM.role!=='host'||!S||!S.net)return;clearTimeout(pushT);pushT=setTimeout(()=>ROOM.send({t:'st',s:{players:S.players.map(({id,name,cash,pos,jail,free,out,doubles})=>({id,name,cash,pos,jail,free,out,doubles})),own:S.own,lvl:S.lvl,mort:S.mort,turn:S.turn,phase:S.phase,over:S.over,busy}}),30)}
+function lobbyList(){return[{id:'host',name:myName()||'Host',host:true},...[...ROOM.guests].map(([id,g])=>({id,name:g.name}))]}
+function sendLobby(){ROOM.send({t:'lobby',code:ROOM.code,players:lobbyList(),n:ROOM.n})}
+function showRoom(){const el=$('room'),playing=S&&S.net&&!S.over;el.hidden=!NET()||!!playing;if(el.hidden)return;
+  if(!ROOM.role&&!ROOM.joining){el.innerHTML=`<div><h3>Play online</h3><p>2 to 4 friends, each on their own phone. One hosts and shares a game code; empty seats are played by the computer.</p>
+      <div class="row"><input type="text" id="rname" maxlength="14" placeholder="Your name" value="${esc(myName())}" aria-label="Your name"></div>
+      <div class="row"><button class="btn primary" id="rhost">Host a room</button></div>
+      <div class="row"><input type="text" id="rcode" maxlength="8" placeholder="Game code" aria-label="Game code" style="text-transform:uppercase"><button class="btn" id="rjoin">Join</button></div>${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}</div>`;
+    $('rname').onchange=e=>store.set('parlor-name',e.target.value.trim());$('rhost').onclick=hostRoom;$('rjoin').onclick=()=>joinRoom($('rcode').value);$('rcode').onkeydown=e=>{if(e.key==='Enter')joinRoom($('rcode').value)};return}
+  if(ROOM.joining&&!ROOM.role){el.innerHTML=`<div><h3>Joining…</h3><p>Connecting to the room.</p><div class="row"><button class="btn" id="rleave">Cancel</button></div></div>`;$('rleave').onclick=()=>leaveRoom();return}
+  const host=ROOM.role==='host',list=host?lobbyList():ROOM.lobby,n=host?ROOM.n:ROOM.lobbyN||4,cpus=Math.max(0,n-list.length);
+  el.innerHTML=`<div><h3>${host?'Your room':'In the room'}</h3>
+    <div class="row"><span class="code">${roomCode()||'······'}</span>${host&&ROOM.code?`<button class="btn" id="rcopy">Copy</button><button class="btn primary" id="rshare">Share code</button>`:''}</div>
+    <p>${host?(ROOM.code?'Send this code to friends: they choose Online room, type it and tap Join.':'Getting a game code…'):'Waiting for the host to start.'}</p>
+    ${list.map((x,k)=>`<div class="seat" style="--c:${AVATARS[k][1]}"><i>${AVATARS[k][0]}</i><span>${esc(x.name||'Friend')}${!host&&x.id===ROOM.me?' (you)':''}</span>${x.host?'<small>host</small>':'<small class="ok">● joined</small>'}</div>`).join('')}
+    ${[...Array(cpus)].map((_,k)=>`<div class="seat" style="--c:${AVATARS[list.length+k][1]}"><i>${AVATARS[list.length+k][0]}</i><span>Computer</span><small>${host?'or a friend who joins':''}</small></div>`).join('')}
+    <div class="row">${host?`<label style="font-weight:800">Seats <select id="rn"><option>2</option><option>3</option><option>4</option></select></label><button class="btn go" id="rstart">Start game</button>`:''}<button class="btn" id="rleave">${host?'Close room':'Leave'}</button></div>
+    ${ROOM.err?`<p class="err">${esc(ROOM.err)}</p>`:''}</div>`;
+  $('rleave').onclick=()=>leaveRoom();
+  if(host){$('rn').value=String(n);$('rn').onchange=e=>{ROOM.n=+e.target.value;showRoom();sendLobby()};$('rstart').onclick=startRoom;
+    if($('rcopy'))$('rcopy').onclick=async()=>{try{await navigator.clipboard.writeText(ROOM.code)}catch(e){}$('rcopy').textContent='Copied!'};
+    if($('rshare'))$('rshare').onclick=()=>P2P.share('Tycoon Tour',ROOM.code)}}
+function hostRoom(){if(!window.P2P||!P2P.hostRoom){ROOM.err='Online play needs p2p.js.';showRoom();return}store.set('parlor-name',($('rname')&&$('rname').value.trim())||myName());
+  Object.assign(ROOM,{role:'host',code:'',err:'',guests:new Map(),n:4});showRoom();
+  ROOM.hub=P2P.hostRoom({game:'Tycoon Tour',onReady(code){ROOM.code=code;showRoom()},onError(m){ROOM.err=m;leaveRoom(true)},
+    onConn(link){const id=link.id;link.onmessage=m=>fromGuest(id,m);link.onclose=()=>guestLeft(id);
+      if(ROOM.guests.size>=3||(S&&S.net&&!S.over)){link.send({t:'full',why:S&&S.net&&!S.over?'That game has already started.':'That room is full.'});setTimeout(()=>link.close(),300);return}
+      ROOM.guests.set(id,{id,link,name:'Friend'});link.send({t:'welcome',id});showRoom();sendLobby();sfx('select')}})}
+function startRoom(){const list=lobbyList(),n=Math.max(ROOM.n,list.length);let cpu=0;
+  const seats=[...list.map(x=>({name:x.name||'Friend',ctl:x.host?'local':'g:'+x.id})),...[...Array(n-list.length)].map(()=>({name:'Computer '+(++cpu),ctl:'cpu'}))];
+  cfg.mode='net';S=S||{};S.net=true;newGame(seats);sfx('good')}
+function fromGuest(id,m){const g=ROOM.guests.get(id);if(!g||!m)return;
+  if(m.t==='hello'){g.name=String(m.name||'Friend').slice(0,14)||'Friend';showRoom();sendLobby();return}
+  if(!S||!S.net||S.over)return;const p=me(),theirs=p&&p.ctl==='g:'+id;
+  if(m.t==='buy'&&ROOM.ask&&ROOM.ask.id===id){const r=ROOM.ask.res;ROOM.ask=null;r(!!m.yes);return}
+  if(!theirs)return;
+  if(m.t==='roll')doRoll();else if(m.t==='end')endTurn();else if(m.t==='build')doBuild()}
+// ask a friend whether to buy where they landed
+function askRemote(p,s){return new Promise(res=>{const id=p.ctl.slice(2),g=ROOM.guests.get(id);if(!g){res(false);return}ROOM.ask={id,res};g.link.send({t:'ask',i:s.i});
+  fx({k:'deedshow',i:s.i,id:p.id})})}
+function guestLeft(id){const g=ROOM.guests.get(id);ROOM.guests.delete(id);const name=g?g.name:'A friend';
+  if(S&&S.net&&!S.over){const p=S.players.find(x=>x.ctl==='g:'+id);if(p){p.ctl='cpu';log(`${name} left. A computer takes over.`);if(ROOM.ask&&ROOM.ask.id===id){const r=ROOM.ask.res;ROOM.ask=null;r(false)}
+    if(me()===p&&!busy){if(S.phase==='roll')setTimeout(cpuTurn,600);else cpuEnd()}}}
+  else{showRoom();sendLobby();log(`${name} left the room.`)}}
+function joinRoom(code){if(!window.P2P||!P2P.joinRoom){ROOM.err='Online play needs p2p.js.';showRoom();return}store.set('parlor-name',($('rname')&&$('rname').value.trim())||myName());
+  ROOM.err='';ROOM.joining=true;showRoom();
+  ROOM.hub=P2P.joinRoom({game:'Tycoon Tour',code,onError(m){ROOM.joining=false;ROOM.err=m;showRoom()},
+    onOpen(link){ROOM.joining=false;Object.assign(ROOM,{role:'guest',link,me:(link.peer&&link.peer.id)||'',code:String(code).toUpperCase().replace(/[\s-]+/g,''),lobby:[]});link.send({t:'hello',name:myName()||'Friend'});
+      link.onmessage=fromHost;link.onclose=()=>{if(ROOM.role==='guest'){log('The host closed the room.');leaveRoom(true)}};sync();showRoom()}})}
+let seatWanted=-1;
+function fromHost(m){if(!m)return;
+  if(m.t==='welcome'){ROOM.me=m.id;return}
+  if(m.t==='full'){ROOM.err=m.why||'That room is full.';leaveRoom(true);return}
+  if(m.t==='bye'){log('The host closed the room.');leaveRoom(true);return}
+  if(m.t==='lobby'){ROOM.lobby=m.players||[];ROOM.lobbyN=m.n;ROOM.code=m.code||ROOM.code;if(!(S&&S.net&&!S.over))showRoom();return}
+  if(m.t==='start'){cfg.theme=m.theme;$('theme').value=m.theme;closePop();fresh(m.theme,m.seats.map(x=>({name:x.name,ctl:'remote'})));S.net=true;S.mine=seatWanted;S.busy=false;renderPlayers();sync();showRoom();sfx('good');return}
+  if(m.t==='seat'){seatWanted=m.seat;if(S){S.mine=m.seat;renderPlayers();sync()}return}
+  if(!S||!S.net)return;
+  if(m.t==='st'){const s=m.s;s.players.forEach(x=>Object.assign(S.players[x.id],x));Object.assign(S,{own:s.own,lvl:s.lvl,mort:s.mort,turn:s.turn,phase:s.phase,over:s.over,busy:s.busy});
+    renderPlayers();SP.forEach(paintTile);placeTokens();sync();return}
+  if(m.t==='ask'){const s=SP[m.i];$('pop').innerHTML=deedHTML(s,true);$('pop').hidden=false;sfx('card');
+    $('dbuy').onclick=()=>{ROOM.link.send({t:'buy',yes:true});closePop();confetti(20)};$('dno').onclick=()=>{ROOM.link.send({t:'buy',yes:false});closePop()};return}
+  if(m.t==='fx')playFx(m.e)}
+// a guest replays what happened on the host
+async function playFx(e){const p=e.id!=null?S.players[e.id]:null;
+  switch(e.k){
+    case 'dice':rollDiceShow(e.a,e.b);break;
+    case 'hop':p.pos=e.pos;hop(p);break;
+    case 'jump':p.pos=e.pos;follow(e.pos);placeTokens();break;
+    case 'jail':p.pos=10;follow(10);placeTokens();sfx('bad');break;
+    case 'flash':{const t=$('t'+e.i);if(t){t.classList.add('flash');setTimeout(()=>t.classList.remove('flash'),900)}break}
+    case 'overview':overview();break;
+    case 'money':{const el=$('pl'+e.id);if(el){const f=document.createElement('div');f.className='float '+(e.amt>=0?'plus':'minus');f.textContent=(e.amt>=0?'+':'−')+'$'+Math.abs(e.amt);el.appendChild(f);setTimeout(()=>f.remove(),1500)}if(e.amt)sfx(e.amt>0?'coin':'pay');break}
+    case 'coins':flyCoins(S.players[e.f],S.players[e.t]);break;
+    case 'log':$('log').textContent=e.t;break;
+    case 'card':showCard(e.deck,e.ci,e.id===S.mine);break;
+    case 'deed':{const s=SP[e.i];$('pop').innerHTML=deedHTML(s,false);$('pop').hidden=false;$('dno').remove();setTimeout(closePop,1100);break}
+    case 'deedshow':if(e.id!==S.mine){const s=SP[e.i];$('pop').innerHTML=deedHTML(s,false);$('pop').hidden=false;$('dno').remove();setTimeout(closePop,2500)}break;
+    case 'confetti':confetti(e.n);break;
+    case 'win':showWinner(S.players[e.id]);break}}
+function rollDiceShow(a,b){$('dice').classList.add('on');sfx('dice');[a,b].forEach((v,k)=>{spin[k]+=2;const [rx,ry]=ROT[v];$('d'+k).style.transform=`rotateX(${rx+360*spin[k]}deg) rotateY(${ry+360*(spin[k]+k)}deg)`});setTimeout(()=>$('dice').classList.remove('on'),1800)}
+function leaveRoom(quiet){if(ROOM.role==='host'){ROOM.send({t:'bye'});for(const g of ROOM.guests.values())try{g.link.close()}catch(e){}}if(ROOM.link)try{ROOM.link.close()}catch(e){}if(ROOM.hub)ROOM.hub.close();
+  if(ROOM.ask){const r=ROOM.ask.res;ROOM.ask=null;r(false)}
+  const err=ROOM.err;Object.assign(ROOM,{role:null,hub:null,link:null,code:'',guests:new Map(),lobby:[],joining:false,err:quiet===true?err:''});
+  if(NET()){S=null;fresh(cfg.theme,[]);sync();showRoom()}}
+
 /* ---------- input ---------- */
-$('roll').onclick=doRoll;$('end').onclick=endTurn;$('build').onclick=doBuild;$('newgame').onclick=newGame;
-$('board').addEventListener('click',e=>{const t=e.target.closest('.tile');if(!t||busy||!$('pop').hidden)return;const s=SP[+t.id.slice(1)];if(s.price)deedPop(s,false)});
-$('theme').onchange=e=>{cfg.theme=e.target.value;store.set('parlor-tycoon',cfg);newGame()};$('np').onchange=e=>{cfg.np=+e.target.value;store.set('parlor-tycoon',cfg);newGame()};
-addEventListener('resize',()=>{if(!busy)overview(true)});
+$('roll').onclick=()=>doRoll();$('end').onclick=()=>endTurn();$('build').onclick=()=>doBuild();$('newgame').onclick=()=>newGame();
+$('board').addEventListener('click',e=>{const t=e.target.closest('.tile');if(!t||!S||busy||(guest()&&S.busy)||!$('pop').hidden)return;const s=SP[+t.id.slice(1)];if(s.price)deedPop(s,false)});
+$('theme').onchange=e=>{cfg.theme=e.target.value;store.set('parlor-tycoon',cfg);if(NET()&&ROOM.role==='host'&&!(S&&S.net&&!S.over)){fresh(cfg.theme,[]);showRoom();return}newGame()};
+$('np').onchange=e=>{const v=e.target.value;if(v!=='net'&&ROOM.role)leaveRoom(true);if(v==='net'){cfg.mode='net';S=null;fresh(cfg.theme,[]);sync();showRoom();return}cfg.mode='';cfg.np=+v;store.set('parlor-tycoon',{theme:cfg.theme,np:cfg.np});newGame()};
+addEventListener('resize',()=>{if(!busy&&S)overview(true)});
 document.addEventListener('keydown',e=>{if(e.target.closest('select'))return;if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!$('roll').disabled)doRoll();else if(!$('end').disabled)endTurn()}});
 window.onAppBack=()=>{if(!$('pop').hidden&&$('dno')){$('dno').click();return true}return false};
 $('d0').innerHTML=dieHTML();$('d1').innerHTML=dieHTML();
-if(!THEMES[cfg.theme])cfg.theme='world';if(![2,3,4].includes(+cfg.np))cfg.np=4;$('theme').value=cfg.theme;$('np').value=String(cfg.np);
-newGame();
+if(!THEMES[cfg.theme])cfg.theme='world';if(![2,3,4].includes(+cfg.np))cfg.np=4;cfg.mode='';$('theme').value=cfg.theme;$('np').value=String(cfg.np);
+const joinCode=window.P2P&&P2P.takeJoin&&P2P.takeJoin();
+if(joinCode){cfg.mode='net';$('np').value='net';fresh(cfg.theme,[]);sync();showRoom();joinRoom(joinCode)}else newGame();
 </script>
 </body>
 </html>

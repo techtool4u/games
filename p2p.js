@@ -127,7 +127,7 @@
   const routeText=r=>`Wi-Fi address: ${r.wifi?'yes':r.hidden?'hidden':'none'} · internet address: ${r.net?'yes':'none'}`;
 
   /* ---------- the pairing dialog ---------- */
-  const css=`.p2p-play{display:inline-flex;align-items:center;gap:7px;font:inherit;font-weight:800;font-size:15px;min-height:40px;padding:7px 16px 7px 13px;border-radius:999px;border:0;cursor:pointer;color:#fff;background:linear-gradient(135deg,#2f80ff,#8a4dff);box-shadow:0 4px 14px -4px rgba(70,90,255,.7);white-space:nowrap}.p2p-play:active{transform:scale(.97)}.p2p-play.on{background:linear-gradient(135deg,#17a864,#1fc28a);box-shadow:0 4px 14px -4px rgba(30,170,110,.7)}.p2p-play svg{flex:none;width:18px!important;height:18px!important;max-width:none;display:block;margin:0}.p2p-play span{white-space:nowrap}.p2p-ov{position:fixed;inset:0;background:rgba(10,10,20,.6);display:grid;padding:14px;z-index:5000;overflow:auto}
+  const css=`.p2p-sh{display:block;text-align:center;font-weight:800;text-decoration:none;color:inherit;border:1px solid var(--line,#ddd);border-radius:999px;padding:10px 14px;background:var(--chip,rgba(127,127,140,.12))}.p2p-sh:first-child{background:#25d366;color:#fff;border-color:#25d366}.p2p-sharesheet .p2p p{word-break:break-word}.p2p-play{display:inline-flex;align-items:center;gap:7px;font:inherit;font-weight:800;font-size:15px;min-height:40px;padding:7px 16px 7px 13px;border-radius:999px;border:0;cursor:pointer;color:#fff;background:linear-gradient(135deg,#2f80ff,#8a4dff);box-shadow:0 4px 14px -4px rgba(70,90,255,.7);white-space:nowrap}.p2p-play:active{transform:scale(.97)}.p2p-play.on{background:linear-gradient(135deg,#17a864,#1fc28a);box-shadow:0 4px 14px -4px rgba(30,170,110,.7)}.p2p-play svg{flex:none;width:18px!important;height:18px!important;max-width:none;display:block;margin:0}.p2p-play span{white-space:nowrap}.p2p-ov{position:fixed;inset:0;background:rgba(10,10,20,.6);display:grid;padding:14px;z-index:5000;overflow:auto}
 .p2p{margin:auto;background:var(--panel,#fff);color:var(--fg,#1d1d22);border-radius:18px;padding:18px;width:100%;max-width:400px;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;font-family:var(--body,system-ui,sans-serif);box-shadow:0 20px 40px rgba(0,0,0,.35)}
 .p2p h2{margin:0;font-family:var(--display,inherit);font-size:26px;line-height:1.15}
 .p2p p{margin:0;color:var(--muted,#666);font-size:14px;line-height:1.4}
@@ -280,11 +280,11 @@
           const pretty=code.slice(0,3)+' '+code.slice(3),url=/^https?:$/.test(location.protocol)&&!/^(localhost|127\.|10\.|192\.168\.|\[?::1)/.test(location.hostname)?location.href.split('#')[0]+'#join='+code:'';
           show(`<span class="step">Your game code</span><div class="bigcode" aria-label="Game code ${[...code].join(' ')}">${pretty}</div>
             <p>Send this code to your friend. On their device they open ${esc(opts.game)}, choose <b>Online</b>, tap <b>Join a game</b> and type it in.</p>
-            <div class="row"><button data-copy>Copy code</button>${navigator.share?'<button data-share>Share</button>':''}</div>
+            <div class="row"><button data-copy>Copy code</button><button data-share class="pri">Share code</button></div>
             <p class="wait" data-msg>Waiting for your friend to join…</p><div class="row"><button data-cancel>Cancel</button></div>`);
           const cp=box.querySelector('[data-copy]'),sh=box.querySelector('[data-share]'),text=`Join my ${opts.game} game in Game Parlor. Code: ${code}`+(url?`\n${url}`:'');
           cp.onclick=async()=>{try{await navigator.clipboard.writeText(code)}catch(e){const r=document.createRange();r.selectNodeContents(box.querySelector('.bigcode'));getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand('copy')}cp.textContent='Copied!';setTimeout(()=>cp.textContent='Copy code',1500)};
-          if(sh)sh.onclick=()=>navigator.share({title:`${opts.game} game code`,text}).catch(()=>{})});
+          if(sh)sh.onclick=()=>share(opts.game,code)});
         peer.on('connection',c=>{if(paired||done){c.close();return}paired=true;const m=box.querySelector('[data-msg]');if(m)m.textContent='Your friend is joining…';
           const t=setTimeout(()=>{if(!done){paired=false;try{c.close()}catch(e){}if(m)m.textContent='A friend tried to join but the connection failed. Waiting for them to try again…'}},20000);
           c.on('open',()=>{clearTimeout(t);if(done)return;link=peerLink('host',peer,c);connected()})});
@@ -373,6 +373,21 @@
     if(o.conn){o.conn.innerHTML='<option value="code">Use a game code</option><option value="direct">Use two codes</option>';o.conn.value=connPref();o.conn.setAttribute('aria-label','How to connect');
       o.conn.onchange=()=>{setConnPref(o.conn.value);if(o.active()&&!N.online()){if(N.ui){N.ui.close();N.ui=null}N.start()}}}
     return N}
+  /* ---------- sharing a game code ----------
+   P2P.share(game, code): the phone's own share sheet (WhatsApp, Messages, email…) inside the Android app via the
+   Capacitor Share plugin, the browser's share sheet where there is one, and otherwise a small menu of WhatsApp,
+   text message, email and copy. */
+  function shareText(game,code){const pc=String(code).replace(/\s+/g,'');return`Join my ${game} game in Game Parlor! Open ${game}, tap Play online, then Join and enter the code ${pc.slice(0,3)} ${pc.slice(3)}`}
+  async function share(game,code){const text=shareText(game,code),title=`${game} game code`;
+    const C=window.Capacitor,SH=C&&C.isNativePlatform&&C.isNativePlatform()&&(C.Plugins&&C.Plugins.Share||(C.registerPlugin&&C.registerPlugin('Share')));
+    if(SH){try{await SH.share({title,text,dialogTitle:'Share the game code'});return}catch(e){if(/cancel/i.test(String(e&&e.message||e)))return}}
+    if(navigator.share){try{await navigator.share({title,text});return}catch(e){if(e&&e.name==='AbortError')return}}
+    addStyle();const ov=document.createElement('div');ov.className='p2p-ov p2p-sharesheet';const u=encodeURIComponent(text);
+    ov.innerHTML=`<div class="p2p" role="dialog" aria-label="Share the game code"><h2>Share the code</h2><p>${esc(text)}</p><div class="row" style="flex-direction:column;align-items:stretch">
+      <a class="p2p-sh" href="https://wa.me/?text=${u}" target="_blank" rel="noopener">WhatsApp</a><a class="p2p-sh" href="sms:?body=${u}">Text message</a><a class="p2p-sh" href="mailto:?subject=${encodeURIComponent(title)}&body=${u}">Email</a>
+      <button data-cp>Copy message</button><button data-x>Close</button></div></div>`;
+    document.body.appendChild(ov);const close=()=>ov.remove();ov.querySelector('[data-x]').onclick=close;ov.onclick=e=>{if(e.target===ov)close()};ov.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>setTimeout(close,300)));
+    ov.querySelector('[data-cp]').onclick=async e=>{try{await navigator.clipboard.writeText(text)}catch(x){}e.target.textContent='Copied!';setTimeout(close,700)}}
   /* ---------- "Play online" button ----------
    Every game that can be played online has an online choice ("net") in one of its menus. That is easy to miss, so a
    bold Play online button is added next to the menus: it switches the game to online play and opens the host/join
@@ -381,7 +396,7 @@
     const sel=opt.parentElement,box=sel.parentElement;addStyle();
     const b=document.createElement('button');b.type='button';b.className='p2p-play';
     b.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"/></svg><span>Play online</span>';
-    box.insertBefore(b,box.firstChild);
+    box.insertBefore(b,sel);
     const live=()=>!!document.querySelector('.p2p-bar:not(.off)')||!!document.querySelector('#room .code, #room .mini');
     const upd=()=>{const on=sel.value==='net';b.classList.toggle('on',on);const t=on&&live()?'Playing online':'Play online',sp=b.querySelector('span');if(sp.textContent!==t)sp.textContent=t;b.setAttribute('aria-pressed',on)};
     b.onclick=()=>{if(sel.value!=='net'){sel.value='net';sel.dispatchEvent(new Event('change',{bubbles:true}))}
@@ -390,5 +405,5 @@
         const room=document.getElementById('room');if(room&&!room.hidden){room.scrollIntoView({behavior:'smooth',block:'center'});const f=room.querySelector('#rhost');if(f)f.focus({preventScroll:true})}},60)};
     sel.addEventListener('change',()=>setTimeout(upd,0));new MutationObserver(upd).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden']});upd()}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(playButton,0));else setTimeout(playButton,0);
-  window.P2P={hostRoom,joinRoom,net,connPref,setConnPref,takeJoin,note,open,_compact:compact,_expand:expand};
+  window.P2P={share,shareText,hostRoom,joinRoom,net,connPref,setConnPref,takeJoin,note,open,_compact:compact,_expand:expand};
 })();

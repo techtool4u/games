@@ -370,7 +370,7 @@ function showRoom(){const el=$('room');el.hidden=cfg.players!=='net';updateCover
   const host=ROOM.role==='host',list=host?lobbyList():ROOM.lobby||[];
   const friends=list.filter(x=>x.kind==='guest').length,open=list.filter(x=>x.kind==='open').length,ready=list.length>=2;
   el.innerHTML=`<h3>${host?'Your room':'In the room'}</h3>
-    <div class="row"><span class="code">${ROOM.code?ROOM.code.slice(0,3)+' '+ROOM.code.slice(3):'······'}</span>${host&&ROOM.code?`<button class="btn" id="rcopy">Copy code</button>${navigator.share?'<button class="btn" id="rshare">Share</button>':''}`:''}</div>
+    <div class="row"><span class="code">${ROOM.code?ROOM.code.slice(0,3)+' '+ROOM.code.slice(3):'······'}</span>${host&&ROOM.code?`<button class="btn" id="rcopy">Copy code</button><button class="btn primary" id="rshare">Share code</button>`:''}</div>
     <p>${host?(ROOM.code?'Send this code to your friends. They choose Online room, type it and tap Join.':'Getting a game code…'):'Waiting for the host to start the game.'}</p>
     ${host?`<div class="row"><label>Players <select id="rn"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label></div>`:''}
     <div class="seats">${list.map((x,k)=>seatRow(x,k,host)).join('')}</div>
@@ -381,7 +381,7 @@ function showRoom(){const el=$('room');el.hidden=cfg.players!=='net';updateCover
     el.querySelectorAll('[data-seat]').forEach(sel=>sel.onchange=()=>{ROOM.seats[+sel.dataset.seat].kind=sel.value;showRoom();sendLobby()});
     if($('rstart'))$('rstart').onclick=startRoomGame;
     if($('rcopy'))$('rcopy').onclick=async()=>{try{await navigator.clipboard.writeText(ROOM.code)}catch(e){}$('rcopy').textContent='Copied!'};
-    if($('rshare'))$('rshare').onclick=()=>navigator.share({title:'Ludo room',text:`Join my Ludo game in Game Parlor. Code: ${ROOM.code}`}).catch(()=>{})}}
+    if($('rshare'))$('rshare').onclick=()=>P2P.share('Ludo',ROOM.code)}}
 // keep seat 0 for the host and push friends who no longer fit back out
 function fitSeats(){while(ROOM.seats.length<4)ROOM.seats.push({kind:'open'});
   for(const [id,g] of ROOM.guests){const k=ROOM.seats.findIndex(x=>x.id===id);if(k>=ROOM.n){ROOM.seats[k]={kind:'open'};const free=ROOM.seats.slice(1,ROOM.n).findIndex(x=>x.kind!=='guest');if(free>=0)ROOM.seats[free+1]={kind:'guest',name:g.name,id};else{g.link.send({t:'full'});g.link.close();ROOM.guests.delete(id)}}}}
