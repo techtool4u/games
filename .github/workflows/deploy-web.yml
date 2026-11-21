@@ -3,12 +3,12 @@ name: Deploy website
 # Publishes the games as a website: builds the same web bundle the Android app uses (www/, with fonts stored
 # locally) and uploads it to an S3 bucket served through CloudFront.
 #
-# Needs these repository variables (Settings → Secrets and variables → Actions → Variables):
+# Needs these values, as repository variables or secrets (Settings → Secrets and variables → Actions):
 #   AWS_ROLE_ARN                 the IAM role GitHub signs in as (no AWS keys are stored in GitHub)
 #   AWS_REGION                   the bucket's region, e.g. ap-south-1
 #   S3_BUCKET                    the bucket name
 #   CLOUDFRONT_DISTRIBUTION_ID   the CloudFront distribution in front of the bucket
-# Until AWS_ROLE_ARN is set the job is skipped, so this does nothing before AWS is ready.
+# Until AWS_ROLE_ARN is set the deploy steps are skipped, so this does nothing before AWS is ready.
 
 on:
   push:
@@ -31,40 +31,56 @@ concurrency:
 
 jobs:
   deploy:
-    if: vars.AWS_ROLE_ARN != ''
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ vars.AWS_REGION || secrets.AWS_REGION }}
+      S3_BUCKET: ${{ vars.S3_BUCKET || secrets.S3_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID || secrets.CLOUDFRONT_DISTRIBUTION_ID }}
     steps:
+      - name: Check the AWS settings
+        id: cfg
+        run: |
+          if [ -z "$AWS_ROLE_ARN" ]; then echo "AWS_ROLE_ARN is not set, so there is nothing to deploy to yet."; echo "ready=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          missing=""; for v in AWS_REGION S3_BUCKET; do [ -z "${!v}" ] && missing="$missing $v"; done
+          if [ -n "$missing" ]; then echo "::error::Missing:$missing"; exit 1; fi
+          echo "ready=yes" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
+        if: steps.cfg.outputs.ready == 'yes'
 
       - uses: actions/setup-node@v4
+        if: steps.cfg.outputs.ready == 'yes'
         with:
           node-version: 22
           cache: npm
 
       - name: Build the web bundle
+        if: steps.cfg.outputs.ready == 'yes'
         run: |
           npm ci
           npm run build:web
           echo "Files: $(find www -type f | wc -l), size: $(du -sh www | cut -f1)"
 
       - uses: aws-actions/configure-aws-credentials@v4
+        if: steps.cfg.outputs.ready == 'yes'
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       # Pages are checked for updates on every visit; scripts, fonts and images may be cached for a day.
       - name: Upload to S3
-        env:
-          BUCKET: ${{ vars.S3_BUCKET }}
+        if: steps.cfg.outputs.ready == 'yes'
         run: |
+          BUCKET="$S3_BUCKET"
           aws s3 sync www "s3://$BUCKET" --delete --exclude "*.html" --cache-control "public,max-age=86400"
           aws s3 sync www "s3://$BUCKET" --delete --exclude "*" --include "*.html" --cache-control "no-cache" --content-type "text/html; charset=utf-8"
 
       - name: Refresh CloudFront
-        if: vars.CLOUDFRONT_DISTRIBUTION_ID != ''
-        run: aws cloudfront create-invalidation --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*" --query 'Invalidation.Id' --output text
+        if: steps.cfg.outputs.ready == 'yes' && env.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths "/*" --query 'Invalidation.Id' --output text
 
       - name: Site address
-        if: vars.CLOUDFRONT_DISTRIBUTION_ID != ''
-        run: echo "Live at https://$(aws cloudfront get-distribution --id '${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}' --query 'Distribution.DomainName' --output text)/"
+        if: steps.cfg.outputs.ready == 'yes' && env.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: echo "Live at https://$(aws cloudfront get-distribution --id "$CLOUDFRONT_DISTRIBUTION_ID" --query 'Distribution.DomainName' --output text)/"
