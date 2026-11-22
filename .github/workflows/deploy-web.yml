@@ -8,7 +8,8 @@ name: Deploy website
 #   AWS_REGION                   the bucket's region, e.g. ap-south-1
 #   S3_BUCKET                    the bucket name
 #   CLOUDFRONT_DISTRIBUTION_ID   the CloudFront distribution in front of the bucket
-# Until AWS_ROLE_ARN is set the deploy steps are skipped, so this does nothing before AWS is ready.
+# Instead of AWS_ROLE_ARN, an IAM user's AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (as secrets) also work.
+# Until one of those is set the deploy steps are skipped, so this does nothing before AWS is ready.
 
 on:
   push:
@@ -38,11 +39,13 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || secrets.AWS_REGION }}
       S3_BUCKET: ${{ vars.S3_BUCKET || secrets.S3_BUCKET }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID || secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+      HAS_KEYS: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
     steps:
       - name: Check the AWS settings
         id: cfg
         run: |
-          if [ -z "$AWS_ROLE_ARN" ]; then echo "AWS_ROLE_ARN is not set, so there is nothing to deploy to yet."; echo "ready=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -z "$AWS_ROLE_ARN" ] && [ "$HAS_KEYS" != "true" ]; then echo "No AWS role or access key is set, so there is nothing to deploy to yet."; echo "ready=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$HAS_KEYS" = "true" ]; then echo "login=keys" >> "$GITHUB_OUTPUT"; else echo "login=role" >> "$GITHUB_OUTPUT"; fi
           missing=""; for v in AWS_REGION S3_BUCKET; do [ -z "${!v}" ] && missing="$missing $v"; done
           if [ -n "$missing" ]; then echo "::error::Missing:$missing"; exit 1; fi
           echo "ready=yes" >> "$GITHUB_OUTPUT"
@@ -63,10 +66,30 @@ jobs:
           npm run build:web
           echo "Files: $(find www -type f | wc -l), size: $(du -sh www | cut -f1)"
 
+      # What GitHub tells AWS about this run. The role's trust policy has to accept exactly these values
+      # (the token itself is not printed, only what it says).
+      - name: Show the GitHub sign-in details AWS will check
+        if: steps.cfg.outputs.ready == 'yes' && steps.cfg.outputs.login == 'role'
+        run: |
+          tok=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | python3 -c "import sys,json;print(json.load(sys.stdin)['value'])")
+          python3 - "$tok" <<'PY'
+          import sys,json,base64
+          p=sys.argv[1].split('.')[1];p+='='*(-len(p)%4);c=json.loads(base64.urlsafe_b64decode(p))
+          for k in ('iss','aud','sub','repository','ref'):print(f'{k:11} {c.get(k)}')
+          PY
+          echo "Role ARN    arn:aws:iam::${AWS_ROLE_ARN#arn:aws:iam::}" | sed -E 's/::([0-9]{4})[0-9]{4}([0-9]{4}):/::\1****\2:/'
+
       - uses: aws-actions/configure-aws-credentials@v4
-        if: steps.cfg.outputs.ready == 'yes'
+        if: steps.cfg.outputs.ready == 'yes' && steps.cfg.outputs.login == 'role'
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: steps.cfg.outputs.ready == 'yes' && steps.cfg.outputs.login == 'keys'
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       # Pages are checked for updates on every visit; scripts, fonts and images may be cached for a day.
